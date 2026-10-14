@@ -38,6 +38,12 @@ The "When?" step reuses the delivery modal's date/time layout: a bordered card w
 `DateTimeWindowFields` (same date picker rules and time windows, incl. a specific time); it opens
 the next section once a date is picked and `isTimeWindowComplete(timeWindow)`.
 
-One live calculator follows the flow from "Hvor flytter du fra?" through "Når?", until "Dine opplysninger":
+One live calculator follows the flow from "Om stedet du flytter fra" through "Når?", until "Dine opplysninger"
+("Hvor flytter du fra?" stays full width):
 SteppedModal's `aside` (sticky 400px right column, stacked under on small screens), showing
 `WhiteGoodsOrderSummary` fed by `movingSummary`, with the same totals as the charge (`movingCustomerTotals`).
+
+Each end of the move is two sections (`PropertyWhereSection` then `PropertyDetailsSection`): "Hvor flytter du fra?"
+(address + type), "Om stedet du flytter fra" (size, floors, lift, floor, parking — priced), then the same for
+"Hvor flytter du til?" / "Om stedet du flytter til". Section ids: `moving-from`, `moving-from-details`,
+`moving-to`, `moving-to-details`; the calculator `aside` runs from `moving-from-details` until `your-details`.

@@ -23,3 +23,11 @@ Renders the shared address input used in booking, site, and user-management flow
 - Selecting a result inserts the normalized `label` returned by the API, which stays address-like even when the suggestion came from a business name search.
 - Parent value sync only resets the interaction state on true external clears or resets, so normal typing does not cancel the pending autocomplete request.
 - Pressing `Enter` while suggestions are open selects the first visible suggestion and closes the current search session.
+
+## `floating` (opt-in)
+With `floating`, the suggestion list is rendered in a portal on `document.body`, `position: fixed` at the
+input's on-screen box (`addressDropdownPosition`), so no scrolling or overflow-hidden ancestor — e.g. a booking
+modal's body under a short section — can clip it. It repositions on scroll (captured, so inner scroll containers
+count) and resize, opens above the field when there's too little room below, and clicks inside it don't count as
+"outside". Used by the moving flow's address sections (`PropertyWhereSection`); every other caller keeps the
+inline list.

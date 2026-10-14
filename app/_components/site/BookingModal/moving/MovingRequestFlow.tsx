@@ -27,7 +27,7 @@ import {
   type MovingParkingCode,
   type MovingPropertyDraft,
 } from "@/lib/orders/movingProperty";
-import { PropertySection, floorsLabel, propertySummary } from "./PropertySection";
+import { PropertyDetailsSection, PropertyWhereSection, floorsLabel, propertySummary } from "./PropertySection";
 import { movingSummary } from "./movingSummary";
 import {
   isValidEmail,
@@ -169,9 +169,10 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
     return line && line.customerPriceCents > 0 ? formatKr(linePrice(line)) : null;
   };
   // One live calculator — the delivery modal's order-summary card — shared
-  // by every step from "moving from" until "your details" (SteppedModal's
-  // `aside`), following them in a sticky right column instead of each step
-  // carrying its own.
+  // by every step from "about the place you're moving from" until "your
+  // details" (SteppedModal's `aside`), following them in a sticky right
+  // column instead of each step carrying its own. "Where are you moving
+  // from?" (address + type) stays full width above it.
   const summary = movingSummary({ locale, sizeOption: selectedOption, services: selectedServices, floorLines, carryLines });
   const calculator = (
     <WhiteGoodsOrderSummary
@@ -250,12 +251,8 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
     {
       id: "moving-from",
       title: t("Where are you moving from?", "Hvor flytter du fra?"),
-      description: t(
-        "Tell us about the place you're moving out of — the price is based on its size.",
-        "Fortell oss om stedet du flytter fra — prisen er basert på størrelsen.",
-      ),
       render: ({ onComplete, onUncomplete }) => (
-        <PropertySection
+        <PropertyWhereSection
           locale={locale}
           address={pickupAddress}
           addressSelected={pickupAddressSelected}
@@ -264,6 +261,21 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
             setPickupAddressSelected(selected);
           }}
           addressPlaceholder={t("Moving from (address)", "Flytter fra (adresse)")}
+          value={origin}
+          onChange={setOrigin}
+          onReady={onComplete}
+          onRetract={onUncomplete}
+        />
+      ),
+    },
+    {
+      id: "moving-from-details",
+      title: t("About the place you're moving from", "Om stedet du flytter fra"),
+      render: ({ onComplete, onUncomplete }) => (
+        <PropertyDetailsSection
+          locale={locale}
+          address={pickupAddress}
+          addressSelected={pickupAddressSelected}
           value={origin}
           onChange={setOrigin}
           sizeOptions={catalogOptions}
@@ -280,12 +292,8 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
     {
       id: "moving-to",
       title: t("Where are you moving to?", "Hvor flytter du til?"),
-      description: t(
-        "And the place you're moving into, so we know what to expect on arrival.",
-        "Og stedet du flytter til, så vi vet hva som venter ved levering.",
-      ),
       render: ({ onComplete, onUncomplete }) => (
-        <PropertySection
+        <PropertyWhereSection
           locale={locale}
           address={deliveryAddress}
           addressSelected={deliveryAddressSelected}
@@ -294,6 +302,25 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
             setDeliveryAddressSelected(selected);
           }}
           addressPlaceholder={t("Moving to (address)", "Flytter til (adresse)")}
+          value={destination}
+          onChange={setDestination}
+          onReady={onComplete}
+          onRetract={onUncomplete}
+        />
+      ),
+    },
+    {
+      id: "moving-to-details",
+      title: t("About the place you're moving to", "Om stedet du flytter til"),
+      description: t(
+        "So we know what to expect on arrival.",
+        "Så vi vet hva som venter ved levering.",
+      ),
+      render: ({ onComplete, onUncomplete }) => (
+        <PropertyDetailsSection
+          locale={locale}
+          address={deliveryAddress}
+          addressSelected={deliveryAddressSelected}
           value={destination}
           onChange={setDestination}
           sizeOptions={catalogOptions}
@@ -558,7 +585,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
       sections={sections}
       finalStep={finalStep}
       onClose={onClose}
-      aside={{ node: calculator, fromId: "moving-from", untilId: "your-details" }}
+      aside={{ node: calculator, fromId: "moving-from-details", untilId: "your-details" }}
     />
   );
 }

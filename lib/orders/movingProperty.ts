@@ -46,9 +46,10 @@ export type MovingPropertyDraft = {
   sizeOptionCode: string | null;
   floors: number;
   hasLift: boolean | null;
-  // Which floor the apartment/office is on — only asked (and required) when
-  // there is no lift, since that is what costs extra (movingChargeableFloors).
-  // Counts like the delivery modal: 1 = ground floor, -1 = first basement.
+  // Which floor the apartment/office is on — asked (and required) for every
+  // apartment/office, before the lift question; it only costs extra without
+  // a lift (movingChargeableFloors). Counts like the delivery modal:
+  // 1 = ground floor, -1 = first basement.
   floorNumber: number | null;
   parking: MovingParkingCode | null;
 };
@@ -64,7 +65,7 @@ export type MovingProperty = {
   floors: number;
   // null when the lift question doesn't apply (movingLiftApplies).
   hasLift: boolean | null;
-  // null unless there is no lift (see MovingPropertyDraft.floorNumber).
+  // null when not asked — houses/townhouses (see MovingPropertyDraft.floorNumber).
   floorNumber: number | null;
   parking: MovingParkingOption;
 };
@@ -88,7 +89,7 @@ export function parseMovingProperty(
   const liftApplies = movingLiftApplies(homeType?.code ?? null);
   if (liftApplies && typeof input.hasLift !== "boolean") errors.hasLift = "Required";
 
-  const floorAsked = liftApplies && input.hasLift === false;
+  const floorAsked = liftApplies;
   const floorNumber = input.floorNumber;
   if (floorAsked) {
     const floorOk =
@@ -117,15 +118,14 @@ export function parseMovingProperty(
 }
 
 // One line for staff in Order.description, e.g.
-// "Apartment, Under 40 m², 1 floor, lift: yes, parking: within 50 m".
+// "Apartment, Under 40 m², 1 floor, on floor 2, lift: yes, parking: within 50 m".
 export function movingPropertyLine(property: MovingProperty, sizeLabel: string): string {
   return [
     property.homeType.labelEn,
     sizeLabel,
     `${property.floors} ${property.floors === 1 ? "floor" : "floors"}`,
-    property.hasLift === null
-      ? null
-      : `lift: ${property.hasLift ? "yes" : "no"}${property.floorNumber === null ? "" : ` (on floor ${property.floorNumber})`}`,
+    property.floorNumber === null ? null : `on floor ${property.floorNumber}`,
+    property.hasLift === null ? null : `lift: ${property.hasLift ? "yes" : "no"}`,
     `parking: ${property.parking.labelEn.toLowerCase()}`,
   ]
     .filter(Boolean)
@@ -160,4 +160,15 @@ export function movingChargeableFloors(property: Pick<MovingProperty, "hasLift" 
 export function movingDraftChargeableFloors(draft: MovingPropertyDraft): number {
   if (!movingLiftApplies(draft.homeType)) return 0;
   return movingChargeableFloors(draft);
+}
+
+// The first of each end's two sections (address + type): ready once the
+// address is picked from the suggestions and a property type chosen. The
+// second section (size, lift, floor, parking) then waits on isMovingEndReady.
+export function isMovingEndWhereReady(params: {
+  address: string;
+  addressSelected: boolean;
+  property: Pick<MovingPropertyDraft, "homeType">;
+}): boolean {
+  return params.address.trim().length > 0 && params.addressSelected && params.property.homeType !== null;
 }

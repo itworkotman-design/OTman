@@ -4,6 +4,7 @@ import {
   MOVING_PARKING_OPTIONS,
   emptyMovingProperty,
   isMovingEndReady,
+  isMovingEndWhereReady,
   movingChargeableFloors,
   movingDraftChargeableFloors,
   movingLiftApplies,
@@ -15,6 +16,7 @@ const apartment = {
   homeType: "APARTMENT",
   sizeOptionCode: "SIZE_UNDER_40",
   floors: 1,
+  floorNumber: 2,
   hasLift: true,
   parking: "WITHIN_50M",
 };
@@ -88,7 +90,7 @@ describe("movingPropertyLine", () => {
     const result = parseMovingProperty(apartment);
     if (!result.ok) throw new Error("expected ok");
     expect(movingPropertyLine(result.property, "Under 40 m²")).toBe(
-      "Apartment, Under 40 m², 1 floor, lift: yes, parking: within 50 m",
+      "Apartment, Under 40 m², 1 floor, on floor 2, lift: yes, parking: within 50 m",
     );
   });
 
@@ -120,14 +122,16 @@ describe("isMovingEndReady", () => {
   });
 });
 
-describe("floor number (no lift)", () => {
+describe("floor number (apartment/office — asked before the lift)", () => {
   const noLift = { ...apartment, hasLift: false, floorNumber: 4 };
 
-  it("asks which floor when an apartment/office has no lift", () => {
-    const result = parseMovingProperty({ ...noLift, floorNumber: null });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.errors.floorNumber).toBe("Required");
+  it("asks which floor for every apartment/office, lift or not", () => {
+    for (const hasLift of [true, false]) {
+      const result = parseMovingProperty({ ...noLift, hasLift, floorNumber: null });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.errors.floorNumber).toBe("Required");
+    }
   });
 
   it("accepts a whole, non-zero floor (negative = basement)", () => {
@@ -138,10 +142,10 @@ describe("floor number (no lift)", () => {
     expect(parseMovingProperty({ ...noLift, floorNumber: 1000 }).ok).toBe(false);
   });
 
-  it("ignores (nulls) the floor when there is a lift or no lift question", () => {
+  it("keeps the floor with a lift too, and nulls it for a house (not asked)", () => {
     const withLift = parseMovingProperty({ ...noLift, hasLift: true });
     const house = parseMovingProperty({ ...noLift, homeType: "DETACHED", hasLift: null });
-    expect(withLift.ok && withLift.property.floorNumber).toBeNull();
+    expect(withLift.ok && withLift.property.floorNumber).toBe(4);
     expect(house.ok && house.property.floorNumber).toBeNull();
   });
 
@@ -168,7 +172,7 @@ describe("floor number (no lift)", () => {
     const result = parseMovingProperty(noLift);
     if (!result.ok) throw new Error("expected ok");
     expect(movingPropertyLine(result.property, "Under 40 m²")).toBe(
-      "Apartment, Under 40 m², 1 floor, lift: no (on floor 4), parking: within 50 m",
+      "Apartment, Under 40 m², 1 floor, on floor 4, lift: no, parking: within 50 m",
     );
   });
 
@@ -203,5 +207,21 @@ describe("parking → carrying-distance surcharge", () => {
       ["WITHIN_50M", "CARRY_WITHIN_50M"],
       ["FURTHER", "CARRY_FURTHER"],
     ]);
+  });
+});
+
+describe("isMovingEndWhereReady (address + type section)", () => {
+  const draft = { ...emptyMovingProperty(), homeType: "APARTMENT" as const };
+
+  it("is ready once the address is picked from the suggestions and a type chosen — nothing else needed yet", () => {
+    expect(isMovingEndWhereReady({ address: "Storgata 1, Oslo", addressSelected: true, property: draft })).toBe(true);
+  });
+
+  it("isn't ready with a free-typed address, no address, or no type", () => {
+    expect(isMovingEndWhereReady({ address: "Storgata 1", addressSelected: false, property: draft })).toBe(false);
+    expect(isMovingEndWhereReady({ address: " ", addressSelected: true, property: draft })).toBe(false);
+    expect(
+      isMovingEndWhereReady({ address: "Storgata 1, Oslo", addressSelected: true, property: emptyMovingProperty() }),
+    ).toBe(false);
   });
 });

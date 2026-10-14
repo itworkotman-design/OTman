@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef, useState, type ReactNode } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { addressDropdownPosition, type AddressDropdownPosition } from "./addressDropdownPosition";
 import type { AddressSelectionMeta } from "@/lib/orders/addressPrecision";
 import { retrieveAddressCoordinate } from "@/lib/orders/retrieveAddressCoordinate";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
@@ -32,6 +34,11 @@ type Props = {
   // when that's true (e.g. touched + still blank) and passes it in.
   hasError?: boolean;
   onBlur?: () => void;
+  // Draws the suggestion list on top of the page (portal, fixed to the
+  // viewport) instead of inside the field's own box, so a scrolling or
+  // overflow-hidden container — e.g. a booking modal's body under a short
+  // section — can't clip it. Follows the field on scroll/resize.
+  floating?: boolean;
 };
 
 const FEATURE_TYPE_RANK: Record<string, number> = {
@@ -60,6 +67,7 @@ export default function AddressAutocompleteInput({
   icon,
   hasError = false,
   onBlur,
+  floating = false,
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -68,6 +76,10 @@ export default function AddressAutocompleteInput({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
+  // The floating list lives outside boxRef (in a portal), so clicks in it
+  // must not count as "outside".
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const [floatingPos, setFloatingPos] = useState<AddressDropdownPosition | null>(null);
   const sessionTokenRef = useRef("");
   const [hasInteracted, setHasInteracted] = useState(false);
   // Bumped on every selection and on every keystroke — a pending
@@ -187,7 +199,8 @@ export default function AddressAutocompleteInput({
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (!boxRef.current) return;
-      if (!boxRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (!boxRef.current.contains(target) && !dropdownRef.current?.contains(target)) {
         setOpen(false);
       }
     }
@@ -195,6 +208,72 @@ export default function AddressAutocompleteInput({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const showDropdown = open && !disabled;
+  const suggestionList = (
+    <>
+      {loading && (
+        <div className="px-3 py-2 text-sm text-textColorSecond">
+          {t("Searching...")}
+        </div>
+      )}
+
+      {!loading && results.length === 0 && (
+        <div className="px-3 py-2 text-sm text-textColorSecond">
+          {t("No addresses found")}
+        </div>
+      )}
+
+      {!loading &&
+        results.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className="block w-full px-3 py-2 text-left hover:bg-black/5"
+            onClick={() => selectSuggestion(item)}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="truncate font-medium text-black">
+                  {item.name}
+                </div>
+                {item.subtitle ? (
+                  <div className="truncate text-sm text-textColorSecond">
+                    {item.subtitle}
+                  </div>
+                ) : null}
+              </div>
+              <div
+                className={`shrink-0 text-xs uppercase tracking-[0.12em] ${
+                  item.precise ? "text-textColorSecond" : "text-amber-700"
+                }`}
+              >
+                {!item.precise
+                  ? t("Approximate")
+                  : item.featureType === "poi"
+                    ? t("Business")
+                    : t("Address")}
+              </div>
+            </div>
+          </button>
+        ))}
+    </>
+  );
+  useLayoutEffect(() => {
+    if (!floating || !showDropdown) return;
+    const place = () => {
+      const el = inputRef.current;
+      if (el) setFloatingPos(addressDropdownPosition(el.getBoundingClientRect(), window.innerHeight));
+    };
+    place();
+    // Capture: also catches scrolling inside any container (the modal body).
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [floating, showDropdown]);
 
   return (
     <div className="relative w-full" ref={boxRef}>
@@ -239,55 +318,24 @@ export default function AddressAutocompleteInput({
         autoComplete="off"
       />
 
-      {open && !disabled && (
-        <div className="absolute z-50 mt-1 w-full rounded-xl border bg-white shadow-lg max-h-72 overflow-auto">
-          {loading && (
-            <div className="px-3 py-2 text-sm text-textColorSecond">
-              {t("Searching...")}
-            </div>
-          )}
-
-          {!loading && results.length === 0 && (
-            <div className="px-3 py-2 text-sm text-textColorSecond">
-              {t("No addresses found")}
-            </div>
-          )}
-
-          {!loading &&
-            results.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className="block w-full px-3 py-2 text-left hover:bg-black/5"
-                onClick={() => selectSuggestion(item)}
+      {showDropdown &&
+        (floating
+          ? floatingPos &&
+            createPortal(
+              <div
+                ref={dropdownRef}
+                className="fixed z-[70] overflow-auto rounded-xl border bg-white shadow-lg"
+                style={floatingPos}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="truncate font-medium text-black">
-                      {item.name}
-                    </div>
-                    {item.subtitle ? (
-                      <div className="truncate text-sm text-textColorSecond">
-                        {item.subtitle}
-                      </div>
-                    ) : null}
-                  </div>
-                  <div
-                    className={`shrink-0 text-xs uppercase tracking-[0.12em] ${
-                      item.precise ? "text-textColorSecond" : "text-amber-700"
-                    }`}
-                  >
-                    {!item.precise
-                      ? t("Approximate")
-                      : item.featureType === "poi"
-                        ? t("Business")
-                        : t("Address")}
-                  </div>
-                </div>
-              </button>
-            ))}
-        </div>
-      )}
+                {suggestionList}
+              </div>,
+              document.body,
+            )
+          : (
+            <div className="absolute z-50 mt-1 w-full rounded-xl border bg-white shadow-lg max-h-72 overflow-auto">
+              {suggestionList}
+            </div>
+          ))}
     </div>
   );
 }

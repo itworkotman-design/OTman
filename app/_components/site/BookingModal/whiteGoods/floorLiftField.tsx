@@ -23,12 +23,16 @@ export function FloorInput({
   onBlur,
   hasError,
   placeholder,
+  large = false,
 }: {
   value: number | null;
   onChange: (value: number | null) => void;
   onBlur?: () => void;
   hasError: boolean;
   placeholder: string;
+  // About 10% taller (h-12 instead of h-11) — the moving flow's
+  // stand-alone "which floor?" box.
+  large?: boolean;
 }) {
   // The box's own text, so in-between states like a lone "-" survive while
   // typing. Re-synced whenever the floor changes from outside (the stepper).
@@ -56,14 +60,16 @@ export function FloorInput({
         }}
         onBlur={onBlur}
         placeholder={placeholder}
-        className={`${fieldClass(hasError)} pr-9`}
+        className={`${large ? fieldClass(hasError).replace("h-11", "h-12") : fieldClass(hasError)} pr-9`}
       />
-      <div className="absolute right-1 top-1/2 flex -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-black/10">
+      {/* Flush with the box's right edge, full height (inside its 1px border),
+          split in two — no inset from the top or right. */}
+      <div className="absolute inset-y-px right-px flex flex-col overflow-hidden rounded-r-[11px] border-l border-black/10">
         <button
           type="button"
           aria-label="Increase"
           onClick={() => onChange(stepFloor(value, 1))}
-          className="grid h-4 w-6 place-items-center text-black/40 transition hover:bg-black/5 hover:text-black/70"
+          className="grid w-7 flex-1 place-items-center text-black/40 transition hover:bg-black/5 hover:text-black/70"
         >
           <ChevronUpIcon className="h-3 w-3" />
         </button>
@@ -71,7 +77,7 @@ export function FloorInput({
           type="button"
           aria-label="Decrease"
           onClick={() => onChange(stepFloor(value, -1))}
-          className="grid h-4 w-6 place-items-center border-t border-black/10 text-black/40 transition hover:bg-black/5 hover:text-black/70 disabled:pointer-events-none disabled:opacity-30"
+          className="grid w-7 flex-1 place-items-center border-t border-black/10 text-black/40 transition hover:bg-black/5 hover:text-black/70 disabled:pointer-events-none disabled:opacity-30"
         >
           <ChevronDownIcon className="h-3 w-3" />
         </button>

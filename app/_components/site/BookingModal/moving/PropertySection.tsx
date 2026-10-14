@@ -9,6 +9,7 @@ import {
   MOVING_PARKING_OPTIONS,
   movingLiftApplies,
   isMovingEndReady,
+  isMovingEndWhereReady,
   movingDraftChargeableFloors,
   type MovingParkingCode,
   type MovingPropertyDraft,
@@ -19,16 +20,32 @@ import { FloorInput } from "../whiteGoods/floorLiftField";
 import { HouseIllustration } from "./HouseIllustration";
 import { HOUSE_MAX_FLOORS, HOUSE_MIN_FLOORS, clampFloors } from "./houseGeometry";
 
-type Props = {
+// Shared by both of an end's sections.
+type SectionProps = {
   locale: Locale;
+  value: MovingPropertyDraft;
+  onChange: (next: MovingPropertyDraft) => void;
+  // SteppedModal's onComplete/onUncomplete: the next section appears as
+  // soon as every required field here is answered, and goes away again if
+  // one is cleared (AutoAdvance) — same as the delivery modal.
+  onReady: () => void;
+  onRetract: () => void;
+};
+
+type WhereProps = SectionProps & {
   address: string;
   // `selected`: picked from the autocomplete suggestions (not free-typed) —
   // required before the next section opens, as in the delivery modal.
   addressSelected: boolean;
   onAddressChange: (address: string, selected: boolean) => void;
   addressPlaceholder: string;
-  value: MovingPropertyDraft;
-  onChange: (next: MovingPropertyDraft) => void;
+};
+
+type DetailsProps = SectionProps & {
+  // The end counts as answered only with a picked address too (it was
+  // asked in the section before).
+  address: string;
+  addressSelected: boolean;
   sizeOptions: MovingCatalogOption[];
   // Shown on the size tiles when given (the origin is what's priced);
   // omitted for the destination, whose size is information for staff only.
@@ -43,18 +60,13 @@ type Props = {
   parkingPriceLabel: (parking: MovingParkingCode) => string | null;
   catalogLoading: boolean;
   catalogError: string | null;
-  // SteppedModal's onComplete/onUncomplete: the next section appears as
-  // soon as every required field here is answered, and goes away again if
-  // one is cleared (AutoAdvance) — same as the delivery modal.
-  onReady: () => void;
-  onRetract: () => void;
 };
 
 export function floorsLabel(locale: Locale, n: number) {
   return locale === "no" ? `${n} ${n === 1 ? "etasje" : "etasjer"}` : `${n} ${n === 1 ? "floor" : "floors"}`;
 }
 
-// "Leilighet, Under 40 m², 1 etasje, heis: ja, parkering: innen 50 m" — the
+// "Leilighet, Under 40 m², 1 etasje, i 4. etasje, heis: ja, parkering: innen 50 m" — the
 // customer-facing twin of movingPropertyLine, for the summary step.
 export function propertySummary(locale: Locale, draft: MovingPropertyDraft, sizeOptions: MovingCatalogOption[]): string {
   const no = locale === "no";
@@ -65,10 +77,17 @@ export function propertySummary(locale: Locale, draft: MovingPropertyDraft, size
     movingLiftApplies(draft.homeType) && draft.hasLift !== null
       ? `${no ? "heis" : "lift"}: ${draft.hasLift ? (no ? "ja" : "yes") : no ? "nei" : "no"}`
       : null;
+  const floorNumber =
+    movingLiftApplies(draft.homeType) && draft.floorNumber !== null
+      ? no
+        ? `i ${draft.floorNumber}. etasje`
+        : `on floor ${draft.floorNumber}`
+      : null;
   return [
     homeType && (no ? homeType.labelNo : homeType.labelEn),
     size && (no ? size.labelNo : size.labelEn),
     floorsLabel(locale, draft.floors),
+    floorNumber,
     lift,
     parking && `${no ? "parkering" : "parking"}: ${(no ? parking.labelNo : parking.labelEn).toLowerCase()}`,
   ]
@@ -95,15 +114,64 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   );
 }
 
-// One end of the move — used twice by MovingRequestFlow ("moving from" and
-// "moving to"): address, property type, size + floors (with the house
-// preview), lift (apartments/offices only) and parking distance.
-export function PropertySection({
+// Each end of the move (MovingRequestFlow's "moving from" and "moving to")
+// is asked in two sections, so neither reveals too much at once:
+// PropertyWhereSection (address + property type), then
+// PropertyDetailsSection (size + floors with the house preview, then for
+// apartments/offices which floor it's on and then the lift, and parking).
+export function PropertyWhereSection({
   locale,
   address,
   addressSelected,
   onAddressChange,
   addressPlaceholder,
+  value,
+  onChange,
+  onReady,
+  onRetract,
+}: WhereProps) {
+  const t = (en: string, no: string) => (locale === "no" ? no : en);
+  const set = (patch: Partial<MovingPropertyDraft>) => onChange({ ...value, ...patch });
+  const isReady = isMovingEndWhereReady({ address, addressSelected, property: value });
+  const [addressTouched, setAddressTouched] = useState(false);
+  const addressNotSelected = addressTouched && !!address.trim() && !addressSelected;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <AddressAutocompleteInput
+        value={address}
+        onChange={(v, wasSelected) => onAddressChange(sanitizeTextInput(v), Boolean(wasSelected))}
+        locale={locale === "no" ? "nb" : "en"}
+        placeholder={addressPlaceholder}
+        onBlur={() => setAddressTouched(true)}
+        // Not clipped by the modal under this short section (see `floating`).
+        floating
+        hasError={addressNotSelected}
+      />
+      {/* Typed but never picked from the suggestions — same hint as the delivery modal. */}
+      {addressNotSelected && (
+        <p className="-mt-1.5 text-xs text-red-500">
+          {t("Please choose an address from the suggestions.", "Velg en adresse fra forslagene.")}
+        </p>
+      )}
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {MOVING_HOME_TYPES.map((h) => (
+          <Chip key={h.code} active={value.homeType === h.code} onClick={() => set({ homeType: h.code })}>
+            {locale === "no" ? h.labelNo : h.labelEn}
+          </Chip>
+        ))}
+      </div>
+
+      <AutoAdvance ready={isReady} onReady={onReady} onRetract={onRetract} />
+    </div>
+  );
+}
+
+export function PropertyDetailsSection({
+  locale,
+  address,
+  addressSelected,
   value,
   onChange,
   sizeOptions,
@@ -114,12 +182,10 @@ export function PropertySection({
   catalogError,
   onReady,
   onRetract,
-}: Props) {
+}: DetailsProps) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const set = (patch: Partial<MovingPropertyDraft>) => onChange({ ...value, ...patch });
   const isReady = isMovingEndReady({ address, addressSelected, property: value });
-  const [addressTouched, setAddressTouched] = useState(false);
-  const addressNotSelected = addressTouched && !!address.trim() && !addressSelected;
   const [floorTouched, setFloorTouched] = useState(false);
   const floorSurcharge = floorSurchargeLabel(movingDraftChargeableFloors(value));
   const stepButton =
@@ -127,31 +193,6 @@ export function PropertySection({
 
   return (
     <div className="flex flex-col gap-3">
-      <AddressAutocompleteInput
-        value={address}
-        onChange={(v, wasSelected) => onAddressChange(sanitizeTextInput(v), Boolean(wasSelected))}
-        locale={locale === "no" ? "nb" : "en"}
-        placeholder={addressPlaceholder}
-        onBlur={() => setAddressTouched(true)}
-        hasError={addressNotSelected}
-      />
-      {/* Typed but never picked from the suggestions — same hint as the delivery modal. */}
-      {addressNotSelected && (
-        <p className="-mt-1.5 text-xs text-red-500">
-          {t("Please choose an address from the suggestions.", "Velg en adresse fra forslagene.")}
-        </p>
-      )}
-
-      <SubHeading>{t("Type", "Type")}</SubHeading>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {MOVING_HOME_TYPES.map((h) => (
-          <Chip key={h.code} active={value.homeType === h.code} onClick={() => set({ homeType: h.code })}>
-            {locale === "no" ? h.labelNo : h.labelEn}
-          </Chip>
-        ))}
-      </div>
-
-      <SubHeading>{t("Approximate size", "Omtrentlig størrelse")}</SubHeading>
       {catalogLoading && <p className="text-sm text-black/50">{t("Loading sizes…", "Laster størrelser…")}</p>}
       {catalogError && <p className="text-sm text-red-600">{catalogError}</p>}
 
@@ -208,45 +249,49 @@ export function PropertySection({
         </div>
       </div>
 
+      {/* Apartments/offices: which floor first, then — once that's
+          answered — the lift. Without a lift the floor costs extra (same rule
+          and floor box as the delivery modal). */}
       {movingLiftApplies(value.homeType) && (
         <>
-          <SubHeading>{t("Is there a lift?", "Er det heis?")}</SubHeading>
-          <div className="grid grid-cols-2 gap-2">
-            <Chip active={value.hasLift === true} onClick={() => set({ hasLift: true })}>
-              {t("Yes", "Ja")}
-            </Chip>
-            <Chip active={value.hasLift === false} onClick={() => set({ hasLift: false })}>
-              {t("No", "Nei")}
-            </Chip>
+          <SubHeading>{t("Which floor is it on?", "Hvilken etasje ligger den i?")}</SubHeading>
+          {/* The box keeps one fixed, centred width; the surcharge pill sits in
+              the column beside it instead of squeezing it when it appears. */}
+          <div className="grid w-full grid-cols-[1fr_minmax(0,22rem)_1fr] items-center gap-2">
+            <div className="col-start-2">
+              <FloorInput
+                value={value.floorNumber}
+                onChange={(floorNumber) => set({ floorNumber })}
+                onBlur={() => setFloorTouched(true)}
+                hasError={floorTouched && value.floorNumber === null}
+                placeholder={t("e.g. 1 for the ground floor", "f.eks. 1 for bakkeplan")}
+                large
+              />
+            </div>
+            {floorSurcharge && (
+              <span className="justify-self-start whitespace-nowrap rounded-lg bg-amber-50 px-2.5 py-2 text-sm font-semibold text-amber-700">
+                +{floorSurcharge}
+              </span>
+            )}
           </div>
+          <p className="-mt-1 text-center text-xs text-black/45">
+            {t(
+              "1 is the ground floor, -1 the basement. Without a lift, floors above the 2nd or below the 1st basement add a surcharge.",
+              "1. etasje er bakkeplan, -1 er kjeller. Uten heis tilkommer et tillegg for etasjer over 2. og under -1.",
+            )}
+          </p>
 
-          {/* No lift → which floor, since carrying up/down stairs is what
-              costs extra (same rule and floor box as the delivery modal). */}
-          {value.hasLift === false && (
+          {value.floorNumber !== null && (
             <>
-              <SubHeading>{t("Which floor is it on?", "Hvilken etasje ligger den i?")}</SubHeading>
-              <div className="mx-auto flex w-full max-w-sm items-center gap-2">
-                <div className="flex-1">
-                  <FloorInput
-                    value={value.floorNumber}
-                    onChange={(floorNumber) => set({ floorNumber })}
-                    onBlur={() => setFloorTouched(true)}
-                    hasError={floorTouched && value.floorNumber === null}
-                    placeholder={t("e.g. 1 for the ground floor", "f.eks. 1 for bakkeplan")}
-                  />
-                </div>
-                {floorSurcharge && (
-                  <span className="shrink-0 whitespace-nowrap rounded-lg bg-amber-50 px-2.5 py-2 text-sm font-semibold text-amber-700">
-                    +{floorSurcharge}
-                  </span>
-                )}
+              <SubHeading>{t("Is there a lift?", "Er det heis?")}</SubHeading>
+              <div className="grid grid-cols-2 gap-2">
+                <Chip active={value.hasLift === true} onClick={() => set({ hasLift: true })}>
+                  {t("Yes", "Ja")}
+                </Chip>
+                <Chip active={value.hasLift === false} onClick={() => set({ hasLift: false })}>
+                  {t("No", "Nei")}
+                </Chip>
               </div>
-              <p className="-mt-1 text-center text-xs text-black/45">
-                {t(
-                  "1 is the ground floor, -1 the basement. Without a lift, floors above the 2nd or below the 1st basement add a surcharge.",
-                  "1. etasje er bakkeplan, -1 er kjeller. Uten heis tilkommer et tillegg for etasjer over 2. og under -1.",
-                )}
-              </p>
             </>
           )}
         </>

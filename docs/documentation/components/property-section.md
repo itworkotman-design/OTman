@@ -1,20 +1,21 @@
 # `app/_components/site/BookingModal/moving/PropertySection.tsx`
 
 ## Purpose
-One end of the move in `MovingRequestFlow` — used for both "Hvor flytter du fra?" and
-"Hvor flytter du til?": address (`AddressAutocompleteInput`), property type chips, size tiles
-(with prices only when `sizePrice` is given — the origin), `HouseIllustration` + floors stepper,
-"Er det heis?" (only for Leilighet/Kontor, `movingLiftApplies`) — on "Nei", "Hvilken etasje ligger den i?" with the
-delivery modal's `FloorInput` and a live `+N kr` surcharge pill (`floorSurchargeLabel` from the flow) — and
-"Hvor nær kan vi parkere?" — each pill shows its carrying-distance surcharge (`parkingPriceLabel` from the flow).
-The next section opens (via `AutoAdvance`, `onReady`/`onRetract`) as soon as `isMovingEndReady` — the address
-picked from the suggestions (`addressSelected`; free-typed shows "Velg en adresse fra forslagene" after blur, as in
-the delivery modal) and every answer in —
-and closes again if an answer is cleared — no Continue button.
+Each end of the move in `MovingRequestFlow` ("moving from", "moving to") is asked in two sections, so neither
+reveals too much at once:
+1. `PropertyWhereSection` — address (`AddressAutocompleteInput`, must be picked from the suggestions; free-typed shows
+   "Velg en adresse fra forslagene" after blur, as in the delivery modal) and property type chips. Opens the next
+   section via `AutoAdvance` once `isMovingEndWhereReady`.
+2. `PropertyDetailsSection` — size tiles (prices only when `sizePrice` is given — the origin), `HouseIllustration` +
+   floors stepper; for Leilighet/Kontor (`movingLiftApplies`) "Hvilken etasje ligger den i?" first (the delivery
+   modal's `FloorInput`, `large`, fixed width with a live `+N kr` surcharge pill beside it), then "Er det heis?" once a
+   floor is entered (the surcharge only applies on "Nei"); and "Hvor nær kan vi parkere?", each pill showing its
+   carrying-distance surcharge (`parkingPriceLabel`). Opens the next section once `isMovingEndReady`.
+Both close the sections after them again (`onRetract`) if an answer is cleared.
 
 ## Functions
-### `PropertySection(props)`
-Controlled: `value`/`onChange` is a `MovingPropertyDraft`.
+### `PropertyWhereSection(props)` / `PropertyDetailsSection(props)`
+Controlled: `value`/`onChange` is the end's `MovingPropertyDraft`, shared by both sections.
 ### `propertySummary(locale, draft, sizeOptions)`
 Customer-facing one-liner for the summary step, e.g. `Leilighet, Under 40 m², 1 etasje, heis: ja, parkering: innen 50 m`.
 ### `floorsLabel(locale, n)`
