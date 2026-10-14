@@ -56,35 +56,6 @@ export function floorsLabel(locale: Locale, n: number) {
   return locale === "no" ? `${n} ${n === 1 ? "etasje" : "etasjer"}` : `${n} ${n === 1 ? "floor" : "floors"}`;
 }
 
-// "Leilighet, Under 40 m², 1 etasje, i 4. etasje, heis: ja, parkering: innen 50 m" — the
-// customer-facing twin of movingPropertyLine, for the summary step.
-export function propertySummary(locale: Locale, draft: MovingPropertyDraft, sizeOptions: MovingCatalogOption[]): string {
-  const no = locale === "no";
-  const homeType = MOVING_HOME_TYPES.find((h) => h.code === draft.homeType);
-  const size = sizeOptions.find((o) => o.code === draft.sizeOptionCode);
-  const parking = MOVING_PARKING_OPTIONS.find((p) => p.code === draft.parking);
-  const lift =
-    movingLiftApplies(draft.homeType) && draft.hasLift !== null
-      ? `${no ? "heis" : "lift"}: ${draft.hasLift ? (no ? "ja" : "yes") : no ? "nei" : "no"}`
-      : null;
-  const floorNumber =
-    movingLiftApplies(draft.homeType) && draft.floorNumber !== null
-      ? no
-        ? `i ${draft.floorNumber}. etasje`
-        : `on floor ${draft.floorNumber}`
-      : null;
-  return [
-    homeType && (no ? homeType.labelNo : homeType.labelEn),
-    size && (no ? size.labelNo : size.labelEn),
-    floorsLabel(locale, draft.floors),
-    floorNumber,
-    lift,
-    parking && `${no ? "parkering" : "parking"}: ${(no ? parking.labelNo : parking.labelEn).toLowerCase()}`,
-  ]
-    .filter(Boolean)
-    .join(", ");
-}
-
 function SubHeading({ children }: { children: React.ReactNode }) {
   return <p className="pt-1 text-center text-xs font-semibold uppercase tracking-[0.18em] text-black/40">{children}</p>;
 }

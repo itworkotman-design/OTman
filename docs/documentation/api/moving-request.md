@@ -70,3 +70,10 @@ client sends is ignored — stores it on `Order.drivingDistance` and prices it w
 catalog's `distanceRates` (same km rule as delivery; the size price stays). Stored as an order item
 (`productCode: MOVING_DISTANCE_ITEM_CODE`, unit = per-km rate, quantity = km). A failed lookup is logged and charges
 no km; staff review every website order before approving it.
+
+## Stored for the admin modal and "My order"
+Priced through `priceMovingOrder` (`lib/orders/movingOrderQuote.ts`, shared with the admin edit and "My order"); sizes and
+services are checked before the Mapbox lookup. The order is saved as `websiteOrderKind: "MOVING"` with the customer's answers in
+`websiteBookingDetails` (`buildMovingBookingDetails`, incl. the `customerType` the flow sends), the notes in `customerComments`
+too, and one order line per priced line (`movingOrderItemRows`, `createMany`). `welcomeWebsiteOrderCustomer` then creates/links the
+"My order" login and sends the order-received email (covered in `route.create.test.ts`).

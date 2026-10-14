@@ -442,3 +442,78 @@ describe("GET website-details — live order data", () => {
     });
   });
 });
+
+describe("GET /api/orders/[orderId]/website-details — a homepage move", () => {
+  const apartment = { homeType: "APARTMENT", sizeOptionCode: "SIZE_UNDER_40", floors: 1, floorNumber: 1, hasLift: null, parking: "OUTSIDE" };
+  const house = { homeType: "DETACHED", sizeOptionCode: "SIZE_UNDER_40", floors: 2, floorNumber: null, hasLift: null, parking: "OUTSIDE" };
+  const item = (productCode: string, optionLabel: string, quantity: number, customerPriceCents: number, subcontractorPriceCents: number) => ({
+    productCode,
+    optionCode: optionLabel,
+    optionLabel,
+    quantity,
+    customerPriceCents,
+    subcontractorPriceCents,
+    optionId: null,
+  });
+  const move = {
+    ...whiteGoodsOrder,
+    websiteOrderKind: "MOVING",
+    websiteBookingDetails: { version: 1, customerType: "business", origin: apartment, destination: house, serviceCodes: ["SERVICE_FLYTTEVASK"] },
+    pickupAddress: "Karl Johans gate 1, Oslo",
+    deliveryAddress: "Bragernes torg 1, Drammen",
+    deliveryDate: "2026-10-22",
+    timeWindow: "10:00-16:00",
+    drivingDistance: "42.86",
+    priceExVat: 9800 + 1243,
+    pricingSnapshot: { customer: { totalExVat: 11043, totalIncVat: 13804 }, lines: [] },
+    items: [
+      item("MOVING_BY_SIZE", "Under 40 m²", 1, 500000, 300000),
+      item("MOVING_ADDITIONAL_SERVICES", "Move-out cleaning", 1, 480000, 250000),
+      item("MOVING_DISTANCE", "Distance (43 km)", 43, 2890, 1651),
+    ],
+    payments: [],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "u1", activeCompanyId: "c1" });
+    mocks.membershipFindFirstMock.mockResolvedValue({ role: "ADMIN", appAccess: [] });
+    mocks.orderFindFirstMock.mockResolvedValue(move);
+  });
+
+  it("opens in the website order modal as a move: its answers, its lines, the partner's side", async () => {
+    const res = await call();
+    expect(res.status).toBe(200);
+    const { order } = await res.json();
+    expect(order.kind).toBe("moving");
+    expect(order.moving).toEqual({
+      edit: {
+        pickupAddress: "Karl Johans gate 1, Oslo",
+        deliveryAddress: "Bragernes torg 1, Drammen",
+        origin: apartment,
+        destination: house,
+        serviceCodes: ["SERVICE_FLYTTEVASK"],
+      },
+      customerType: "business",
+      preferredDate: "2026-10-22",
+      timeWindow: "10:00-16:00",
+      drivingDistance: "42.86",
+    });
+    expect(order.products[0].items.map((i: { label: string }) => i.label)).toEqual(["Under 40 m²", "Move-out cleaning"]);
+    expect(order.orderExtras).toEqual([{ label: "Distance (43 km)", qty: 43, price: 1243 }]);
+    expect(order.partner.total).toBe(3000 + 2500 + 710);
+    // The lines add up to the stored total — no price warning.
+    expect(order.totalsCheck.missingFromLines).toBe(0);
+    expect(mocks.recomputeMock).not.toHaveBeenCalled();
+  });
+
+  it("hides the partner's side from someone who can only view website orders", async () => {
+    mocks.membershipFindFirstMock.mockResolvedValue({ role: "USER", appAccess: [{ module: "WEBSITE_ORDERS", enabled: true, level: "VIEWER" }] });
+    expect((await (await call()).json()).order.partner).toBeNull();
+  });
+
+  it("a move booked before its answers were stored still isn't a website-modal order", async () => {
+    mocks.orderFindFirstMock.mockResolvedValue({ ...move, websiteBookingDetails: null });
+    expect((await (await call()).json()).reason).toBe("NOT_WHITE_GOODS_WEBSITE_ORDER");
+  });
+});

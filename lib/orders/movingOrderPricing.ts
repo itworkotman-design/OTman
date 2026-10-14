@@ -32,7 +32,14 @@ export function movingCustomerTotals(lines: { customerPriceCents: number }[]): {
 // + 25%, rounded to whole kroner per line. The snapshot keeps that total, so
 // the payment link charges exactly what the customer was shown
 // (getOrderChargeAmountIncVatNok).
-export function movingOrderPricing(sizeOption: MovingPricedLine, services: MovingPricedLine[] = []) {
+// `snapshotLines`: every line as stored on the order (movingOrderItemRows),
+// kept on the snapshot so a paid-vs-now comparison can list what changed;
+// the totals stay the per-line rounded ones computed here.
+export function movingOrderPricing(
+  sizeOption: MovingPricedLine,
+  services: MovingPricedLine[] = [],
+  snapshotLines: Parameters<typeof buildOrderPricingSnapshot>[0]["lines"] = [],
+) {
   const lines = [sizeOption, ...services];
   const { totalExVat, totalIncVat } = movingCustomerTotals(lines);
   const priceSubcontractor = lines.reduce((sum, line) => sum + Math.round(line.subcontractorPriceCents / 100), 0);
@@ -40,7 +47,7 @@ export function movingOrderPricing(sizeOption: MovingPricedLine, services: Movin
     priceExVat: totalExVat,
     priceSubcontractor,
     pricingSnapshot: buildOrderPricingSnapshot({
-      lines: [],
+      lines: snapshotLines,
       rabatt: null,
       leggTil: null,
       subcontractorMinus: null,

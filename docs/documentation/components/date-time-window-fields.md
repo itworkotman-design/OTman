@@ -8,3 +8,5 @@ book on the same rules: from tomorrow (Oslo time), no Sundays, no Norwegian publ
 ## Functions
 ### `DateTimeWindowFields({ locale, preferredDate, setPreferredDate, timeWindow, setTimeWindow, dateError, timeWindowError })`
 Controlled; the caller decides when each field shows its red error state.
+
+The date picker opens upward (`DatePicker`'s `openUpward`): this is the last field of a long stepped modal, so a calendar opening downward would land below the fold and need scrolling to.

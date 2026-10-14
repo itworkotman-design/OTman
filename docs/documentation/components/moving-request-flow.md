@@ -25,7 +25,7 @@ Sections:
 2. "Hvor flytter du fra?" — `PropertySection` for the origin (address, type, size with live prices, floors + `HouseIllustration`, lift for apartment/office, parking distance). Its size is what the move is priced on.
 3. "Hvor flytter du til?" — the same `PropertySection` for the destination, size tiles without prices (information for staff).
 4. Additional services — optional toggle tiles (Nedpakking/Flyttevask) with price + blurb, sent as `serviceCodes`; always present so step positions never shift.
-5. Timing, 6. contact details — then a final review/submit step listing both ends (`propertySummary`), services and the total (`movingCustomerTotals`).
+5. Timing, 6. contact details — then the review/submit step, laid out like the delivery modal's: the answers as cards on the left (`buildMovingReviewBlocks` → `OrderReviewBlocks`), the order-summary card (`movingSummary`) with the delivery review's VAT breakdown (`ReviewTotalFooter`), the price note and the send button on the right.
 
 Both ends are `MovingPropertyDraft`s (`lib/orders/movingProperty.ts`), submitted as `origin` / `destination`; "can continue/submit" uses the same `parseMovingProperty` the API validates with. Copy makes clear the price is based on the self-reported size and gets confirmed on staff review.
 
@@ -52,3 +52,8 @@ Driving distance: once both addresses are picked from the suggestions, the flow 
 `POST /api/site/route-distance` (debounced 700 ms, like the delivery modal) and adds the km charge
 (`movingDistanceLines` with the catalog's `distanceRates`) to the live calculator, the total and the review step.
 The server re-does the lookup itself on submit.
+
+"My order" (`customer` prop, `MovingCustomerEdit`): the customer's own move loaded from `/api/customer/orders/[orderNumber]`
+into the flow, every section open (`showAll`), saved from `CustomerOrderEditFooter` (server-priced, confirmed total). Within
+24h of the job only the additional services (booked ones can't be removed) and the contact details. The booking-only buttons
+("Gå til oppsummering", "Send bestilling") are hidden; the edit bar takes over.

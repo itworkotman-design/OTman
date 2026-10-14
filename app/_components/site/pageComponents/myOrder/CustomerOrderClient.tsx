@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { WhiteGoodsBookingFlow } from "@/app/_components/site/BookingModal/whiteGoods/WhiteGoodsBookingFlow";
+import { MovingRequestFlow } from "@/app/_components/site/BookingModal/moving/MovingRequestFlow";
 import { ProductIcon } from "@/app/_components/site/BookingModal/whiteGoods/productIcons";
 import type { CustomerOrderDetails } from "@/lib/customerAccounts/customerOrderView";
 import type { CustomerOrderProduct } from "@/lib/customerAccounts/customerOrderProducts";
@@ -439,6 +440,14 @@ export default function CustomerOrderClient({ locale, order, products, accountEm
 
       {editing && details.kind === "catalog" && (
         <WhiteGoodsBookingFlow
+          locale={locale}
+          onClose={() => setEditing(false)}
+          customer={{ orderNumber, beforeCutoff: permissions.beforeCutoff, onSaved: saved }}
+        />
+      )}
+
+      {editing && details.kind === "moving" && (
+        <MovingRequestFlow
           locale={locale}
           onClose={() => setEditing(false)}
           customer={{ orderNumber, beforeCutoff: permissions.beforeCutoff, onSaved: saved }}

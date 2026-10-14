@@ -74,8 +74,9 @@ describe("getCustomerEditPermissions", () => {
     expect(getCustomerEditPermissions({ ...base, deliveryDate: null }, new Date("2030-01-01T00:00:00Z")).beforeCutoff).toBe(true);
   });
 
-  it("only lets white-goods orders edit items", () => {
+  it("only lets white-goods orders and moves edit items", () => {
     expect(getCustomerEditPermissions({ ...base, websiteOrderKind: null }, new Date("2026-09-01T00:00:00Z")).canEditItems).toBe(false);
+    expect(getCustomerEditPermissions({ ...base, websiteOrderKind: "MOVING" }, new Date("2026-09-01T00:00:00Z")).canEditItems).toBe(true);
   });
 });
 

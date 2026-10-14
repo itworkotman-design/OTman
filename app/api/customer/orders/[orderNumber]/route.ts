@@ -17,8 +17,14 @@ import {
   findForbiddenChanges,
   isAllowedNewSchedule,
   type CustomerEditCard,
+  type CustomerEditKind,
   type CustomerEditState,
 } from "@/lib/orders/customerOrderEditPolicy";
+import { getMovingCatalog } from "@/lib/content/getMovingCatalog";
+import { lookUpMovingDrivingDistance } from "@/lib/orders/movingDrivingDistance";
+import { classifyMovingEdit, movingOrderSaveData, parseMovingEdit } from "@/lib/orders/movingOrderEdit";
+import { priceMovingOrder } from "@/lib/orders/movingOrderQuote";
+import { movingOrderSaveWrites } from "@/lib/orders/movingOrderWrites";
 import { buildDetailsUpdate, parseAdminOrderDetails, type AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
 import { validateWebsiteOrderCards } from "@/lib/orders/validateWebsiteOrderCards";
 import { findCardsWithoutPickup, findPickupsWithoutProducts } from "@/lib/orders/pickupAssignment";
@@ -84,7 +90,8 @@ export async function GET(req: Request, { params }: Params): Promise<NextRespons
   const { order } = loaded;
 
   const view = customerOrderView(order);
-  if (!view.permissions.canEditItems) return NextResponse.json({ ok: true, ...view });
+  // The white-goods catalog only for a delivery order (a move uses the moving one, loaded by its flow).
+  if (!view.permissions.canEditItems || view.details.kind !== "catalog") return NextResponse.json({ ok: true, ...view });
 
   const [catalog, seeded] = await Promise.all([getWebsiteOrderCatalog(), listSeededWebsiteCatalogs()]);
   const idByCode = new Map(catalog.products.map((p) => [p.code, p.id]));
@@ -260,7 +267,18 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
     cards: submittedCards as unknown as CustomerEditCard[] | undefined,
   };
 
-  const kinds = classifyCustomerOrderEdit(beforeState, afterState);
+  // A move: the whole move as edited (addresses, both ends, services), in a
+  // delivery order's change kinds — so the same 24h policy applies.
+  let movingEdit: Extract<ReturnType<typeof parseMovingEdit>, { ok: true }> | null = null;
+  const movingKinds: CustomerEditKind[] = [];
+  if (details.kind === "moving" && body.moving !== undefined) {
+    const parsed = parseMovingEdit(body.moving);
+    if (!parsed.ok) return reject("INVALID_DETAILS", 422, { errors: parsed.errors });
+    movingKinds.push(...classifyMovingEdit(details.moving, parsed.edit));
+    if (movingKinds.length > 0) movingEdit = parsed;
+  }
+
+  const kinds = [...classifyCustomerOrderEdit(beforeState, afterState), ...movingKinds];
   if (kinds.length === 0) return NextResponse.json({ ok: true, changed: false, priceExVat: order.priceExVat });
 
   const forbidden = findForbiddenChanges(kinds, permissions);
@@ -360,6 +378,60 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
       websiteBookingDetails: { ...detailsUpdate.bookingDetails, orderExtras: recomputed.orderExtras },
       productsSummary: (recomputed.summaries as { productsSummary?: string | null }).productsSummary ?? order.productsSummary,
     };
+  } else if (movingEdit && details.kind === "moving") {
+    // Re-priced from the moving catalog like a booking; the distance is
+    // looked up again only when an address moved (never the customer's).
+    const drivingDistance = kinds.includes("addresses")
+      ? await lookUpMovingDrivingDistance(movingEdit.edit.pickupAddress, movingEdit.edit.deliveryAddress)
+      : order.drivingDistance ?? "";
+    const catalog = await getMovingCatalog();
+    if (!catalog) return reject("UPDATE_FAILED", 500);
+    const quote = priceMovingOrder(catalog, {
+      origin: movingEdit.origin,
+      destination: movingEdit.destination,
+      serviceCodes: movingEdit.edit.serviceCodes,
+      drivingDistance,
+    });
+    if (!quote.ok) return reject("INVALID_DETAILS", 422, { errors: quote.errors });
+
+    const previousPriceExVat = order.priceExVat;
+    // Refunds aren't built: once something is paid the order can't get cheaper here.
+    if (quote.pricing.priceExVat < previousPriceExVat && order.payments.length > 0) return reject("WOULD_DECREASE_PRICE", 422);
+
+    const previousTotalIncVat = customerOrderTotalIncVatNok(order);
+    const totalIncVat = quote.pricing.pricingSnapshot.customer.totalIncVat;
+    if (dryRun) {
+      return NextResponse.json({ ok: true, dryRun: true, previousPriceExVat, priceExVat: quote.pricing.priceExVat, previousTotalIncVat, totalIncVat });
+    }
+    if (quote.pricing.priceExVat !== previousPriceExVat) {
+      if (shownTotal === null) return reject("SHOWN_TOTAL_REQUIRED", 400);
+      if (Math.abs(shownTotal - totalIncVat) >= 0.5) {
+        return reject("PRICE_CHANGED", 409, { priceExVat: quote.pricing.priceExVat, totalIncVat });
+      }
+    }
+
+    const save = movingOrderSaveData({
+      quote,
+      parsed: movingEdit,
+      drivingDistance,
+      notes: customer.comments || null,
+      customerType: details.customerType,
+    });
+    const contactAndSchedule = {
+      customerName: customer.name,
+      phone: customer.phone,
+      email: customer.email,
+      customerComments: customer.comments || null,
+      deliveryDate: preferredDate || null,
+      timeWindow: timeWindow || null,
+    };
+    try {
+      await prisma.$transaction(movingOrderSaveWrites(order.id, save, { ...contactAndSchedule, ...reopen }));
+    } catch (err) {
+      console.error("[customer order] Failed to save the move:", err);
+      return reject("UPDATE_FAILED", 500);
+    }
+    afterOrder = { ...order, ...contactAndSchedule, ...save.orderData };
   } else {
     if (dryRun) {
       const totalIncVat = customerOrderTotalIncVatNok(order);

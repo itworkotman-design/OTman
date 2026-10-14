@@ -242,3 +242,23 @@ describe("compareOrderWithPayments", () => {
     });
   });
 });
+
+describe("buildOrderStateSnapshot — a homepage move", () => {
+  it("lists a move's lines incl. VAT, like a delivery order's (the customer pays each line + 25 %)", () => {
+    const move = order({
+      websiteOrderKind: "MOVING",
+      websiteBookingDetails: { version: 1, customerType: "private", origin: {}, destination: {}, serviceCodes: [] },
+      priceExVat: 5400,
+      pricingSnapshot: {
+        customer: { totalExVat: 5400, totalIncVat: 6750 },
+        lines: [line(0, "Moving", "Under 40 m²", 5000), line(0, "Moving", "Carrying distance: within 50 m, moving from", 400)],
+      },
+    });
+    const snapshot = buildOrderStateSnapshot(move);
+    expect(snapshot.totalIncVatNok).toBe(6750);
+    expect(snapshot.lines.map((l) => [l.label, l.price])).toEqual([
+      ["Under 40 m²", 6250],
+      ["Carrying distance: within 50 m, moving from", 500],
+    ]);
+  });
+});

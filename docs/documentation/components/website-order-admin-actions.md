@@ -30,3 +30,5 @@ Calculator changes: the modal passes `pricingDraft` (the calculator unsaved disc
 Attachments: the modal passes `attachmentDraft` (picked/removed files). Save counts it as a change, and after the order itself saved it applies it (`applyAttachmentDraft`). Then it hands back what's left (`onAttachmentsApplied(remaining)`: only the failed changes, empty when all went through), and the modal keeps that as the draft and reloads the list. If some file changes fail, the message says how many and to press Save again.
 
 Layout: `children` (the modal passes `WebsiteOrderAttachments`) render between the panel card and the Save row, so Save is the last thing in the left column. `besideSave` (the modal's red "Delete order", when allowed) sits left of Save in that row, and Save fills the rest of the width. The save message shows under the button.
+
+`handlingEndpoint` (where the handling fields save/preview) and `priceFields` (express delivery + deviation; `false` for a move) let a homepage move reuse the panel.

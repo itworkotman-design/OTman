@@ -70,8 +70,8 @@ export type CustomerEditPermissions = {
   // Open and more than 24h before the time window starts.
   beforeCutoff: boolean;
   cutoffAt: Date | null;
-  // Only homepage white-goods orders are priced from the website catalog;
-  // moving and special-goods orders have no products/addresses to edit.
+  // Homepage white-goods orders and moves are priced from their website
+  // catalogs, so their items/addresses can be edited; special-goods quotes can't.
   canEditItems: boolean;
 };
 
@@ -85,7 +85,7 @@ export function getCustomerEditPermissions(
     open,
     beforeCutoff: open && (cutoffAt === null || now.getTime() < cutoffAt.getTime()),
     cutoffAt,
-    canEditItems: order.websiteOrderKind === "WHITE_GOODS",
+    canEditItems: order.websiteOrderKind === "WHITE_GOODS" || order.websiteOrderKind === "MOVING",
   };
 }
 

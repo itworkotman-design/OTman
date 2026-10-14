@@ -15,3 +15,5 @@ The price of a homepage moving request (`POST /api/site/moving-request`): the si
 - `movingCarrySurchargeLines(surcharges, ends)` — one line per end whose parking answer has a surcharge (quantity 1); a line missing from the price list charges nothing.
 - `movingDistanceLines(rates, distanceKm)` — the driving-distance (km) charge, same rule as delivery (`getFullChargeableKilometers`, `lib/booking/pricing/distanceCharges.ts`): nothing up to 20 km, then every started km of the whole distance at the `kmFrom21` rate (21–100 km) or `kmOver100` (over 100 km). Unlike delivery the size price is kept at any distance. A 0 kr rate or no rates charges nothing.
 - `movingCustomerTotals(lines)` — `{ totalExVat, totalIncVat }` (per-line VAT rounding); client-safe, used by `MovingRequestFlow` for the live total so it matches the charge.
+
+- `movingOrderPricing(sizeOption, services, snapshotLines)` — `snapshotLines` (the stored item rows) are kept on the pricing snapshot, so the paid-vs-now comparison and update emails can list a move's line changes; totals stay the per-line rounded ones.

@@ -27,6 +27,7 @@ import {
 import { usesFullDistanceKmPricing } from "@/lib/booking/pricing/distanceCharges";
 import type { PriceListSettings } from "@/lib/products/priceListSettings";
 import type { PriceLookup } from "@/lib/booking/pricing/types";
+import WebsitePartnerOrderView, { downloadWebsitePartnerPdf, useWebsitePartnerView } from "./WebsitePartnerOrderView";
 
 type ReadOnlyOrder = {
   id: string;
@@ -647,7 +648,13 @@ function AdminStyleReadOnlyCalculator({
 }
 
 export default function ReadOnlyOrderModal({ open, order, viewMode, locale, onClose }: Props) {
-  const { calculatorState, loading: calculatorLoading, error: calculatorError } = useAdminCalculatorState(order);
+  // A homepage website order (delivery or move) is shown from what's stored
+  // on it (partner-view), never re-priced with the dashboard engine below —
+  // which doesn't know website pricing (and a move has no product cards).
+  const website = useWebsitePartnerView(open ? (order?.id ?? null) : null);
+  const { calculatorState, loading: calculatorLoading, error: calculatorError } = useAdminCalculatorState(
+    website.status === "other" ? order : null,
+  );
   const allAttachments = useOrderAttachments(order?.id ?? null);
   const podAttachments = allAttachments.filter((a) => a.filename.startsWith("pod-"));
   const receiptAttachments = allAttachments.filter((a) => a.category === "RECEIPT");
@@ -671,7 +678,11 @@ export default function ReadOnlyOrderModal({ open, order, viewMode, locale, onCl
           </button>
         </div>
 
-        {usePdfCalculatorLayout ? (
+        {website.status === "loading" ? (
+          <p className="text-sm text-textColorThird">Laster ordre...</p>
+        ) : website.view ? (
+          <WebsitePartnerOrderView view={website.view} locale={locale ?? "nb"} />
+        ) : usePdfCalculatorLayout ? (
           <div className="grid max-h-[72vh] gap-4 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_340px]">
             <table className="w-full border-collapse text-sm text-slate-800">
               <tbody>
@@ -844,8 +855,10 @@ export default function ReadOnlyOrderModal({ open, order, viewMode, locale, onCl
         <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"
-            disabled={usePdfCalculatorLayout && (!calculatorState || calculatorLoading)}
-            onClick={() => downloadOrderPdf(order, viewMode, calculatorState)}
+            disabled={website.status === "loading" || (!website.view && usePdfCalculatorLayout && (!calculatorState || calculatorLoading))}
+            onClick={() =>
+              website.view ? downloadWebsitePartnerPdf(website.view, locale ?? "nb") : downloadOrderPdf(order, viewMode, calculatorState)
+            }
             className="customButtonEnabled disabled:cursor-not-allowed disabled:opacity-50"
           >
             Last ned PDF

@@ -58,3 +58,12 @@ Body `{ message? }`.
 - **More than 24h before the time window:** the order is cancelled straight away (`status` and `statusChangedAt`), the cancelled-order partner is filled in, the status change is logged, and staff are notified. Returns `{ mode: "cancelled" }`.
 - **Within 24h:** the status is left as it is. The cancellation request is logged as an inbound message in the order's Email Center thread, and staff get a notification. Returns `{ mode: "requested" }`.
 - **Closed order:** returns `409 ORDER_CLOSED`.
+
+## Homepage moves
+A `MOVING` order with stored answers is edited as a whole move (`moving`: addresses, both ends, services —
+`lib/orders/movingOrderEdit.ts`), classified into a delivery order's change kinds so the same 24h policy applies: anything
+until 24h before the job, then only contact details and adding services. A change is re-priced like a booking
+(`priceMovingOrder`, distance looked up again when an address moved), must confirm the shown total (`shownTotal`, else
+`SHOWN_TOTAL_REQUIRED`/`PRICE_CHANGED`), never makes a paid order cheaper (`WOULD_DECREASE_PRICE`), and is followed by the same
+history event, staff notification and "order updated" email as a delivery order. `GET` skips the white-goods catalog for a move.
+Tested in `route.moving.test.ts`.

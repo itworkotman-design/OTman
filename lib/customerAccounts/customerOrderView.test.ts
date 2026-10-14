@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({ findMany: vi.fn() }));
 
 vi.mock("@/lib/db", () => ({ prisma: { order: { findMany: mocks.findMany } } }));
 
-import { listCustomerOrders } from "./customerOrderView";
+import { customerOrderDetails, listCustomerOrders, type CustomerOrder } from "./customerOrderView";
 
 const createdAt = new Date("2026-10-10T10:14:00Z");
 const row = {
@@ -64,5 +64,44 @@ describe("listCustomerOrders", () => {
     const [order] = await listCustomerOrders("acc1");
 
     expect(order.progress.steps[3].at).toBeNull();
+  });
+});
+
+describe("customerOrderDetails — a homepage move", () => {
+  const apartment = { homeType: "APARTMENT", sizeOptionCode: "SIZE_UNDER_40", floors: 1, floorNumber: 1, hasLift: null, parking: "OUTSIDE" };
+  const house = { homeType: "DETACHED", sizeOptionCode: "SIZE_UNDER_40", floors: 2, floorNumber: null, hasLift: null, parking: "OUTSIDE" };
+  const move = {
+    websiteOrderKind: "MOVING",
+    websiteBookingDetails: { version: 1, customerType: "private", origin: apartment, destination: house, serviceCodes: ["SERVICE_FLYTTEVASK"] },
+    pickupAddress: "Karl Johans gate 1, Oslo",
+    deliveryAddress: "Bragernes torg 1, Drammen",
+    customerName: "Kari",
+    phone: "+47 12345678",
+    email: "kari@example.com",
+    customerComments: "Piano",
+    deliveryDate: "2026-10-22",
+    timeWindow: "10:00-16:00",
+    status: "processing",
+  } as unknown as CustomerOrder;
+
+  it("gives the customer the whole move to edit, like a delivery order's stops", () => {
+    expect(customerOrderDetails(move)).toEqual({
+      kind: "moving",
+      customer: { name: "Kari", phone: "+47 12345678", email: "kari@example.com", comments: "Piano" },
+      preferredDate: "2026-10-22",
+      timeWindow: "10:00-16:00",
+      customerType: "private",
+      moving: {
+        pickupAddress: "Karl Johans gate 1, Oslo",
+        deliveryAddress: "Bragernes torg 1, Drammen",
+        origin: apartment,
+        destination: house,
+        serviceCodes: ["SERVICE_FLYTTEVASK"],
+      },
+    });
+  });
+
+  it("falls back to contact + date for a move booked before its answers were stored", () => {
+    expect(customerOrderDetails({ ...move, websiteBookingDetails: null } as unknown as CustomerOrder).kind).toBe("basic");
   });
 });

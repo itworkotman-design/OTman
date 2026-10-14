@@ -22,3 +22,9 @@ Read-only data for the admin `WebsiteOrderModal`. It's kept separate from `GET /
 `DashboardOrderModal` treats every non-ok answer as "use the regular `OrderModal`".
 
 `order.hasCustomerLogin` is true when the order is linked to a live "My order" login (not past its delete time) whose email is the order's current email. The modal then hides "Send new login".
+
+## Homepage moves
+A `MOVING` order with stored answers returns `{ kind: "moving", moving: { edit, customerType, preferredDate, timeWindow,
+drivingDistance }, sizeOptions, products, orderExtras, totalsCheck, partner (admins only), calculator: null }` — its lines read
+from `Order.items` (`movingOrderPriceView`), no white-goods calculator. The fields every website order shares are built once
+(`base`). A move booked before its answers were stored still answers `NOT_WHITE_GOODS_WEBSITE_ORDER` (regular modal).

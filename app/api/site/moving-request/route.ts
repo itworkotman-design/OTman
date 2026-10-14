@@ -1,28 +1,17 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { movingCarrySurchargeLines, movingDistanceLines, movingFloorSurchargeLines, movingOrderPricing } from "@/lib/orders/movingOrderPricing";
-import { parseDistanceKm } from "@/lib/booking/pricing/orderCalculatorExtras";
-import { getRouteDistance } from "@/lib/integrations/mapbox/routeDistance";
+import { priceMovingOrder, movingOrderItemRows, type MovingQuote } from "@/lib/orders/movingOrderQuote";
+import { buildMovingBookingDetails, MOVING_ORDER_KIND, type MovingBookingDetails } from "@/lib/orders/movingBookingDetails";
+import { lookUpMovingDrivingDistance } from "@/lib/orders/movingDrivingDistance";
 import { movingOrderDescription } from "@/lib/orders/movingOrderDescription";
-import { movingChargeableFloors, movingPropertyLine, parseMovingProperty } from "@/lib/orders/movingProperty";
+import { parseMovingProperty } from "@/lib/orders/movingProperty";
 import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
 import { createOrderCreatedEvent, buildOrderEventSnapshot } from "@/lib/orders/orderEvents";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import { reservePublicOrderNumber } from "@/lib/orders/publicOrderNumber";
 import { welcomeWebsiteOrderCustomer } from "@/lib/customerAccounts/welcomeWebsiteOrderCustomer";
-import {
-  findMovingServiceOptions,
-  findMovingSizeOption,
-  getMovingCatalog,
-  type MovingCatalogOption,
-} from "@/lib/content/getMovingCatalog";
-import {
-  MOVING_CARRY_SURCHARGE_PRODUCT_CODE,
-  MOVING_DISTANCE_ITEM_CODE,
-  MOVING_FLOOR_SURCHARGE_PRODUCT_CODE,
-  MOVING_SERVICES_PRODUCT_CODE,
-} from "@/lib/content/movingCatalog";
+import { getMovingCatalog } from "@/lib/content/getMovingCatalog";
 import {
   validateEmailField,
   validatePhoneField,
@@ -67,18 +56,6 @@ function str(v: unknown): string | null {
   return s || null;
 }
 
-// Driving distance pickup → delivery (km, as Mapbox returns it), or "" when
-// the lookup fails.
-async function lookUpDrivingDistance(pickupAddress: string, deliveryAddress: string): Promise<string> {
-  try {
-    const result = await getRouteDistance({ pickupAddress: pickupAddress.trim(), deliveryAddress: deliveryAddress.trim() });
-    return result?.distanceKm ?? "";
-  } catch (err) {
-    console.error("[moving-request] Driving distance lookup failed:", err);
-    return "";
-  }
-}
-
 class CatalogNotSeededError extends Error {
   constructor() {
     super("Moving catalog not seeded — run `npm run seed:moving-catalog`");
@@ -88,28 +65,16 @@ class CatalogNotSeededError extends Error {
 async function createMovingRequest(
   body: RequestBody,
   {
-    sizeOption,
-    originLine,
-    destinationLine,
-    services,
-    floorSurchargeLines,
-    carrySurchargeLines,
+    quote,
     drivingDistance,
-    distanceLines,
+    bookingDetails,
   }: {
-    // The origin's size bracket — what the move is priced on.
-    sizeOption: MovingCatalogOption;
-    originLine: string;
-    destinationLine: string;
-    services: MovingCatalogOption[];
-    // No-lift floor surcharge, one line per end (movingFloorSurchargeLines).
-    floorSurchargeLines: ReturnType<typeof movingFloorSurchargeLines>;
-    // Carrying-distance surcharge, one line per end (movingCarrySurchargeLines).
-    carrySurchargeLines: ReturnType<typeof movingCarrySurchargeLines>;
-    // Driving distance pickup → delivery as looked up here ("" if it failed),
-    // and its km charge (movingDistanceLines).
+    // The move priced from the catalog (priceMovingOrder).
+    quote: MovingQuote;
+    // Driving distance pickup → delivery as looked up here ("" if it failed).
     drivingDistance: string;
-    distanceLines: ReturnType<typeof movingDistanceLines>;
+    // The customer's answers, kept for the admin modal (movingBookingDetails).
+    bookingDetails: MovingBookingDetails;
   },
 ): Promise<{ orderId: string; displayId: number; orderNumber: string | null }> {
   const membershipId = process.env.WEBSITE_MEMBERSHIP_ID;
@@ -129,20 +94,13 @@ async function createMovingRequest(
   const orderNumber = await reservePublicOrderNumber(prisma, membership.companyId);
 
   const description = movingOrderDescription({
-    originLine,
-    destinationLine,
-    serviceLabels: services.map((service) => service.labelEn),
+    originLine: quote.originLine,
+    destinationLine: quote.destinationLine,
+    serviceLabels: quote.services.map((service) => service.labelEn),
     notes: str(body.notes),
   });
-  const summary = [
-    `Moving (${sizeOption.labelEn})`,
-    ...services.map((service) => service.labelEn),
-    ...floorSurchargeLines.map((line) => line.labelEn),
-    ...carrySurchargeLines.map((line) => line.labelEn),
-    ...distanceLines.map((line) => line.labelEn),
-  ].join(" + ");
-
-  const movingPricing = movingOrderPricing(sizeOption, [...services, ...floorSurchargeLines, ...carrySurchargeLines, ...distanceLines]);
+  const summary = quote.summary;
+  const movingPricing = quote.pricing;
   const order = await prisma.order.create({
     data: {
       companyId: membership.companyId,
@@ -152,12 +110,16 @@ async function createMovingRequest(
       orderNumber,
       status: "processing",
       isWebsiteOrder: true,
+      // Opens in the admin WebsiteOrderModal, with the answers as cards.
+      websiteOrderKind: MOVING_ORDER_KIND,
+      websiteBookingDetails: bookingDetails as unknown as Prisma.InputJsonValue,
       pickupAddress: str(body.pickupAddress),
       deliveryAddress: str(body.deliveryAddress),
       drivingDistance: drivingDistance || null,
       customerName: str(body.name),
       phone: str(body.phone),
       email: str(body.email),
+      customerComments: str(body.notes),
       deliveryDate: str(body.preferredDate),
       timeWindow: str(body.timeWindow),
       description,
@@ -168,90 +130,10 @@ async function createMovingRequest(
     },
   });
 
-  await prisma.orderItem.create({
-    data: {
-      orderId: order.id,
-      cardId: 0,
-      productCode: "MOVING_BY_SIZE",
-      productName: "Moving",
-      itemType: "product",
-      optionCode: sizeOption.code,
-      optionLabel: sizeOption.labelEn,
-      quantity: 1,
-      customerPriceCents: sizeOption.customerPriceCents,
-      subcontractorPriceCents: sizeOption.subcontractorPriceCents,
-    },
+  // One line per priced line: size, services, floor/carry surcharges, km.
+  await prisma.orderItem.createMany({
+    data: movingOrderItemRows(quote).map((row) => ({ ...row, orderId: order.id })),
   });
-
-  for (const service of services) {
-    await prisma.orderItem.create({
-      data: {
-        orderId: order.id,
-        cardId: 0,
-        productCode: MOVING_SERVICES_PRODUCT_CODE,
-        productName: "Additional service",
-        itemType: "product",
-        optionCode: service.code,
-        optionLabel: service.labelEn,
-        quantity: 1,
-        customerPriceCents: service.customerPriceCents,
-        subcontractorPriceCents: service.subcontractorPriceCents,
-      },
-    });
-  }
-
-  for (const line of floorSurchargeLines) {
-    await prisma.orderItem.create({
-      data: {
-        orderId: order.id,
-        cardId: 0,
-        productCode: MOVING_FLOOR_SURCHARGE_PRODUCT_CODE,
-        productName: "Floor surcharge",
-        itemType: "product",
-        optionCode: line.code,
-        optionLabel: line.labelEn,
-        // Unit price per floor × chargeable floors.
-        quantity: line.quantity,
-        customerPriceCents: line.customerPriceCents / line.quantity,
-        subcontractorPriceCents: line.subcontractorPriceCents / line.quantity,
-      },
-    });
-  }
-
-  for (const line of carrySurchargeLines) {
-    await prisma.orderItem.create({
-      data: {
-        orderId: order.id,
-        cardId: 0,
-        productCode: MOVING_CARRY_SURCHARGE_PRODUCT_CODE,
-        productName: "Carrying distance",
-        itemType: "product",
-        optionCode: line.code,
-        optionLabel: line.labelEn,
-        quantity: 1,
-        customerPriceCents: line.customerPriceCents,
-        subcontractorPriceCents: line.subcontractorPriceCents,
-      },
-    });
-  }
-
-  for (const line of distanceLines) {
-    await prisma.orderItem.create({
-      data: {
-        orderId: order.id,
-        cardId: 0,
-        productCode: MOVING_DISTANCE_ITEM_CODE,
-        productName: "Driving distance",
-        itemType: "product",
-        optionCode: line.code,
-        optionLabel: line.labelEn,
-        // Per-km rate × chargeable km.
-        quantity: line.quantity,
-        customerPriceCents: line.customerPriceCents / line.quantity,
-        subcontractorPriceCents: line.subcontractorPriceCents / line.quantity,
-      },
-    });
-  }
 
   await createOrderCreatedEvent(prisma, {
     orderId: order.id,
@@ -349,48 +231,33 @@ export async function POST(req: Request) {
     const catalog = await getMovingCatalog();
     if (!catalog) throw new CatalogNotSeededError();
 
-    // The price is the origin's size bracket (how much gets moved); the
-    // destination's size is information for staff, but must still be real.
-    const origin = ends.origin.property;
-    const destination = ends.destination.property;
-    const originSize = findMovingSizeOption(catalog.options, origin.sizeOptionCode);
-    const destinationSize = findMovingSizeOption(catalog.options, destination.sizeOptionCode);
-    if (!originSize || !destinationSize) {
-      const sizeErrors: Record<string, string> = {};
-      if (!originSize) sizeErrors["origin.sizeOptionCode"] = "Unknown size option";
-      if (!destinationSize) sizeErrors["destination.sizeOptionCode"] = "Unknown size option";
-      return NextResponse.json({ ok: false, reason: "VALIDATION_FAILED", errors: sizeErrors }, { status: 422 });
-    }
-
-    const services = findMovingServiceOptions(catalog.services, body.serviceCodes);
-    if (!services) {
-      return NextResponse.json(
-        { ok: false, reason: "VALIDATION_FAILED", errors: { serviceCodes: "Unknown additional service" } },
-        { status: 422 },
-      );
+    const input = {
+      origin: ends.origin.property,
+      destination: ends.destination.property,
+      serviceCodes: body.serviceCodes,
+    };
+    // Sizes and services checked against the catalog first, so a bad request
+    // never costs a Mapbox lookup.
+    const checked = priceMovingOrder(catalog, { ...input, drivingDistance: "" });
+    if (!checked.ok) {
+      return NextResponse.json({ ok: false, reason: "VALIDATION_FAILED", errors: checked.errors }, { status: 422 });
     }
 
     // The km charge comes from the distance looked up here, never from the
     // client. A failed lookup charges no km (logged) — staff review every
     // website order before approving it anyway.
-    const drivingDistance = await lookUpDrivingDistance(s(body.pickupAddress), s(body.deliveryAddress));
+    const drivingDistance = await lookUpMovingDrivingDistance(s(body.pickupAddress), s(body.deliveryAddress));
+    const quote = priceMovingOrder(catalog, { ...input, drivingDistance });
+    if (!quote.ok) throw new Error("Moving order re-pricing failed after validation");
 
-    const result = await createMovingRequest(body, {
-      sizeOption: originSize,
-      originLine: movingPropertyLine(origin, originSize.labelEn),
-      destinationLine: movingPropertyLine(destination, destinationSize.labelEn),
-      services,
-      floorSurchargeLines: movingFloorSurchargeLines(catalog.floorSurcharge, [
-        { label: "moving from", chargeableFloors: movingChargeableFloors(origin) },
-        { label: "moving to", chargeableFloors: movingChargeableFloors(destination) },
-      ]),
-      carrySurchargeLines: movingCarrySurchargeLines(catalog.carrySurcharges ?? [], [
-        { label: "moving from", parking: origin.parking.code },
-        { label: "moving to", parking: destination.parking.code },
-      ]),
-      drivingDistance,
-      distanceLines: movingDistanceLines(catalog.distanceRates ?? null, parseDistanceKm(drivingDistance)),
+    const customerType = body.customerType === "private" || body.customerType === "business" ? body.customerType : null;
+    const bookingDetails = buildMovingBookingDetails({
+      customerType,
+      origin: input.origin,
+      destination: input.destination,
+      serviceCodes: quote.services.map((service) => service.code),
     });
+    const result = await createMovingRequest(body, { quote, drivingDistance, bookingDetails });
     return NextResponse.json({ ok: true, ...result }, { status: 200 });
   } catch (err) {
     console.error("[moving-request] Order creation failed:", err);

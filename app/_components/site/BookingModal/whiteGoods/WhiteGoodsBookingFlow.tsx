@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SteppedModal, AnimatedStack, type FinalStep, type StepSection } from "../SteppedModal";
 import { AutoAdvance } from "../AutoAdvance";
 import { WhiteGoodsProductCard } from "./WhiteGoodsProductCard";
@@ -32,8 +32,8 @@ import { withPickupContacts, type CustomerEditDraft } from "@/app/_components/si
 import type { AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
 import type { WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import { ContactDetailsCard } from "./ContactDetailsCard";
-import { PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import { buildOrderReviewBlocks, type ReviewInput } from "./orderReview";
+import { OrderReviewBlocks, ReviewTotalFooter } from "./OrderReviewParts";
 import { hasAddableServices } from "./bookedServices";
 import { PickupContactPersonsCard, type PickupContactPerson } from "./PickupContactPersonsCard";
 import { WhiteGoodsProductGrid, productLabel } from "./WhiteGoodsProductGrid";
@@ -1370,22 +1370,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]">
             <div className="flex flex-col gap-4">
-              {reviewBlocks.map((block) => (
-                <div key={block.title} className="rounded-2xl border border-black/10 bg-white p-6">
-                  <h3 className="flex items-center gap-2 text-base font-semibold text-logoblue">
-                    {block.kind === "location" && <PinIcon />}
-                    {block.title}
-                  </h3>
-                  <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-                    {block.rows.map((row) => (
-                      <Fragment key={row.label}>
-                        <dt className="text-black/50">{row.label}</dt>
-                        <dd className="break-words text-black/85">{row.value}</dd>
-                      </Fragment>
-                    ))}
-                  </dl>
-                </div>
-              ))}
+              <OrderReviewBlocks blocks={reviewBlocks} />
             </div>
 
             <div className="flex flex-col gap-4 lg:self-start">
@@ -1397,27 +1382,11 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
                 totalIncVat={customerTotals.totalIncVat}
                 customerType={customerType ?? "private"}
                 totalFooter={
-                  <div className="flex flex-col gap-2 text-sm text-black/70">
-                    <div
-                      className={`flex justify-between ${finalVatDisplay.primary === "exVat" ? "font-semibold text-black/85" : ""}`}
-                    >
-                      <span>{t("Subtotal (ex. VAT)", "Delsum (eks. mva)")}</span>
-                      <span className="tabular-nums">{finalVatBreakdown.exVat.toLocaleString("nb-NO")} kr</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>{t("VAT (25%)", "MVA (25%)")}</span>
-                      <span className="tabular-nums">{finalVatBreakdown.vat.toLocaleString("nb-NO")} kr</span>
-                    </div>
-                    {/* What the customer actually pays — highlighted so it can't be missed. */}
-                    <div className="mt-2 flex items-center justify-between gap-4 rounded-xl bg-logoblue/10 px-4 py-5">
-                      <span className="text-base font-semibold text-logoblue">
-                        {t("Total incl. VAT", "Totalt inkl. MVA")}
-                      </span>
-                      <span className="whitespace-nowrap text-3xl font-bold tabular-nums text-logoblue">
-                        {finalVatBreakdown.incVat.toLocaleString("nb-NO")} kr
-                      </span>
-                    </div>
-                  </div>
+                  <ReviewTotalFooter
+                    locale={locale}
+                    {...finalVatBreakdown}
+                    emphasiseExVat={finalVatDisplay.primary === "exVat"}
+                  />
                 }
               />
 

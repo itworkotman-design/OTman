@@ -2,6 +2,9 @@ import { prisma } from "@/lib/db";
 import { getOrderChargeAmountIncVatNok } from "@/lib/orders/orderTotals";
 import { getCustomerEditPermissions, type CustomerEditPermissions } from "@/lib/orders/customerOrderEditPolicy";
 import { editableDetailsFromOrder, type AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
+import { MOVING_ORDER_KIND, parseMovingBookingDetails } from "@/lib/orders/movingBookingDetails";
+import { movingEditFromOrder, type MovingEdit } from "@/lib/orders/movingOrderEdit";
+import type { BookingCustomerType } from "@/lib/orders/websiteBookingDetails";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { buildOrderProgress } from "./orderProgress";
 import { customerOrderProducts } from "./customerOrderProducts";
@@ -96,13 +99,25 @@ export async function findCustomerOrder(accountId: string, orderNumber: string) 
 
 export type CustomerOrder = NonNullable<Awaited<ReturnType<typeof findCustomerOrder>>>;
 
+type CustomerContact = { name: string; phone: string; email: string; comments: string };
+
 // What the customer edits: the full details (stops, delivery) on a homepage
-// catalog order, just contact + date on the others (moving, quotes).
+// catalog order, the whole move (both ends, services) on a homepage move,
+// just contact + date on the others (quotes, moves booked before their
+// answers were stored).
 export type CustomerOrderDetails =
   | (AdminOrderDetails & { kind: "catalog" })
   | {
+      kind: "moving";
+      customer: CustomerContact;
+      preferredDate: string;
+      timeWindow: string;
+      customerType: BookingCustomerType | null;
+      moving: MovingEdit;
+    }
+  | {
       kind: "basic";
-      customer: { name: string; phone: string; email: string; comments: string };
+      customer: CustomerContact;
       preferredDate: string;
       timeWindow: string;
     };
@@ -110,8 +125,7 @@ export type CustomerOrderDetails =
 export function customerOrderDetails(order: CustomerOrder): CustomerOrderDetails {
   const full = order.websiteOrderKind === "WHITE_GOODS" ? editableDetailsFromOrder(order) : null;
   if (full) return { ...full, kind: "catalog" };
-  return {
-    kind: "basic",
+  const basics = {
     customer: {
       name: order.customerName ?? "",
       phone: order.phone ?? "",
@@ -121,6 +135,16 @@ export function customerOrderDetails(order: CustomerOrder): CustomerOrderDetails
     preferredDate: order.deliveryDate ?? "",
     timeWindow: order.timeWindow ?? "",
   };
+  const moving = order.websiteOrderKind === MOVING_ORDER_KIND ? movingEditFromOrder(order) : null;
+  if (moving) {
+    return {
+      kind: "moving",
+      ...basics,
+      customerType: parseMovingBookingDetails(order.websiteBookingDetails)?.customerType ?? null,
+      moving,
+    };
+  }
+  return { kind: "basic", ...basics };
 }
 
 export function customerOrderTotalIncVatNok(order: {
@@ -163,7 +187,7 @@ export function customerOrderView(order: CustomerOrder, now: Date = new Date()) 
       // reason, which the customer needs to know what to change.
       rejectionNote: normalizeOrderStatus(order.status) === "rejected" ? order.statusNotes?.trim() || null : null,
     },
-    permissions: { ...permissions, canEditItems: permissions.canEditItems && details.kind === "catalog" },
+    permissions: { ...permissions, canEditItems: permissions.canEditItems && (details.kind === "catalog" || details.kind === "moving") },
     details,
   };
 }

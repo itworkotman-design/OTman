@@ -3,10 +3,15 @@
 import type { PriceChangeRow } from "@/lib/booking/pricing/priceChanges";
 import { Fragment, useCallback, useState } from "react";
 import { createPortal } from "react-dom";
-import { PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import { buildOrderReviewBlocks } from "@/app/_components/site/BookingModal/whiteGoods/orderReview";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
-import type { WhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetails";
+import type { BookingCustomerType, OrderExtraLine, WhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetails";
+import type { MovingCatalogOption } from "@/lib/content/getMovingCatalog";
+import type { MovingEdit } from "@/lib/orders/movingOrderEdit";
+import type { MovingOrderPriceView } from "@/lib/orders/movingOrderView";
+import { buildMovingReviewBlocks } from "@/app/_components/site/BookingModal/moving/movingReview";
+import { OrderReviewBlocks } from "@/app/_components/site/BookingModal/whiteGoods/OrderReviewParts";
+import MovingOrderEditTab from "./MovingOrderEditTab";
 import type { ProductGroup } from "@/lib/orders/websiteOrderProducts";
 import WebsiteOrderAdminActions from "./WebsiteOrderAdminActions";
 import WebsiteOrderEditTab from "./WebsiteOrderEditTab";
@@ -20,8 +25,9 @@ import WebsiteOrderCalculator from "./WebsiteOrderCalculator";
 import type { WebsiteOrderCalculatorView, WebsiteOrderPricingDraft } from "@/lib/orders/websiteOrderCalculator";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 
-// What GET /api/orders/[orderId]/website-details returns.
-export type WebsiteOrderView = {
+// What GET /api/orders/[orderId]/website-details returns — the same for every
+// website order…
+type WebsiteOrderBase = {
   id: string;
   displayId: number;
   orderNumber: string | null;
@@ -33,7 +39,6 @@ export type WebsiteOrderView = {
   customerComments: string | null;
   statusNotes: string | null;
   priceExVat: number;
-  details: WhiteGoodsBookingDetails;
   products: ProductGroup[];
   // Lines vs total vs what the customer was shown (checkWebsiteOrderTotals).
   totalsCheck: {
@@ -52,6 +57,32 @@ export type WebsiteOrderView = {
   payment: OrderPaymentComparison;
   // Fields only an admin handles (driver, deviation, discount…).
   handling: WebsiteOrderHandling;
+};
+
+// …plus, for a homepage move, its answers and its lines read from the order
+// (no white-goods calculator; edited in MovingOrderEditTab).
+export type MovingWebsiteOrderView = WebsiteOrderBase & {
+  kind: "moving";
+  moving: {
+    edit: MovingEdit;
+    customerType: BookingCustomerType | null;
+    preferredDate: string;
+    timeWindow: string;
+    drivingDistance: string;
+  };
+  sizeOptions: MovingCatalogOption[];
+  orderExtras: OrderExtraLine[];
+  // The partner's price per line — null for who may not see it.
+  partner: MovingOrderPriceView | null;
+  calculator: null;
+};
+
+export type WebsiteOrderView = MovingWebsiteOrderView | WhiteGoodsWebsiteOrderView;
+
+// …or, for a white-goods (delivery) order, its stops and the calculator.
+export type WhiteGoodsWebsiteOrderView = WebsiteOrderBase & {
+  kind?: undefined;
+  details: WhiteGoodsBookingDetails;
   // Customer and partner price per line (null when the order can't be priced).
   calculator: WebsiteOrderCalculatorView | null;
   // The customer total at today's catalog prices — "Use new price" when it differs.
@@ -81,9 +112,11 @@ function formatKr(n: number) {
 }
 
 
-// Read-only admin view of a homepage white-goods website order: every pickup
-// stop, the delivery, the customer, and the itemized price — laid out like
-// the customer's own summary page. Opened by DashboardOrderModal.
+// Admin view of a homepage website order — a white-goods delivery (every
+// pickup stop, the delivery, the calculator) or a move (both ends, timing,
+// its priced lines and the partner's side) — with the customer, laid out like
+// the customer's own summary page, and an "Edit order" tab for each kind
+// (WebsiteOrderEditTab / MovingOrderEditTab). Opened by DashboardOrderModal.
 export default function WebsiteOrderModal({
   order,
   onClose,
@@ -126,20 +159,37 @@ export default function WebsiteOrderModal({
   ].filter((warning): warning is string => warning !== null);
   const canEditOrder = !LOCKED_STATUSES.has(normalizeOrderStatus(order.status));
 
-  const { details } = order;
-  const reviewBlocks = buildOrderReviewBlocks(locale === "nb" ? "no" : "en", {
-    pickups: details.pickups,
-    delivery: details.delivery,
-    preferredDate: details.preferredDate,
-    timeWindow: details.timeWindow,
-    drivingDistance: details.drivingDistance,
-    contact: {
-      name: order.customerName ?? "",
-      phone: order.phone ?? "",
-      email: order.email ?? "",
-      notes: order.customerComments ?? "",
-    },
-  });
+  const contact = {
+    name: order.customerName ?? "",
+    phone: order.phone ?? "",
+    email: order.email ?? "",
+    notes: order.customerComments ?? "",
+  };
+  const siteLocale = locale === "nb" ? "no" : "en";
+  // The answers as cards — a move's two ends and timing, or a delivery's stops.
+  const reviewBlocks =
+    order.kind === "moving"
+      ? buildMovingReviewBlocks(siteLocale, {
+          pickupAddress: order.moving.edit.pickupAddress,
+          deliveryAddress: order.moving.edit.deliveryAddress,
+          origin: order.moving.edit.origin,
+          destination: order.moving.edit.destination,
+          sizeOptions: order.sizeOptions,
+          preferredDate: order.moving.preferredDate,
+          timeWindow: order.moving.timeWindow,
+          drivingDistance: order.moving.drivingDistance,
+          contact,
+        })
+      : buildOrderReviewBlocks(siteLocale, {
+          pickups: order.details.pickups,
+          delivery: order.details.delivery,
+          preferredDate: order.details.preferredDate,
+          timeWindow: order.details.timeWindow,
+          drivingDistance: order.details.drivingDistance,
+          contact,
+        });
+  const orderExtras = order.kind === "moving" ? order.orderExtras : order.details.orderExtras;
+  const customerType = order.kind === "moving" ? order.moving.customerType : order.details.customerType;
   // Stored ex. VAT; what the customer pays (incl. VAT, summed per line) is the
   // payment comparison's current total.
   const vat = {
@@ -151,9 +201,9 @@ export default function WebsiteOrderModal({
   const { rabatt, leggTil, subcontractorMinus, subcontractorPlus, ...panelHandling } = order.handling;
   const calculatorAdjustments = { rabatt, leggTil, subcontractorMinus, subcontractorPlus };
   const customerTypeLabel =
-    details.customerType === "business"
+    customerType === "business"
       ? t("Business", "Bedrift")
-      : details.customerType === "private"
+      : customerType === "private"
         ? t("Private", "Privat")
         : null;
 
@@ -302,7 +352,25 @@ export default function WebsiteOrderModal({
             {tab === "edit" && deleteError && (
               <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{deleteError}</p>
             )}
-            {tab === "edit" ? (
+            {tab === "edit" && order.kind === "moving" ? (
+              <MovingOrderEditTab
+                orderId={order.id}
+                locale={locale}
+                initial={{
+                  edit: order.moving.edit,
+                  customer: { name: contact.name, phone: contact.phone, email: contact.email, comments: contact.notes },
+                }}
+                onDirtyChange={handleEditDirtyChange}
+                onCancel={() => switchTab("overview")}
+                besideSave={deleteButton}
+                onSaved={(message) => {
+                  setEditDirty(false);
+                  setTab("overview");
+                  setEditNotice(message);
+                  onChanged();
+                }}
+              />
+            ) : tab === "edit" && order.kind !== "moving" ? (
               <WebsiteOrderEditTab
                 orderId={order.id}
                 locale={locale}
@@ -323,22 +391,7 @@ export default function WebsiteOrderModal({
             ) : (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
               <div className="flex flex-col gap-4">
-                {reviewBlocks.map((block) => (
-                  <div key={block.title} className="rounded-2xl border border-black/10 bg-white p-6">
-                    <h3 className="flex items-center gap-2 text-base font-semibold text-logoblue">
-                      {block.kind === "location" && <PinIcon />}
-                      {block.title}
-                    </h3>
-                    <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-                      {block.rows.map((row) => (
-                        <Fragment key={row.label}>
-                          <dt className="text-black/50">{row.label}</dt>
-                          <dd className="wrap-break-word whitespace-pre-line text-black/85">{row.value}</dd>
-                        </Fragment>
-                      ))}
-                    </dl>
-                  </div>
-                ))}
+                <OrderReviewBlocks blocks={reviewBlocks} />
 
                 {order.statusNotes?.trim() && (
                   <div className="rounded-2xl border border-black/10 bg-white p-6">
@@ -361,6 +414,10 @@ export default function WebsiteOrderModal({
                   }}
                   priceChangeSlotRef={setPriceChangeSlot}
                   besideSave={deleteButton}
+                  // A move saves its handling through its own route, without the white-goods price fields.
+                  {...(order.kind === "moving"
+                    ? { handlingEndpoint: `/api/orders/${order.id}/moving-details`, priceFields: false }
+                    : {})}
                 >
                   <WebsiteOrderAttachments
                     key={attachmentsVersion}
@@ -379,7 +436,7 @@ export default function WebsiteOrderModal({
                   <h3 className="mb-3 text-lg font-semibold text-logoblue">{t("Payment", "Betaling")}</h3>
                   <WebsiteOrderPaymentSummary comparison={order.payment} locale={locale} />
                 </div>
-                {order.calculator ? (
+                {order.kind !== "moving" && order.calculator ? (
                   <WebsiteOrderCalculator
                     key={`${order.priceExVat}|${JSON.stringify(order.calculator)}|${JSON.stringify(calculatorAdjustments)}`}
                     orderId={order.id}
@@ -438,13 +495,13 @@ export default function WebsiteOrderModal({
                     </div>
                   )}
 
-                  {details.orderExtras.length > 0 && (
+                  {orderExtras.length > 0 && (
                     <div className="mt-4 border-t border-black/10 pt-4">
                       <p className="text-xs font-semibold uppercase tracking-wide text-black/45">
                         {t("Order extras", "Tillegg til ordren")}
                       </p>
                       <div className="mt-2 grid grid-cols-[1fr_auto_auto] items-center gap-x-3 gap-y-1.5 pl-1 text-sm">
-                        {details.orderExtras.map((line, index) => (
+                        {orderExtras.map((line, index) => (
                           <Fragment key={index}>
                             <span className="flex items-center gap-2 text-black/60">
                               <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-logoblue" />
@@ -494,6 +551,25 @@ export default function WebsiteOrderModal({
                     </div>
                   </div>
                 </div>
+                )}
+                {/* A move's partner price, line by line (admins only). */}
+                {order.kind === "moving" && order.partner && (
+                  <div className="rounded-2xl border border-black/10 bg-white p-6">
+                    <h3 className="text-lg font-semibold text-logoblue">{t("Partner", "Partner")}</h3>
+                    <p className="text-xs text-black/45">{t("What the partner is paid, ex. VAT", "Hva partneren får, eks. mva")}</p>
+                    <div className="mt-3 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1.5 text-sm">
+                      {[...order.partner.products.flatMap((product) => product.items), ...order.partner.orderExtras].map((line, index) => (
+                        <Fragment key={index}>
+                          <span className="text-black/60">{line.label}</span>
+                          <span className="text-right font-medium tabular-nums text-black/70">{formatKr(line.price)}</span>
+                        </Fragment>
+                      ))}
+                    </div>
+                    <div className="mt-3 flex justify-between border-t border-black/10 pt-3 font-semibold text-black/85">
+                      <span>{t("Partner total", "Partner totalt")}</span>
+                      <span className="tabular-nums">{formatKr(order.partner.total)}</span>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

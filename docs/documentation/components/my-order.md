@@ -45,3 +45,7 @@ What **Endre bestilling** opens depends on the order:
 **`CustomerOrderEditFooter`** prices every change on the server (debounced `dryRun`). It shows the old and new totals incl. VAT (`previousTotalIncVat` / `totalIncVat`); within 24h of the job (`beforeCutoff` false) only the price of the added services (the difference), and nothing when that is 0. It saves with `shownTotal` set to that total. If the server answers `PRICE_CHANGED`, it updates the price and asks the customer to save again. While `blockedMessage` is set (a product without a pickup address), that message is shown and Save is disabled. `PRODUCT_WITHOUT_PICKUP` from the server shows the same kind of message. With `onOpenSummary` set and the order before the cutoff, the button opens the summary instead of saving, until `summaryOpen` is true (`customerEditPrimaryAction` in `customerEditPayload.ts`).
 
 **`buildCustomerEditPayload`** sends only the parts that differ from the order as loaded. After the cutoff it never sends the date or the delivery, and sends the stops only when a pickup contact person changed: the stops as loaded with just the new contact persons (`withPickupContacts`).
+
+Homepage moves: `CustomerOrderClient` opens `MovingRequestFlow` in its `customer` mode for `details.kind === "moving"`
+(like `WhiteGoodsBookingFlow` for a delivery order). `customerEditPayload.ts` sends a move (`moving`) only when it changed,
+and within 24h only its services, on the move exactly as loaded.

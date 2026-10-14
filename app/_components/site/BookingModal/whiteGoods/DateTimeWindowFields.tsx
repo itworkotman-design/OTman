@@ -47,6 +47,9 @@ export function DateTimeWindowFields({
           minDate={addDaysIso(getOsloDateKey(), 1)}
           blockedWeekdays={[0]}
           isDateBlocked={isNorwegianPublicHoliday}
+          // The last field of a long modal: opening upward keeps the
+          // calendar on screen instead of below the fold.
+          openUpward
         />
       </label>
       <label className="block">

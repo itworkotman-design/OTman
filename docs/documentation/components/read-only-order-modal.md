@@ -60,3 +60,5 @@ Renders the read-only role calculator through the same `CalculatorDisplayNew` co
 
 ### `ReadOnlyOrderModal(props)`
 Renders the read-only modal. Subcontractor and order-creator views use the order-detail table plus calculator panel, order creators no longer get a separate contact button because contact opens from the archive alert column, and other roles keep the previous details and totals layout.
+
+A homepage website order (delivery or move) is shown through `WebsitePartnerOrderView` from `/api/orders/[orderId]/partner-view` — stored prices, the same cards as the admin modal — and never re-priced with the dashboard engine (`useAdminCalculatorState` only runs for other orders). Its PDF is `downloadWebsitePartnerPdf`.

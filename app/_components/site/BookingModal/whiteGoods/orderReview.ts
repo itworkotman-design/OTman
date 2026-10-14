@@ -9,8 +9,9 @@ import type { PickupSource } from "./PickupSourceStep";
 // WhiteGoodsOrderSummary next to these.
 
 export type ReviewRow = { label: string; value: string };
-// "location" blocks (pickups, delivery) get a location pin on the review page.
-export type ReviewBlock = { kind: "location" | "contact"; title: string; rows: ReviewRow[] };
+// "location" blocks (pickups, delivery, a move's two ends) get a location pin
+// on the review page; "details" (a move's timing) and "contact" don't.
+export type ReviewBlock = { kind: "location" | "details" | "contact"; title: string; rows: ReviewRow[] };
 
 // The same stop shape that's stored on the order (Order.websiteBookingDetails),
 // so the admin WebsiteOrderModal renders a saved order through these blocks too.

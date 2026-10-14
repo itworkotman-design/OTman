@@ -22,3 +22,5 @@ Amounts are what the customer is charged (`getOrderChargeAmountIncVatNok`), incl
   - `totalPaidIncVatNok` (the sum of every payment), `currentTotalIncVatNok`, and `differenceIncVatNok` (current − paid).
   - `lineChanges` (added/removed/changed, with before/after and delta) and `detailChanges` (before/after). Both are measured against the **latest** payment that has a snapshot.
   - Payments made before snapshots existed (`hasPaidSnapshot: false`) still get the money outcome, but no itemized changes.
+
+A `MOVING` order's amounts are ex. VAT like a `WHITE_GOODS` one: its lines are compared incl. VAT (each line + 25 %, rounded).

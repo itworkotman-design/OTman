@@ -24,6 +24,10 @@ type Props = {
   // Extra per-date predicate for greying out/blocking individual days on
   // top of minDate/blockedWeekdays — e.g. public holidays.
   isDateBlocked?: (iso: string) => boolean;
+  // Opens the calendar above the field instead of below — for a field near
+  // the bottom of a scrolling modal, where a calendar opening downward lands
+  // off screen and has to be scrolled to.
+  openUpward?: boolean;
 };
 
 const WEEKDAY_LABELS: Record<DatePickerLocale, string[]> = {
@@ -59,6 +63,7 @@ export default function DatePicker({
   minDate,
   blockedWeekdays = [],
   isDateBlocked,
+  openUpward = false,
 }: Props) {
   const isDaySelectable = (iso: string): boolean => {
     if (minDate && compareIsoDate(iso, minDate) < 0) return false;
@@ -120,7 +125,7 @@ export default function DatePicker({
       </button>
 
       {open ? (
-        <div className="absolute left-0 top-[calc(100%+8px)] z-20 w-72 rounded-xl border border-black/10 bg-white p-3 shadow-xl">
+        <div className={`absolute left-0 ${openUpward ? "bottom-[calc(100%+8px)]" : "top-[calc(100%+8px)]"} z-20 w-72 rounded-xl border border-black/10 bg-white p-3 shadow-xl`}>
           <div className="mb-2 flex items-center justify-between gap-2">
             <button
               type="button"

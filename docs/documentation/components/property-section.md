@@ -16,8 +16,6 @@ Both close the sections after them again (`onRetract`) if an answer is cleared.
 ## Functions
 ### `PropertyWhereSection(props)` / `PropertyDetailsSection(props)`
 Controlled: `value`/`onChange` is the end's `MovingPropertyDraft`, shared by both sections.
-### `propertySummary(locale, draft, sizeOptions)`
-Customer-facing one-liner for the summary step, e.g. `Leilighet, Under 40 m², 1 etasje, heis: ja, parkering: innen 50 m`.
 ### `floorsLabel(locale, n)`
 `1 etasje` / `2 etasjer` (`floor`/`floors`).
 

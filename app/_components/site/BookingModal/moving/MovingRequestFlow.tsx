@@ -28,8 +28,12 @@ import {
   movingDraftChargeableFloors,
   type MovingPropertyDraft,
 } from "@/lib/orders/movingProperty";
-import { PropertyDetailsSection, PropertyWhereSection, floorsLabel, propertySummary } from "./PropertySection";
+import { PropertyDetailsSection, PropertyWhereSection } from "./PropertySection";
 import { movingSummary } from "./movingSummary";
+import CustomerOrderEditFooter from "@/app/_components/site/pageComponents/myOrder/CustomerOrderEditFooter";
+import type { CustomerEditDraft } from "@/app/_components/site/pageComponents/myOrder/customerEditPayload";
+import { buildMovingReviewBlocks } from "./movingReview";
+import { OrderReviewBlocks, ReviewTotalFooter } from "../whiteGoods/OrderReviewParts";
 import {
   isValidEmail,
   sanitizeEmailInput,
@@ -38,9 +42,21 @@ import {
   validatePhoneField,
 } from "@/lib/orders/websiteOrderValidation";
 
+// The same flow, opened by the customer on their own move in "My order"
+// (like the delivery modal's WhiteGoodsCustomerEdit): loaded from
+// /api/customer/orders/[orderNumber] with every section open, saved through
+// its PUT from the edit bar (CustomerOrderEditFooter). Within 24h of the job
+// only the contact details and adding services are left.
+export type MovingCustomerEdit = {
+  orderNumber: string;
+  beforeCutoff: boolean;
+  onSaved: (message: string) => void;
+};
+
 type Props = {
   locale: Locale;
   onClose: () => void;
+  customer?: MovingCustomerEdit;
 };
 
 
@@ -48,7 +64,7 @@ function formatKr(n: number) {
   return `${Math.round(n).toLocaleString("nb-NO")} kr`;
 }
 
-export function MovingRequestFlow({ locale, onClose }: Props) {
+export function MovingRequestFlow({ locale, onClose, customer }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
 
   const [catalogOptions, setCatalogOptions] = useState<MovingCatalogOption[]>([]);
@@ -155,6 +171,66 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitResult, setSubmitResult] = useState<{ orderNumber: string } | null>(null);
 
+  // "My order": the customer's own move, loaded into the flow's state.
+  const customerLocked = !!customer && !customer.beforeCutoff;
+  const [customerLoaded, setCustomerLoaded] = useState(!customer);
+  const [customerLoadError, setCustomerLoadError] = useState(false);
+  // The order as loaded — what the edit bar compares the flow with.
+  const [customerInitialDraft, setCustomerInitialDraft] = useState<CustomerEditDraft | null>(null);
+  const [customerSummaryOpen, setCustomerSummaryOpen] = useState(false);
+  useEffect(() => {
+    if (!customer) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/customer/orders/${encodeURIComponent(customer.orderNumber)}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const data = await res.json().catch(() => null);
+        const details = data?.details;
+        if (cancelled) return;
+        if (!res.ok || !data?.ok || details?.kind !== "moving") {
+          setCustomerLoadError(true);
+          return;
+        }
+        const moving = details.moving as CustomerEditDraft["moving"] & {
+          pickupAddress: string;
+          deliveryAddress: string;
+          origin: MovingPropertyDraft;
+          destination: MovingPropertyDraft;
+        };
+        setPickupAddress(moving.pickupAddress);
+        setDeliveryAddress(moving.deliveryAddress);
+        setPickupAddressSelected(true);
+        setDeliveryAddressSelected(true);
+        setOrigin(moving.origin);
+        setDestination(moving.destination);
+        setServiceCodes(moving.serviceCodes);
+        setPreferredDate(details.preferredDate);
+        setTimeWindow(details.timeWindow);
+        setName(details.customer.name);
+        setPhone(details.customer.phone);
+        setEmail(details.customer.email);
+        setNotes(details.customer.comments);
+        setCustomerType(details.customerType ?? "private");
+        setCustomerInitialDraft({
+          customer: details.customer,
+          preferredDate: details.preferredDate,
+          timeWindow: details.timeWindow,
+          moving,
+        });
+        setCustomerLoaded(true);
+      } catch {
+        if (!cancelled) setCustomerLoadError(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customer?.orderNumber]);
+
   const selectedOption = catalogOptions.find((o) => o.code === origin.sizeOptionCode) ?? null;
   const selectedServices = serviceOptions.filter((o) => serviceCodes.includes(o.code));
   // customerPriceCents is the price list's price, ex. VAT like every website
@@ -215,8 +291,12 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
       hideProductHints
     />
   );
-  const toggleService = (code: string) =>
+  // Within 24h of the job a booked service can't be removed — only added to.
+  const bookedServiceCodes = customerLocked ? (customerInitialDraft?.moving?.serviceCodes ?? []) : [];
+  const toggleService = (code: string) => {
+    if (bookedServiceCodes.includes(code)) return;
     setServiceCodes((codes) => (codes.includes(code) ? codes.filter((c) => c !== code) : [...codes, code]));
+  };
 
   const canContinueTiming = !!preferredDate && isTimeWindowComplete(timeWindow);
   const canSubmit =
@@ -240,6 +320,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
           origin,
           destination,
           serviceCodes,
+          customerType,
           preferredDate,
           timeWindow,
           name,
@@ -486,6 +567,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
           {/* The one explicit button, as in the delivery modal: moving on swaps
               the modal to the summary, so it mustn't fire the moment the email
               first parses as valid while still being typed, or before notes. */}
+          {!customer && (
           <button
             type="button"
             disabled={!canSubmit}
@@ -494,10 +576,23 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
           >
             {t("Go to summary", "Gå til oppsummering")}
           </button>
+          )}
         </div>
       ),
     },
   ];
+
+  const reviewBlocks = buildMovingReviewBlocks(locale, {
+    pickupAddress,
+    deliveryAddress,
+    origin,
+    destination,
+    sizeOptions: catalogOptions,
+    preferredDate,
+    timeWindow,
+    drivingDistance,
+    contact: { name, phone, email, notes },
+  });
 
   const finalStep: FinalStep = {
     render: ({ onBack }) =>
@@ -512,7 +607,10 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-5">
+        // Same layout as the delivery modal's review page: the answers as
+        // cards on the left, the order summary (size, services, surcharges,
+        // km) with the VAT breakdown and the send button on the right.
+        <div className="flex flex-col gap-6">
           <button
             type="button"
             onClick={onBack}
@@ -522,96 +620,123 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
             {t("Back", "Tilbake")}
           </button>
 
-          <div>
-            <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">
-              {t("Summary", "Oppsummering")}
-            </h4>
-            <div className="mt-3 flex flex-col gap-1 text-sm text-black/70">
-              {[
-                { label: t("From", "Fra"), address: pickupAddress, property: origin },
-                { label: t("To", "Til"), address: deliveryAddress, property: destination },
-              ].map((end) => (
-                <div key={end.label} className="flex justify-between gap-4">
-                  <span>{end.label}</span>
-                  <span className="text-right">
-                    {end.address || "—"}
-                    <span className="block text-xs text-black/45">
-                      {propertySummary(locale, end.property, catalogOptions)}
-                    </span>
-                  </span>
-                </div>
-              ))}
-              {selectedServices.map((service) => (
-                <div key={service.code} className="flex justify-between gap-4">
-                  <span>{locale === "no" ? service.labelNo : service.labelEn}</span>
-                  <span>+ {formatKr(linePrice(service))}</span>
-                </div>
-              ))}
-              {floorLines.map((line) => (
-                <div key={line.end} className="flex justify-between gap-4">
-                  <span>
-                    {t("Floor surcharge", "Etasjetillegg")}, {line.end} ({floorsLabel(locale, line.quantity)})
-                  </span>
-                  <span>+ {formatKr(linePrice(line))}</span>
-                </div>
-              ))}
-              {carryLines.map((line) => (
-                <div key={line.end} className="flex justify-between gap-4">
-                  <span>
-                    {locale === "no" ? line.labelNo : line.labelEn}, {line.end}
-                  </span>
-                  <span>+ {formatKr(linePrice(line))}</span>
-                </div>
-              ))}
-              {distanceLines.map((line) => (
-                <div key={line.code} className="flex justify-between gap-4">
-                  <span>
-                    {t("Distance", "Kjøring")} ({line.quantity} km)
-                  </span>
-                  <span>+ {formatKr(linePrice(line))}</span>
-                </div>
-              ))}
-              <div className="flex justify-between gap-4">
-                <span>{t("Date", "Dato")}</span>
-                <span>
-                  {preferredDate} · {timeWindow.replace(/:00/g, "")}
-                </span>
-              </div>
+          <h4 className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">
+            {t("Summary", "Oppsummering")}
+          </h4>
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]">
+            <div className="flex flex-col gap-4">
+              <OrderReviewBlocks blocks={reviewBlocks} />
             </div>
 
-            <div className="mt-4 border-t border-black/10 pt-3">
-              <div className="flex items-center justify-between">
-                <span className="text-base font-semibold text-logoblue">{t("Total", "Totalt")}</span>
-                <span className="text-lg font-semibold text-logoblue">{formatKr(vatDisplay.primaryAmount)}</span>
-              </div>
-              <div className="mt-0.5 flex items-center justify-end">
-                <span className="text-xs text-black/45">
-                  {formatKr(vatDisplay.secondaryAmount)} {vatDisplay.primary === "incVat" ? t("ex. VAT", "eks. mva") : t("incl. VAT", "inkl. mva")}
-                </span>
-              </div>
+            <div className="flex flex-col gap-4 lg:self-start">
+              <WhiteGoodsOrderSummary
+                locale={locale}
+                products={summary.products}
+                orderExtras={summary.orderExtras}
+                totalExVat={totals.totalExVat}
+                totalIncVat={totals.totalIncVat}
+                customerType={customerType ?? "private"}
+                hideProductHints
+                totalFooter={
+                  <ReviewTotalFooter
+                    locale={locale}
+                    exVat={totals.totalExVat}
+                    vat={totals.totalIncVat - totals.totalExVat}
+                    incVat={totals.totalIncVat}
+                    emphasiseExVat={vatDisplay.primary === "exVat"}
+                  />
+                }
+              />
+
+              <p className="text-xs leading-relaxed text-black/50">
+                {t(
+                  "This price is based on the approximate size you selected — the final price is confirmed when we review your booking. You'll get a payment link by email once it's approved.",
+                  "Denne prisen er basert på den omtrentlige størrelsen du valgte — endelig pris bekreftes når vi har gått gjennom bestillingen. Du får en betalingslenke på e-post når den er godkjent.",
+                )}
+              </p>
+
+              {/* "My order" saves from its edit bar (CustomerOrderEditFooter). */}
+              {!customer && submitError && <p className="text-sm text-red-600">{submitError}</p>}
+
+              {!customer && (
+              <button
+                type="button"
+                disabled={!canSubmit}
+                onClick={handleSubmit}
+                className="inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:pointer-events-none disabled:opacity-40"
+              >
+                {submitLoading ? t("Sending…", "Sender…") : t("Submit booking", "Send bestilling")}
+              </button>
+              )}
             </div>
           </div>
-
-          <p className="rounded-lg bg-logoblue/5 p-3 text-sm text-black/60">
-            {t(
-              "This price is based on the approximate size you selected — the final price is confirmed when we review your booking. You'll get a payment link by email once it's approved.",
-              "Denne prisen er basert på den omtrentlige størrelsen du valgte — endelig pris bekreftes når vi har gått gjennom bestillingen. Du får en betalingslenke på e-post når den er godkjent.",
-            )}
-          </p>
-
-          {submitError && <p className="text-sm text-red-600">{submitError}</p>}
-
-          <button
-            type="button"
-            disabled={!canSubmit}
-            onClick={handleSubmit}
-            className="self-start inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:pointer-events-none disabled:opacity-40"
-          >
-            {submitLoading ? t("Sending…", "Sender…") : t("Submit booking", "Send bestilling")}
-          </button>
         </div>
       ),
   };
+
+  if (customer) {
+    // Everything but the customer type (answered at booking); within 24h of
+    // the job only adding services and the contact details.
+    const customerSections = customerLocked
+      ? sections.filter((section) => section.id === "additional-services" || section.id === "your-details")
+      : sections.filter((section) => section.id !== "customer-type");
+    const loadingSections: StepSection[] = [
+      {
+        id: "customer-loading",
+        title: customerLoadError ? t("Couldn't load the order", "Kunne ikke laste bestillingen") : t("Loading order…", "Laster bestilling…"),
+        render: () => null,
+      },
+    ];
+    const customerDraft: CustomerEditDraft = {
+      customer: { name, phone, email, comments: notes },
+      preferredDate,
+      timeWindow,
+      moving: { pickupAddress, deliveryAddress, origin, destination, serviceCodes },
+    };
+    // A typed address must be picked from the suggestions before saving, as when booking.
+    const blockedMessage =
+      !customerLocked &&
+      (!isMovingEndReady({ address: pickupAddress, addressSelected: pickupAddressSelected, property: origin }) ||
+        !isMovingEndReady({ address: deliveryAddress, addressSelected: deliveryAddressSelected, property: destination }))
+        ? t(
+            "Pick both addresses from the suggestions and answer every question about both places.",
+            "Velg begge adressene fra forslagene og svar på alle spørsmålene om begge stedene.",
+          )
+        : null;
+    return (
+      <SteppedModal
+        showAll
+        sections={customerLoaded ? customerSections : loadingSections}
+        finalStep={finalStep}
+        finalStepOpen={!customerLocked && customerSummaryOpen}
+        onFinalStepBack={() => setCustomerSummaryOpen(false)}
+        onClose={onClose}
+        title={
+          <span className="truncate text-base font-semibold text-logoblue">
+            {t("Change order", "Endre bestilling")} #{customer.orderNumber}
+          </span>
+        }
+        aside={customerLocked ? undefined : { node: calculator, fromId: "moving-from-details", untilId: "your-details" }}
+        footer={
+          customerLoaded && customerInitialDraft ? (
+            <CustomerOrderEditFooter
+              orderNumber={customer.orderNumber}
+              initial={customerInitialDraft}
+              current={customerDraft}
+              beforeCutoff={customer.beforeCutoff}
+              locale={locale}
+              onCancel={onClose}
+              onSaved={customer.onSaved}
+              blockedMessage={blockedMessage}
+              summaryOpen={customerSummaryOpen}
+              onOpenSummary={() => setCustomerSummaryOpen(true)}
+            />
+          ) : null
+        }
+      />
+    );
+  }
 
   return (
     <SteppedModal

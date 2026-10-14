@@ -81,3 +81,37 @@ describe("customerEditPrimaryAction", () => {
     expect(customerEditPrimaryAction({ beforeCutoff: false, summaryOpen: false })).toBe("save");
   });
 });
+
+describe("buildCustomerEditPayload — a move", () => {
+  const moving = {
+    pickupAddress: "Karl Johans gate 1, Oslo",
+    deliveryAddress: "Storgata 1, Oslo",
+    origin: { homeType: "APARTMENT", sizeOptionCode: "SIZE_UNDER_40", floors: 1, floorNumber: 1, hasLift: null, parking: "OUTSIDE" },
+    destination: { homeType: "DETACHED", sizeOptionCode: "SIZE_UNDER_40", floors: 2, floorNumber: null, hasLift: null, parking: "OUTSIDE" },
+    serviceCodes: ["SERVICE_NEDPAKKING"],
+  };
+  const base = {
+    customer: { name: "Kari", phone: "+47 12345678", email: "kari@example.no", comments: "" },
+    preferredDate: "2026-10-22",
+    timeWindow: "10:00-16:00",
+    moving,
+  };
+
+  it("sends the move only when it changed", () => {
+    expect(buildCustomerEditPayload(base, structuredClone(base), true)).toEqual({});
+    const next = { ...base, moving: { ...moving, deliveryAddress: "Bragernes torg 1, Drammen" } };
+    expect(buildCustomerEditPayload(base, next, true)).toEqual({ moving: next.moving });
+  });
+
+  it("within 24h sends only the services, on the move exactly as loaded", () => {
+    const next = {
+      ...base,
+      moving: { ...moving, deliveryAddress: "Bragernes torg 1, Drammen", serviceCodes: ["SERVICE_NEDPAKKING", "SERVICE_FLYTTEVASK"] },
+    };
+    expect(buildCustomerEditPayload(base, next, false)).toEqual({
+      moving: { ...moving, serviceCodes: ["SERVICE_NEDPAKKING", "SERVICE_FLYTTEVASK"] },
+    });
+    const addressOnly = { ...base, moving: { ...moving, deliveryAddress: "Bragernes torg 1, Drammen" } };
+    expect(buildCustomerEditPayload(base, addressOnly, false)).toEqual({});
+  });
+});

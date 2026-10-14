@@ -20,6 +20,10 @@ import { normalizeSavedProductCard, type SavedProductCard } from "@/app/_compone
 import { getSavedOrderPricingSnapshot } from "@/lib/booking/pricing/snapshot";
 import { findMissingSnapshotPrices } from "@/lib/orders/websitePriceChanges";
 import { diffCalculatorRows, type PriceChangeRow } from "@/lib/booking/pricing/priceChanges";
+import { MOVING_ORDER_KIND, parseMovingBookingDetails } from "@/lib/orders/movingBookingDetails";
+import { movingEditFromOrder } from "@/lib/orders/movingOrderEdit";
+import { movingOrderPriceView } from "@/lib/orders/movingOrderView";
+import { getMovingCatalog, type MovingCatalogOption } from "@/lib/content/getMovingCatalog";
 
 // Read-only view of a homepage white-goods website order for the admin
 // WebsiteOrderModal. Kept separate from GET /api/orders/[orderId] (which backs
@@ -75,7 +79,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       lift: true,
       productCardsSnapshot: true,
       // An older order's saved catalog prices are read back from these.
-      items: { select: { optionId: true, customerPriceCents: true, subcontractorPriceCents: true } },
+      items: {
+        select: {
+          optionId: true,
+          customerPriceCents: true,
+          subcontractorPriceCents: true,
+          // A move's lines are shown straight from these (movingOrderPriceView).
+          productCode: true,
+          optionCode: true,
+          optionLabel: true,
+          quantity: true,
+        },
+      },
       driver: true,
       secondDriver: true,
       driverInfo: true,
@@ -102,6 +117,81 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
   });
   if (!order) {
     return NextResponse.json({ ok: false, reason: "NOT_FOUND" }, { status: 404 });
+  }
+
+  // What every website order shows, whatever it is.
+  const base = {
+    id: order.id,
+    displayId: order.displayId,
+    orderNumber: order.orderNumber,
+    status: order.status,
+    createdAt: order.createdAt.toISOString(),
+    customerName: order.customerName,
+    phone: order.phone,
+    email: order.email,
+    customerComments: order.customerComments,
+    statusNotes: order.statusNotes,
+    priceExVat: order.priceExVat,
+    subcontractorMembershipId: order.subcontractorMembershipId,
+    subcontractor: order.subcontractor,
+    gsmSentAt: order.gsmSentAt ? order.gsmSentAt.toISOString() : null,
+    gsmSyncStatus: order.gsmSyncStatus,
+    // A live "My order" login for the order's email — then "Send new login"
+    // isn't offered (password help is under User management → Website users).
+    hasCustomerLogin:
+      !!order.customerAccount &&
+      order.customerAccount.email === normalizeCustomerEmail(order.email) &&
+      !isCustomerAccountExpired(order.customerAccount.orders),
+    // The fields only an admin handles (driver, deviation, discount…).
+    handling: handlingFromOrder(order),
+    // Paid so far vs. the order now: what changed and what's due/refundable.
+    payment: compareOrderWithPayments({
+      payments: order.payments ?? [],
+      current: buildOrderStateSnapshot({ ...order, extraPickupAddress: order.extraPickupAddress ?? [] }),
+    }),
+  };
+
+  // A homepage move: its answers (editable as a whole) and its priced lines,
+  // read from the order's stored lines — no white-goods calculator.
+  const movingEdit = order.websiteOrderKind === MOVING_ORDER_KIND ? movingEditFromOrder(order) : null;
+  if (movingEdit) {
+    const customer = movingOrderPriceView(order.items, "customer");
+    // The size names for the move's cards; the order opens without them.
+    let sizeOptions: MovingCatalogOption[] = [];
+    try {
+      sizeOptions = (await getMovingCatalog())?.options ?? [];
+    } catch (err) {
+      console.error("[website-details] Couldn't load the moving catalog:", err);
+    }
+    return NextResponse.json({
+      ok: true,
+      order: {
+        ...base,
+        kind: "moving",
+        moving: {
+          edit: movingEdit,
+          customerType: parseMovingBookingDetails(order.websiteBookingDetails)?.customerType ?? null,
+          preferredDate: order.deliveryDate ?? "",
+          timeWindow: order.timeWindow ?? "",
+          drivingDistance: order.drivingDistance ?? "",
+        },
+        sizeOptions,
+        products: customer.products,
+        orderExtras: customer.orderExtras,
+        totalsCheck: checkWebsiteOrderTotals({
+          total: order.priceExVat,
+          chargedIncVat: getOrderChargeAmountIncVatNok(order),
+          products: customer.products,
+          orderExtras: customer.orderExtras,
+          rabatt: order.rabatt,
+          leggTil: order.leggTil,
+          shownTotal: null,
+        }),
+        // The partner's price per line — admins only.
+        partner: canSeePartnerPrices ? movingOrderPriceView(order.items, "partner") : null,
+        calculator: null,
+      },
+    });
   }
 
   const bookedDetails =
@@ -170,17 +260,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
   return NextResponse.json({
     ok: true,
     order: {
-      id: order.id,
-      displayId: order.displayId,
-      orderNumber: order.orderNumber,
-      status: order.status,
-      createdAt: order.createdAt.toISOString(),
-      customerName: order.customerName,
-      phone: order.phone,
-      email: order.email,
-      customerComments: order.customerComments,
-      statusNotes: order.statusNotes,
-      priceExVat: order.priceExVat,
+      ...base,
       details,
       products,
       // Lines vs total vs what the customer was shown — any mismatch is a
@@ -195,28 +275,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
         leggTil: order.leggTil,
         shownTotal: details.shownTotal,
       }),
-      subcontractorMembershipId: order.subcontractorMembershipId,
-      subcontractor: order.subcontractor,
-      gsmSentAt: order.gsmSentAt ? order.gsmSentAt.toISOString() : null,
-      gsmSyncStatus: order.gsmSyncStatus,
-      // A live "My order" login for the order's email — then "Send new login"
-      // isn't offered (password help is under User management → Website users).
-      hasCustomerLogin:
-        !!order.customerAccount &&
-        order.customerAccount.email === normalizeCustomerEmail(order.email) &&
-        !isCustomerAccountExpired(order.customerAccount.orders),
       calculator,
       // The customer total at today's catalog prices ("Use new price" when it differs).
       currentPricesTotal,
       priceChanges,
       savedPricesIncomplete,
-      // The fields only an admin handles (driver, deviation, discount…).
-      handling: handlingFromOrder(order),
-      // Paid so far vs. the order now: what changed and what's due/refundable.
-      payment: compareOrderWithPayments({
-        payments: order.payments ?? [],
-        current: buildOrderStateSnapshot({ ...order, extraPickupAddress: order.extraPickupAddress ?? [] }),
-      }),
     },
   });
 }
