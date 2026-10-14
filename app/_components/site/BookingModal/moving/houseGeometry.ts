@@ -107,7 +107,8 @@ function surroundingBuilding(floorNumber: number, unitFloors: number): Surroundi
   // Centre the unit a little below the middle, leaving room for the side
   // wall that recedes upward.
   const target = (VIEWBOX_HEIGHT + DEPTH.dy) / 2;
-  const unitCentre = levelTop(unitBottom, GROUND_Y) + (FLOOR_HEIGHT * unitFloors) / 2;
+  // Half the unit's height up from the bottom of its lowest floor.
+  const unitCentre = GROUND_Y - FLOOR_HEIGHT * (unitBottom + unitFloors / 2);
   const shift = unitBottom >= 0 ? Math.max(0, target - unitCentre) : target - unitCentre;
   const groundY = GROUND_Y + shift;
 

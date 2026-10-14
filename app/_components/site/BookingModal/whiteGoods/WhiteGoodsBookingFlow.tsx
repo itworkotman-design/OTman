@@ -1606,5 +1606,5 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     );
   }
 
-  return <SteppedModal sections={sections} finalStep={finalStep} onClose={onClose} />;
+  return <SteppedModal sections={sections} finalStep={finalStep} onClose={onClose} dimCompleted />;
 }

@@ -17,7 +17,12 @@ The homepage booking modal shell. Sections reveal one after another as each comp
 
 ## Shared side column (`aside`)
 Optional `aside={{ node, fromId, untilId }}`: the revealed sections from `fromId` up to, not including,
-`untilId` render in a `lg:grid-cols-[1fr_400px]` row beside one sticky `node` (stacked under them on small
+`untilId` render in a `lg:grid-cols-[1fr_400px]` row beside one `node`, vertically centred beside them and sticky at both top and bottom so it stays in view once they outgrow the screen (stacked under them on small
 screens); sections before and after stay full width. Grouping is `asideSectionGroups`
 (`steppedModalLogic.ts`, tested). The moving flow uses it for its one calculator, from "moving-from-details" until
 "your-details".
+
+## Dimming answered sections (`dimCompleted`)
+Opt-in (the moving and delivery/white-goods flows use it): every revealed section before the one being answered fades to 50%
+opacity (`isSectionDimmed` in `steppedModalLogic.ts`), back to full on hover or focus-within so earlier
+answers can still be edited. Never applies with `showAll`; the `aside` column is never dimmed.

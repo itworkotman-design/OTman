@@ -170,6 +170,29 @@ describe("houseGeometry", () => {
       expect(b.fadeBottom).toBe(true);
     });
 
+    it("keeps a unit spanning several floors whole and centred in the box", () => {
+      for (const unitFloors of [1, 2, 3, 4]) {
+        for (const floor of [3, 5, 12, -1]) {
+          const g = houseGeometry("SIZE_UNDER_40", unitFloors, "APARTMENT", floor);
+          const unit = g.building!.levels.filter((l) => l.isUnit);
+          expect(unit).toHaveLength(unitFloors);
+          const top = Math.min(...unit.map((l) => l.y));
+          const bottom = Math.max(...unit.map((l) => l.y + l.height));
+          // Clear of the faded top edge, and inside the box at the bottom.
+          expect(top).toBeGreaterThanOrEqual(g.viewBoxHeight * 0.2);
+          expect(bottom).toBeLessThanOrEqual(g.viewBoxHeight);
+        }
+      }
+    });
+
+    it("keeps the unit at the same height when only the floor number changes high up", () => {
+      const centre = (floor: number) => {
+        const unit = houseGeometry("SIZE_UNDER_40", 3, "APARTMENT", floor).building!.levels.filter((l) => l.isUnit);
+        return (Math.min(...unit.map((l) => l.y)) + Math.max(...unit.map((l) => l.y + l.height))) / 2;
+      };
+      expect(centre(8)).toBe(centre(20));
+    });
+
     it("puts a basement unit below the ground line, with the ground floor above it", () => {
       const g = houseGeometry("SIZE_UNDER_40", 1, "APARTMENT", -1);
       const b = g.building!;

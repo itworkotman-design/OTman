@@ -111,3 +111,11 @@ export function asideSectionGroups<T extends { id: string }>(
   const until = untilIndex === -1 ? visible.length : untilIndex;
   return { before: visible.slice(0, from), within: visible.slice(from, until), after: visible.slice(until) };
 }
+
+// Whether a section shows faded (SteppedModal's `dimCompleted`): every
+// revealed section before the one being answered, so the eye goes to the
+// current question. Never with every section open at once (`showAll`).
+export function isSectionDimmed(params: { index: number; revealedCount: number; showAll: boolean; enabled: boolean }): boolean {
+  if (!params.enabled || params.showAll) return false;
+  return params.index < params.revealedCount - 1;
+}

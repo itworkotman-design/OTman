@@ -570,6 +570,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
       finalStep={finalStep}
       onClose={onClose}
       aside={{ node: calculator, fromId: "moving-from-details", untilId: "your-details" }}
+      dimCompleted
     />
   );
 }

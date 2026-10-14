@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { asideSectionGroups, finalStepScrollTarget, heightHoldAction, isFinalStepShown, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
+import { asideSectionGroups, finalStepScrollTarget, heightHoldAction, isFinalStepShown, isSectionDimmed, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
 
 export type StepSectionRenderProps = {
   // True for the one section currently being answered (the last one
@@ -68,9 +68,13 @@ type SteppedModalProps = {
   // One side column shared by a run of sections — from `fromId` up to, not
   // including, `untilId` — instead of each section carrying its own (e.g.
   // the moving flow's calculator, from "moving from" until "your details").
-  // Sticky in a 400px right column on large screens, under those sections on
+  // Centred vertically and sticky in a 400px right column on large screens, under those sections on
   // small ones; it appears with the first of them.
   aside?: { node: ReactNode; fromId: string; untilId: string };
+  // Fades the sections already answered to 50% once the next one opens
+  // (isSectionDimmed), back to full on hover/focus so they can still be
+  // edited. Opt-in — the moving and delivery flows use it.
+  dimCompleted?: boolean;
 };
 
 const TRANSITION_MS = 300;
@@ -194,6 +198,7 @@ export function SteppedModal({
   footer,
   sectionGap = 40,
   aside,
+  dimCompleted = false,
 }: SteppedModalProps) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
@@ -335,11 +340,14 @@ export function SteppedModal({
   const stackItems = (group: StepSection[], offset: number): AnimatedStackItem[] =>
     group.map((section, i) => {
       const index = offset + i;
+      const dimmed = isSectionDimmed({ index, revealedCount, showAll, enabled: dimCompleted });
       return {
         key: section.id,
         hidden: section.hidden,
         node: (
-          <div>
+          <div
+            className={`transition-opacity duration-300 ${dimmed ? "opacity-50 hover:opacity-100 focus-within:opacity-100" : ""}`}
+          >
             {/* An empty title (e.g. "My order"'s contact details) renders untitled. */}
             {section.title && (
               <h4 className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">{section.title}</h4>
@@ -409,8 +417,12 @@ export function SteppedModal({
                   className="flex min-w-0 flex-col"
                   items={stackItems(sectionGroups.within, sectionGroups.before.length)}
                 />
-                <div className="lg:sticky lg:top-0 lg:self-start">
-                  <RevealSection>{aside?.node}</RevealSection>
+                {/* Centred beside the (usually taller) sections; sticky at both
+                    edges, so once they outgrow the screen it still stays in view. */}
+                <div className="lg:flex lg:flex-col lg:justify-center">
+                  <div className="lg:sticky lg:top-0 lg:bottom-0">
+                    <RevealSection>{aside?.node}</RevealSection>
+                  </div>
                 </div>
               </div>
             )}

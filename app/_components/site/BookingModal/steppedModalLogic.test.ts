@@ -5,6 +5,7 @@ import {
   nextRevealedCount,
   finalStepScrollTarget,
   isFinalStepShown,
+  isSectionDimmed,
   progressPercent,
   showsBottomSpace,
   retractedRevealedCount,
@@ -225,5 +226,24 @@ describe("asideSectionGroups", () => {
 
   it("runs to the end when `untilId` isn't a section", () => {
     expect(ids(asideSectionGroups(all, { fromId: "timing", untilId: "nope" }).within)).toEqual(["timing", "your-details"]);
+  });
+});
+
+describe("isSectionDimmed", () => {
+  const base = { revealedCount: 3, showAll: false, enabled: true };
+
+  it("dims every section before the one being answered", () => {
+    expect(isSectionDimmed({ ...base, index: 0 })).toBe(true);
+    expect(isSectionDimmed({ ...base, index: 1 })).toBe(true);
+  });
+
+  it("never dims the section being answered (the last revealed one)", () => {
+    expect(isSectionDimmed({ ...base, index: 2 })).toBe(false);
+    expect(isSectionDimmed({ ...base, revealedCount: 1, index: 0 })).toBe(false);
+  });
+
+  it("dims nothing unless the modal opts in, or with every section open at once", () => {
+    expect(isSectionDimmed({ ...base, index: 0, enabled: false })).toBe(false);
+    expect(isSectionDimmed({ ...base, index: 0, showAll: true })).toBe(false);
   });
 });
