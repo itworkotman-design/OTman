@@ -52,6 +52,38 @@ describe("houseGeometry", () => {
     expect(houseGeometry("SOMETHING_ELSE", 1).width).toBe(houseGeometry("SIZE_UNDER_60", 1).width);
   });
 
+  it("draws a pitched-roof house for Enebolig/Rekkehus and when no type is picked", () => {
+    expect(houseGeometry("SIZE_UNDER_40", 1, "DETACHED").variant).toBe("house");
+    expect(houseGeometry("SIZE_UNDER_40", 1, "TOWNHOUSE").variant).toBe("townhouse");
+    expect(houseGeometry("SIZE_UNDER_40", 1, null).variant).toBe("house");
+    expect(houseGeometry("SIZE_UNDER_40", 1).roof.style).toBe("gable");
+    expect(houseGeometry("SIZE_UNDER_40", 1, "TOWNHOUSE").roof.style).toBe("gable");
+  });
+
+  it("draws a flat-roofed block for Leilighet and Kontor", () => {
+    for (const type of ["APARTMENT", "OFFICE"] as const) {
+      const g = houseGeometry("SIZE_UNDER_40", 2, type);
+      expect(g.roof.style).toBe("flat");
+      // Just a parapet, not a pitched roof.
+      expect(g.roof.baseY - g.roof.peakY).toBeLessThan(10);
+    }
+    expect(houseGeometry("SIZE_UNDER_40", 1, "APARTMENT").variant).toBe("apartment");
+    expect(houseGeometry("SIZE_UNDER_40", 1, "OFFICE").variant).toBe("office");
+  });
+
+  it("centres a townhouse on its front face, since its side wall is hidden by the neighbour", () => {
+    const g = houseGeometry("SIZE_OVER_100", 1, "TOWNHOUSE");
+    expect(g.x + g.width / 2).toBeCloseTo(g.viewBoxWidth / 2);
+  });
+
+  it("keeps the floor stack identical across types, so switching type only restyles it", () => {
+    const house = houseGeometry("SIZE_UNDER_60", 3, "DETACHED");
+    const office = houseGeometry("SIZE_UNDER_60", 3, "OFFICE");
+    expect(office.floors).toEqual(house.floors);
+    expect(office.x).toBe(house.x);
+    expect(office.width).toBe(house.width);
+  });
+
   it("clamps the floor count", () => {
     expect(houseGeometry("SIZE_UNDER_40", 99).floors).toHaveLength(HOUSE_MAX_FLOORS);
   });

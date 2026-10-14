@@ -242,7 +242,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
             </div>
 
             <div className="flex flex-col items-center gap-2 rounded-2xl bg-logoblue/5 px-3 py-3">
-              <HouseIllustration sizeCode={sizeOptionCode} floors={floors} className="h-auto w-full max-w-50" />
+              <HouseIllustration sizeCode={sizeOptionCode} floors={floors} homeType={homeType} className="h-auto w-full max-w-50" />
               <div className="flex items-center gap-3">
                 <button
                   type="button"

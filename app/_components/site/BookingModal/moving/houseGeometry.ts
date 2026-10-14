@@ -1,4 +1,4 @@
-import { MOVING_MAX_FLOORS } from "@/lib/orders/movingOrderDescription";
+import { MOVING_MAX_FLOORS, type MovingHomeType } from "@/lib/orders/movingOrderDescription";
 
 // Pure geometry behind HouseIllustration.tsx: the house gets wider with the
 // picked size bracket (lib/content/movingCatalog.ts codes) and taller with
@@ -17,6 +17,7 @@ const FLOOR_HEIGHT = 34;
 const ROOF_PITCH = 0.28;
 const MIN_ROOF_HEIGHT = 30;
 const ROOF_OVERHANG = 8;
+const PARAPET_HEIGHT = 5;
 const DEPTH = { dx: 36, dy: 20 };
 
 const SIZE_SHAPES: Record<string, { width: number; windowsPerFloor: number }> = {
@@ -44,14 +45,32 @@ export type HouseGeometry = {
   windowsPerFloor: number;
   // Index 0 is the ground floor.
   floors: { y: number; height: number }[];
-  roof: { leftX: number; rightX: number; baseY: number; peakY: number };
+  // Which building to draw — the floor stack is the same for all of them.
+  variant: HouseVariant;
+  roof: { style: "gable" | "flat"; leftX: number; rightX: number; baseY: number; peakY: number };
 };
 
-export function houseGeometry(sizeCode: string | null, floorCount: number): HouseGeometry {
+export type HouseVariant = "house" | "townhouse" | "apartment" | "office";
+
+const VARIANTS: Record<MovingHomeType["code"], HouseVariant> = {
+  DETACHED: "house",
+  TOWNHOUSE: "townhouse",
+  APARTMENT: "apartment",
+  OFFICE: "office",
+};
+
+export function houseGeometry(
+  sizeCode: string | null,
+  floorCount: number,
+  homeType: MovingHomeType["code"] | null = null,
+): HouseGeometry {
+  const variant = homeType ? VARIANTS[homeType] : "house";
+  const flat = variant === "apartment" || variant === "office";
   const shape = (sizeCode && SIZE_SHAPES[sizeCode]) || DEFAULT_SHAPE;
   const count = clampFloors(floorCount);
-  // Centre front + side together, not just the front face.
-  const x = (VIEWBOX_WIDTH - shape.width - DEPTH.dx) / 2;
+  // Centre front + side together, not just the front face — except a
+  // townhouse, whose side wall is hidden behind the attached neighbour.
+  const x = (VIEWBOX_WIDTH - shape.width - (variant === "townhouse" ? 0 : DEPTH.dx)) / 2;
 
   const floors = Array.from({ length: count }, (_, i) => ({
     y: GROUND_Y - FLOOR_HEIGHT * (i + 1),
@@ -69,11 +88,13 @@ export function houseGeometry(sizeCode: string | null, floorCount: number): Hous
     depth: DEPTH,
     windowsPerFloor: shape.windowsPerFloor,
     floors,
+    variant,
     roof: {
+      style: flat ? "flat" : "gable",
       leftX: x - ROOF_OVERHANG,
       rightX: x + shape.width + ROOF_OVERHANG,
       baseY,
-      peakY: baseY - Math.max(MIN_ROOF_HEIGHT, shape.width * ROOF_PITCH),
+      peakY: baseY - (flat ? PARAPET_HEIGHT : Math.max(MIN_ROOF_HEIGHT, shape.width * ROOF_PITCH)),
     },
   };
 }
