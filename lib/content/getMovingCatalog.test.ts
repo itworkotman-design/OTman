@@ -198,3 +198,26 @@ describe("getMovingCatalog — floor surcharge", () => {
     expect((await getMovingCatalog())?.floorSurcharge).toBeNull();
   });
 });
+
+describe("getMovingCatalog — carrying distance", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns the carrying-distance surcharges separately from sizes", async () => {
+    const item = (code: string, productCode: string, cents: number) => ({
+      customerPriceCents: cents,
+      subcontractorPriceCents: 0,
+      productOption: { code, label: code, description: code, sortOrder: 1, isActive: true, product: { code: productCode } },
+    });
+    mocks.priceListFindUniqueMock.mockResolvedValue({
+      id: "pl-moving",
+      items: [item("SIZE_UNDER_20", "MOVING_BY_SIZE", 800000), item("CARRY_FURTHER", "MOVING_CARRY_SURCHARGE", 150000)],
+    });
+
+    const result = await getMovingCatalog();
+
+    expect(result?.options.map((o) => o.code)).toEqual(["SIZE_UNDER_20"]);
+    expect(result?.carrySurcharges.map((o) => [o.code, o.customerPriceCents])).toEqual([["CARRY_FURTHER", 150000]]);
+  });
+});

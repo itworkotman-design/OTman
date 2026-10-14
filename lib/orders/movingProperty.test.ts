@@ -5,6 +5,7 @@ import {
   emptyMovingProperty,
   isMovingEndReady,
   movingChargeableFloors,
+  movingDraftChargeableFloors,
   movingLiftApplies,
   movingPropertyLine,
   parseMovingProperty,
@@ -173,5 +174,34 @@ describe("floor number (no lift)", () => {
 
   it("starts empty in the flow's draft", () => {
     expect(emptyMovingProperty().floorNumber).toBeNull();
+  });
+});
+
+describe("movingDraftChargeableFloors (live calculator)", () => {
+  const draft = { ...emptyMovingProperty(), homeType: "APARTMENT" as const, hasLift: false, floorNumber: 5 };
+
+  it("counts the surcharge as soon as lift + floor are answered — before parking or size", () => {
+    expect(movingDraftChargeableFloors(draft)).toBe(3);
+  });
+
+  it("follows every floor change", () => {
+    expect(movingDraftChargeableFloors({ ...draft, floorNumber: 3 })).toBe(1);
+    expect(movingDraftChargeableFloors({ ...draft, floorNumber: 6 })).toBe(4);
+  });
+
+  it("ignores a leftover 'no lift' answer after switching to a house, and a lift", () => {
+    expect(movingDraftChargeableFloors({ ...draft, homeType: "DETACHED" })).toBe(0);
+    expect(movingDraftChargeableFloors({ ...draft, hasLift: true })).toBe(0);
+    expect(movingDraftChargeableFloors({ ...draft, floorNumber: null })).toBe(0);
+  });
+});
+
+describe("parking → carrying-distance surcharge", () => {
+  it("maps each parking answer to its surcharge line (right outside is free)", () => {
+    expect(MOVING_PARKING_OPTIONS.map((p) => [p.code, p.surchargeCode])).toEqual([
+      ["OUTSIDE", null],
+      ["WITHIN_50M", "CARRY_WITHIN_50M"],
+      ["FURTHER", "CARRY_FURTHER"],
+    ]);
   });
 });

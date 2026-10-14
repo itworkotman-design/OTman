@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import {
+  MOVING_CARRY_SURCHARGE_PRODUCT_CODE,
   MOVING_FLOOR_SURCHARGE_PRODUCT_CODE,
   MOVING_PRICE_LIST_CODE,
   MOVING_SERVICES_PRODUCT_CODE,
@@ -22,6 +23,9 @@ export type MovingCatalog = {
   // Price per chargeable floor with no lift (MOVING_FLOOR_SURCHARGE_PRODUCT_CODE);
   // null until seeded, which means no floor surcharge is charged.
   floorSurcharge: MovingCatalogOption | null;
+  // Carrying-distance surcharges by parking answer (MOVING_CARRY_SURCHARGE_PRODUCT_CODE);
+  // a missing line charges nothing.
+  carrySurcharges: MovingCatalogOption[];
 };
 
 // Shared by the public catalog-fetch route (app/api/site/moving-request/
@@ -61,6 +65,7 @@ export async function getMovingCatalog(): Promise<MovingCatalog | null> {
   const productCode = (item: (typeof active)[number]) => item.productOption.product?.code;
   const isService = (item: (typeof active)[number]) => productCode(item) === MOVING_SERVICES_PRODUCT_CODE;
   const isFloorSurcharge = (item: (typeof active)[number]) => productCode(item) === MOVING_FLOOR_SURCHARGE_PRODUCT_CODE;
+  const isCarrySurcharge = (item: (typeof active)[number]) => productCode(item) === MOVING_CARRY_SURCHARGE_PRODUCT_CODE;
   const toOption = (item: (typeof active)[number]): MovingCatalogOption => ({
     code: item.productOption.code,
     labelEn: item.productOption.label ?? item.productOption.code,
@@ -71,9 +76,10 @@ export async function getMovingCatalog(): Promise<MovingCatalog | null> {
 
   return {
     priceListId: priceList.id,
-    options: active.filter((item) => !isService(item) && !isFloorSurcharge(item)).map(toOption),
+    options: active.filter((item) => !isService(item) && !isFloorSurcharge(item) && !isCarrySurcharge(item)).map(toOption),
     services: active.filter(isService).map(toOption),
     floorSurcharge: active.filter(isFloorSurcharge).map(toOption)[0] ?? null,
+    carrySurcharges: active.filter(isCarrySurcharge).map(toOption),
   };
 }
 

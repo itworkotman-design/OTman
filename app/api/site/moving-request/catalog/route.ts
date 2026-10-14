@@ -14,5 +14,5 @@ export async function GET() {
     return NextResponse.json({ ok: false, reason: "NOT_SEEDED" }, { status: 404 });
   }
 
-  return NextResponse.json({ ok: true, priceListId: catalog.priceListId, options: catalog.options, services: catalog.services, floorSurcharge: catalog.floorSurcharge }, { status: 200 });
+  return NextResponse.json({ ok: true, priceListId: catalog.priceListId, options: catalog.options, services: catalog.services, floorSurcharge: catalog.floorSurcharge, carrySurcharges: catalog.carrySurcharges }, { status: 200 });
 }

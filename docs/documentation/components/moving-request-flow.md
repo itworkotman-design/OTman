@@ -37,3 +37,7 @@ modal to the summary.
 The "When?" step reuses the delivery modal's date/time layout: a bordered card with
 `DateTimeWindowFields` (same date picker rules and time windows, incl. a specific time); it opens
 the next section once a date is picked and `isTimeWindowComplete(timeWindow)`.
+
+One live calculator follows the flow from "Hvor flytter du fra?" through "Når?", until "Dine opplysninger":
+SteppedModal's `aside` (sticky 400px right column, stacked under on small screens), showing
+`WhiteGoodsOrderSummary` fed by `movingSummary`, with the same totals as the charge (`movingCustomerTotals`).

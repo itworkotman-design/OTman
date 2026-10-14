@@ -96,3 +96,18 @@ export function progressPercent(revealedCount: number, totalSections: number): n
 export function isFinalStepShown(params: { showAll: boolean; reached: boolean; open?: boolean }): boolean {
   return params.showAll ? params.open === true : params.reached;
 }
+
+// Splits the revealed sections around an optional side column (SteppedModal's
+// `aside`, e.g. the moving flow's one calculator): sections from `fromId` up
+// to, not including, `untilId` sit in a two-column row beside it; the ones
+// before and after stay full width. A missing `untilId` runs to the end.
+export function asideSectionGroups<T extends { id: string }>(
+  visible: T[],
+  aside: { fromId: string; untilId: string } | undefined,
+): { before: T[]; within: T[]; after: T[] } {
+  const from = aside ? visible.findIndex((s) => s.id === aside.fromId) : -1;
+  if (!aside || from === -1) return { before: visible, within: [], after: [] };
+  const untilIndex = visible.findIndex((s) => s.id === aside.untilId);
+  const until = untilIndex === -1 ? visible.length : untilIndex;
+  return { before: visible.slice(0, from), within: visible.slice(from, until), after: visible.slice(until) };
+}

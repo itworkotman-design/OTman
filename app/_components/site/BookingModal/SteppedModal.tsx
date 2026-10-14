@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { finalStepScrollTarget, heightHoldAction, isFinalStepShown, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
+import { asideSectionGroups, finalStepScrollTarget, heightHoldAction, isFinalStepShown, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
 
 export type StepSectionRenderProps = {
   // True for the one section currently being answered (the last one
@@ -65,6 +65,12 @@ type SteppedModalProps = {
   // Space between sections, in px — room for each section's title by
   // default; smaller when the sections are untitled.
   sectionGap?: number;
+  // One side column shared by a run of sections — from `fromId` up to, not
+  // including, `untilId` — instead of each section carrying its own (e.g.
+  // the moving flow's calculator, from "moving from" until "your details").
+  // Sticky in a 400px right column on large screens, under those sections on
+  // small ones; it appears with the first of them.
+  aside?: { node: ReactNode; fromId: string; untilId: string };
 };
 
 const TRANSITION_MS = 300;
@@ -187,6 +193,7 @@ export function SteppedModal({
   title,
   footer,
   sectionGap = 40,
+  aside,
 }: SteppedModalProps) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
@@ -321,6 +328,35 @@ export function SteppedModal({
     setRevealedCount((count) => nextRevealedCount(count, index, sections.length));
   };
 
+  // Sections before / beside / after the shared side column (`aside`).
+  const sectionGroups = asideSectionGroups(visibleSections, aside);
+  // One stack item per section; `offset` is the first one's index in
+  // `sections`, so completing/uncompleting still targets the right step.
+  const stackItems = (group: StepSection[], offset: number): AnimatedStackItem[] =>
+    group.map((section, i) => {
+      const index = offset + i;
+      return {
+        key: section.id,
+        hidden: section.hidden,
+        node: (
+          <div>
+            {/* An empty title (e.g. "My order"'s contact details) renders untitled. */}
+            {section.title && (
+              <h4 className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">{section.title}</h4>
+            )}
+            {section.description && <p className="mt-1 text-center text-sm text-black/60">{section.description}</p>}
+            <div className={section.title || section.description ? "mt-[2rem]" : ""}>
+              {section.render({
+                isActive: index === revealedCount - 1,
+                onComplete: () => handleSectionComplete(index),
+                onUncomplete: () => handleSectionUncomplete(index),
+              })}
+            </div>
+          </div>
+        ),
+      };
+    });
+
   const handleSectionUncomplete = (index: number) => {
     if (showAll) return;
     setShowFinalStep(false);
@@ -360,31 +396,33 @@ export function SteppedModal({
               so RevealSection's per-section reveal state survives toggling
               the final step back and forth instead of replaying on remount. */}
           <div className={showFinalStep ? "hidden" : ""}>
-            <AnimatedStack
-              // Space above each section title (below the previous section).
-              gap={sectionGap}
-              className="flex flex-col"
-              items={visibleSections.map((section, index) => ({
-                key: section.id,
-                hidden: section.hidden,
-                node: (
-                  <div>
-                    {/* An empty title (e.g. "My order"'s contact details) renders untitled. */}
-                    {section.title && (
-                      <h4 className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">{section.title}</h4>
-                    )}
-                    {section.description && <p className="mt-1 text-center text-sm text-black/60">{section.description}</p>}
-                    <div className={section.title || section.description ? "mt-[2rem]" : ""}>
-                      {section.render({
-                        isActive: index === revealedCount - 1,
-                        onComplete: () => handleSectionComplete(index),
-                        onUncomplete: () => handleSectionUncomplete(index),
-                      })}
-                    </div>
-                  </div>
-                ),
-              }))}
-            />
+            {sectionGroups.before.length > 0 && (
+              <AnimatedStack gap={sectionGap} className="flex flex-col" items={stackItems(sectionGroups.before, 0)} />
+            )}
+            {sectionGroups.within.length > 0 && (
+              <div
+                className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]"
+                style={sectionGroups.before.length > 0 ? { marginTop: sectionGap } : undefined}
+              >
+                <AnimatedStack
+                  gap={sectionGap}
+                  className="flex min-w-0 flex-col"
+                  items={stackItems(sectionGroups.within, sectionGroups.before.length)}
+                />
+                <div className="lg:sticky lg:top-0 lg:self-start">
+                  <RevealSection>{aside?.node}</RevealSection>
+                </div>
+              </div>
+            )}
+            {sectionGroups.after.length > 0 && (
+              <div style={sectionGroups.before.length + sectionGroups.within.length > 0 ? { marginTop: sectionGap } : undefined}>
+                <AnimatedStack
+                  gap={sectionGap}
+                  className="flex flex-col"
+                  items={stackItems(sectionGroups.after, sectionGroups.before.length + sectionGroups.within.length)}
+                />
+              </div>
+            )}
             {/* Room below the last revealed section, when it asks for it
                 (StepSection.bottomSpace), so a dropdown opened near the bottom
                 (e.g. the address autocomplete, max-h-72) mostly fits on screen

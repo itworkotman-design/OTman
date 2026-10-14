@@ -1,5 +1,6 @@
 import { websiteInclVat } from "@/lib/booking/pricing/websiteVat";
 import { buildOrderPricingSnapshot } from "./orderTotals";
+import { MOVING_PARKING_OPTIONS, type MovingParkingCode } from "./movingProperty";
 
 type MovingPricedLine = {
   code: string;
@@ -68,4 +69,27 @@ export function movingFloorSurchargeLines(
       customerPriceCents: perFloor.customerPriceCents * end.chargeableFloors,
       subcontractorPriceCents: perFloor.subcontractorPriceCents * end.chargeableFloors,
     }));
+}
+
+// The carrying-distance surcharge as priced lines, one per end whose parking
+// answer has a surcharge (MOVING_PARKING_OPTIONS' surchargeCode — right
+// outside is free). A line missing from the price list charges nothing.
+export function movingCarrySurchargeLines(
+  surcharges: MovingPricedLine[],
+  ends: { label: string; parking: MovingParkingCode | null }[],
+): (MovingPricedLine & { quantity: number })[] {
+  return ends.flatMap((end) => {
+    const code = MOVING_PARKING_OPTIONS.find((p) => p.code === end.parking)?.surchargeCode;
+    const surcharge = code ? surcharges.find((s) => s.code === code) : undefined;
+    if (!surcharge) return [];
+    return [
+      {
+        code: surcharge.code,
+        labelEn: `${surcharge.labelEn}, ${end.label}`,
+        quantity: 1,
+        customerPriceCents: surcharge.customerPriceCents,
+        subcontractorPriceCents: surcharge.subcontractorPriceCents,
+      },
+    ];
+  });
 }

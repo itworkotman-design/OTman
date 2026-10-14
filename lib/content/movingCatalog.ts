@@ -13,20 +13,22 @@ export type MovingSizeOptionSeed = {
   code: string;
   labelEn: string;
   labelNo: string;
-  // NOK ex VAT. Seeded at 0 — a placeholder until a staff member sets real
-  // prices via /dashboard/booking/editPrices (Owner/Admin only), same as any
-  // newly-added product there. See docs/homepage-ordering-roadmap.md §6/§4
-  // progress log for why real figures aren't hardcoded here.
+  // NOK ex VAT. A starting price only (2026-10, estimated from published
+  // Oslo moving/cleaning prices — 2 movers + van ≈ 1 400–1 900 kr/h incl.
+  // VAT); staff own the real prices via /dashboard/booking/editPrices. The
+  // seed only writes it into a row that's new or still at the old 0 kr
+  // placeholder, never over a price staff have set. Subcontractor prices
+  // stay 0 — they depend on each partner agreement.
   customerPrice: number;
   subcontractorPrice: number;
 };
 
 export const MOVING_SIZE_OPTIONS: MovingSizeOptionSeed[] = [
-  { code: "SIZE_UNDER_20", labelEn: "Under 20 m²", labelNo: "Under 20 m²", customerPrice: 0, subcontractorPrice: 0 },
-  { code: "SIZE_UNDER_40", labelEn: "Under 40 m²", labelNo: "Under 40 m²", customerPrice: 0, subcontractorPrice: 0 },
-  { code: "SIZE_UNDER_60", labelEn: "Under 60 m²", labelNo: "Under 60 m²", customerPrice: 0, subcontractorPrice: 0 },
-  { code: "SIZE_UNDER_100", labelEn: "Under 100 m²", labelNo: "Under 100 m²", customerPrice: 0, subcontractorPrice: 0 },
-  { code: "SIZE_OVER_100", labelEn: "Over 100 m²", labelNo: "Over 100 m²", customerPrice: 0, subcontractorPrice: 0 },
+  { code: "SIZE_UNDER_20", labelEn: "Under 20 m²", labelNo: "Under 20 m²", customerPrice: 3200, subcontractorPrice: 0 },
+  { code: "SIZE_UNDER_40", labelEn: "Under 40 m²", labelNo: "Under 40 m²", customerPrice: 5000, subcontractorPrice: 0 },
+  { code: "SIZE_UNDER_60", labelEn: "Under 60 m²", labelNo: "Under 60 m²", customerPrice: 7500, subcontractorPrice: 0 },
+  { code: "SIZE_UNDER_100", labelEn: "Under 100 m²", labelNo: "Under 100 m²", customerPrice: 12000, subcontractorPrice: 0 },
+  { code: "SIZE_OVER_100", labelEn: "Over 100 m²", labelNo: "Over 100 m²", customerPrice: 19000, subcontractorPrice: 0 },
 ];
 
 // Optional extras on a move, picked on their own step after the size. A
@@ -48,7 +50,7 @@ export const MOVING_SERVICE_OPTIONS: MovingServiceOptionSeed[] = [
     labelNo: "Nedpakking",
     blurbEn: "We pack your belongings into boxes before the move.",
     blurbNo: "Vi pakker ned eiendelene dine i esker før flyttingen.",
-    customerPrice: 0,
+    customerPrice: 4000,
     subcontractorPrice: 0,
   },
   {
@@ -57,7 +59,7 @@ export const MOVING_SERVICE_OPTIONS: MovingServiceOptionSeed[] = [
     labelNo: "Flyttevask",
     blurbEn: "A thorough clean of the home you're moving out of.",
     blurbNo: "Grundig vask av boligen du flytter fra.",
-    customerPrice: 0,
+    customerPrice: 4800,
     subcontractorPrice: 0,
   },
   // Mellomlagring (interim storage) is left out for now — when it comes back
@@ -75,6 +77,28 @@ export const MOVING_FLOOR_SURCHARGE_OPTION: MovingSizeOptionSeed = {
   code: "FLOOR_SURCHARGE_PER_FLOOR",
   labelEn: "Floor surcharge (per floor, no lift)",
   labelNo: "Etasjetillegg (per etasje, uten heis)",
-  customerPrice: 0,
+  customerPrice: 400,
   subcontractorPrice: 0,
 };
+
+// Carrying-distance surcharge by the parking answer ("Hvor nær kan vi
+// parkere?"), charged per end of the move; right outside is free. Codes match
+// MOVING_PARKING_OPTIONS' surchargeCode (lib/orders/movingProperty.ts).
+export const MOVING_CARRY_SURCHARGE_PRODUCT_CODE = "MOVING_CARRY_SURCHARGE";
+
+export const MOVING_CARRY_SURCHARGE_OPTIONS: MovingSizeOptionSeed[] = [
+  {
+    code: "CARRY_WITHIN_50M",
+    labelEn: "Carrying distance: within 50 m",
+    labelNo: "Bæreavstand: innen 50 m",
+    customerPrice: 500,
+    subcontractorPrice: 0,
+  },
+  {
+    code: "CARRY_FURTHER",
+    labelEn: "Carrying distance: further away",
+    labelNo: "Bæreavstand: lenger unna",
+    customerPrice: 1500,
+    subcontractorPrice: 0,
+  },
+];

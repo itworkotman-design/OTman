@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  asideSectionGroups,
   heightHoldAction,
   nextRevealedCount,
   finalStepScrollTarget,
@@ -193,5 +194,36 @@ describe("isFinalStepShown", () => {
     expect(isFinalStepShown({ showAll: true, reached: true })).toBe(false);
     expect(isFinalStepShown({ showAll: true, reached: false, open: true })).toBe(true);
     expect(isFinalStepShown({ showAll: true, reached: true, open: false })).toBe(false);
+  });
+});
+
+describe("asideSectionGroups", () => {
+  const ids = (list: { id: string }[]) => list.map((s) => s.id);
+  const all = ["customer-type", "moving-from", "moving-to", "services", "timing", "your-details"].map((id) => ({ id }));
+  const aside = { fromId: "moving-from", untilId: "your-details" };
+
+  it("puts every section from `fromId` up to (not incl.) `untilId` beside the aside", () => {
+    const groups = asideSectionGroups(all, aside);
+    expect(ids(groups.before)).toEqual(["customer-type"]);
+    expect(ids(groups.within)).toEqual(["moving-from", "moving-to", "services", "timing"]);
+    expect(ids(groups.after)).toEqual(["your-details"]);
+  });
+
+  it("only groups what's revealed so far — nothing beside the aside before `fromId` shows", () => {
+    expect(ids(asideSectionGroups(all.slice(0, 1), aside).within)).toEqual([]);
+    const two = asideSectionGroups(all.slice(0, 3), aside);
+    expect(ids(two.within)).toEqual(["moving-from", "moving-to"]);
+    expect(two.after).toEqual([]);
+  });
+
+  it("without an aside, everything stays in one stack", () => {
+    const groups = asideSectionGroups(all, undefined);
+    expect(ids(groups.before)).toEqual(ids(all));
+    expect(groups.within).toEqual([]);
+    expect(groups.after).toEqual([]);
+  });
+
+  it("runs to the end when `untilId` isn't a section", () => {
+    expect(ids(asideSectionGroups(all, { fromId: "timing", untilId: "nope" }).within)).toEqual(["timing", "your-details"]);
   });
 });

@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 import {
+  MOVING_CARRY_SURCHARGE_OPTIONS,
+  MOVING_CARRY_SURCHARGE_PRODUCT_CODE,
   MOVING_FLOOR_SURCHARGE_OPTION,
   MOVING_FLOOR_SURCHARGE_PRODUCT_CODE,
   MOVING_PRICE_LIST_CODE,
@@ -24,7 +26,8 @@ import {
 // spreadsheet and are meant to be refreshed by reseeding), Moving's prices
 // are meant to be entered and maintained by staff via
 // /dashboard/booking/editPrices, not by this file — so price list item
-// prices are only ever set on first create, never touched on update. See
+// prices are only ever set on first create (or filled into a row still at
+// the old 0 kr placeholder), never over a price staff have set. See
 // docs/homepage-ordering-roadmap.md §6/§4 progress log.
 export async function seedMovingCatalog() {
   const priceList = await prisma.priceList.upsert({
@@ -55,6 +58,14 @@ export async function seedMovingCatalog() {
     sortOrder: 3,
     category: "surcharge",
     options: [MOVING_FLOOR_SURCHARGE_OPTION],
+  });
+
+  await seedFlatProduct(priceList.id, {
+    code: MOVING_CARRY_SURCHARGE_PRODUCT_CODE,
+    name: "Moving — carrying distance",
+    sortOrder: 4,
+    category: "surcharge",
+    options: MOVING_CARRY_SURCHARGE_OPTIONS,
   });
 
   return {
@@ -124,6 +135,13 @@ async function seedFlatProduct(
         customerPriceCents: Math.round(optionSeed.customerPrice * 100),
         subcontractorPriceCents: Math.round(optionSeed.subcontractorPrice * 100),
       },
+    });
+    // A row seeded before there were starting prices sits at the 0 kr
+    // placeholder: fill it in. The `customerPriceCents: 0` match means a
+    // price staff have entered is never overwritten.
+    await prisma.priceListItem.updateMany({
+      where: { priceListId, productOptionId: option.id, customerPriceCents: 0 },
+      data: { customerPriceCents: Math.round(optionSeed.customerPrice * 100) },
     });
     optionsUpserted += 1;
   }

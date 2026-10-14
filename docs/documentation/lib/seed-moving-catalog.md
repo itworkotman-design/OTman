@@ -18,5 +18,6 @@ reseed (e.g. a fresh dev DB setup) must never silently reset them back to 0.
 
 ## Functions
 - Options no longer in the code are set `isActive: false` (not deleted) on reseed, and listed ones back to `isActive: true` — so dropping one from `MOVING_SIZE_OPTIONS`/`MOVING_SERVICE_OPTIONS` and reseeding takes it off the site.
-- Also seeds the per-floor surcharge product (`MOVING_FLOOR_SURCHARGE`, one option).
+- Also seeds the per-floor surcharge product (`MOVING_FLOOR_SURCHARGE`, one option) and the carrying-distance product (`MOVING_CARRY_SURCHARGE`, two options).
+- After each price row's upsert, fills in the starting price where `customerPriceCents` is still 0 (the old placeholder) — a staff-set price is never overwritten.
 - `seedMovingCatalog()` — `{ priceListId, productId, optionsUpserted, servicesProductId, servicesUpserted }`.

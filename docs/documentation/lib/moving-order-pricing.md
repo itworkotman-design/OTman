@@ -12,4 +12,5 @@ The price of a homepage moving request (`POST /api/site/moving-request`): the si
 
 - `movingOrderPricing(sizeOption, services = [])` — `{ priceExVat, priceSubcontractor, pricingSnapshot }`.
 - `movingFloorSurchargeLines(perFloor, ends)` — one line per end with chargeable floors (`quantity` = floors, prices = per floor × floors, so VAT rounds on the line); `[]` when `perFloor` is null. Passed into `movingOrderPricing` with the services.
+- `movingCarrySurchargeLines(surcharges, ends)` — one line per end whose parking answer has a surcharge (quantity 1); a line missing from the price list charges nothing.
 - `movingCustomerTotals(lines)` — `{ totalExVat, totalIncVat }` (per-line VAT rounding); client-safe, used by `MovingRequestFlow` for the live total so it matches the charge.

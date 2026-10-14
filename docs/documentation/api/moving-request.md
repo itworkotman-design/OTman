@@ -58,3 +58,8 @@ An apartment/office end with no lift must send `floorNumber`. Each end's `moving
 the catalog's `floorSurcharge` price becomes a line (`movingFloorSurchargeLines`), added to the price,
 saved as an `OrderItem` (`productCode: MOVING_FLOOR_SURCHARGE`, `quantity` = floors, unit price per
 floor) and listed in `productsSummary`. Not seeded → no surcharge.
+
+## Carrying distance (parking)
+Each end's `parking` answer maps to a carrying-distance line (`MOVING_PARKING_OPTIONS[].surchargeCode`; right
+outside is free). `movingCarrySurchargeLines` prices them from the catalog's `carrySurcharges`; each is added
+to the price, saved as an `OrderItem` (`productCode: MOVING_CARRY_SURCHARGE`) and listed in `productsSummary`.

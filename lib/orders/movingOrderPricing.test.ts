@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getOrderChargeAmountIncVatNok } from "./orderTotals";
-import { movingCustomerTotals, movingFloorSurchargeLines, movingOrderPricing } from "./movingOrderPricing";
+import { movingCarrySurchargeLines, movingCustomerTotals, movingFloorSurchargeLines, movingOrderPricing } from "./movingOrderPricing";
 
 // The moving price list holds prices ex. VAT, like every website price list:
 // the customer pays the size bracket's price + 25%, rounded to whole kroner.
@@ -82,5 +82,34 @@ describe("movingFloorSurchargeLines", () => {
     const lines = movingFloorSurchargeLines({ ...perFloor, customerPriceCents: 29900 }, [{ label: "moving from", chargeableFloors: 3 }]);
     // 4990 → 6238, 3 × 299 = 897 → 1121 (1121.25)
     expect(movingOrderPricing(size, lines).pricingSnapshot.customer).toMatchObject({ totalExVat: 4990 + 897, totalIncVat: 6238 + 1121 });
+  });
+});
+
+describe("movingCarrySurchargeLines", () => {
+  const surcharges = [
+    { code: "CARRY_WITHIN_50M", labelEn: "Carrying distance: within 50 m", customerPriceCents: 50000, subcontractorPriceCents: 30000 },
+    { code: "CARRY_FURTHER", labelEn: "Carrying distance: further away", customerPriceCents: 150000, subcontractorPriceCents: 90000 },
+  ];
+
+  it("charges each end by its parking answer; right outside is free", () => {
+    expect(
+      movingCarrySurchargeLines(surcharges, [
+        { label: "moving from", parking: "FURTHER" },
+        { label: "moving to", parking: "OUTSIDE" },
+      ]),
+    ).toEqual([
+      {
+        code: "CARRY_FURTHER",
+        labelEn: "Carrying distance: further away, moving from",
+        quantity: 1,
+        customerPriceCents: 150000,
+        subcontractorPriceCents: 90000,
+      },
+    ]);
+  });
+
+  it("skips an unanswered end or a surcharge missing from the price list", () => {
+    expect(movingCarrySurchargeLines(surcharges, [{ label: "moving from", parking: null }])).toEqual([]);
+    expect(movingCarrySurchargeLines([], [{ label: "moving from", parking: "WITHIN_50M" }])).toEqual([]);
   });
 });

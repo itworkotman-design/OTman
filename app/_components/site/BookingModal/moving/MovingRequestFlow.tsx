@@ -5,6 +5,7 @@ import { SteppedModal, type FinalStep, type StepSection } from "../SteppedModal"
 import { CustomerTypeStep } from "../whiteGoods/CustomerTypeStep";
 import { AutoAdvance } from "../AutoAdvance";
 import { DateTimeWindowFields } from "../whiteGoods/DateTimeWindowFields";
+import { WhiteGoodsOrderSummary } from "../whiteGoods/WhiteGoodsOrderSummary";
 import { isTimeWindowComplete } from "@/lib/booking/timeWindows";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import {
@@ -14,15 +15,20 @@ import {
 } from "@/lib/booking/pricing/websiteVat";
 import type { MovingCatalogOption } from "@/lib/content/getMovingCatalog";
 import { MOVING_SERVICE_OPTIONS } from "@/lib/content/movingCatalog";
-import { movingCustomerTotals, movingFloorSurchargeLines } from "@/lib/orders/movingOrderPricing";
+import {
+  movingCarrySurchargeLines,
+  movingCustomerTotals,
+  movingFloorSurchargeLines,
+} from "@/lib/orders/movingOrderPricing";
 import {
   emptyMovingProperty,
   isMovingEndReady,
-  movingChargeableFloors,
-  parseMovingProperty,
+  movingDraftChargeableFloors,
+  type MovingParkingCode,
   type MovingPropertyDraft,
 } from "@/lib/orders/movingProperty";
 import { PropertySection, floorsLabel, propertySummary } from "./PropertySection";
+import { movingSummary } from "./movingSummary";
 import {
   isValidEmail,
   sanitizeEmailInput,
@@ -47,6 +53,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   const [catalogOptions, setCatalogOptions] = useState<MovingCatalogOption[]>([]);
   const [serviceOptions, setServiceOptions] = useState<MovingCatalogOption[]>([]);
   const [floorSurchargeOption, setFloorSurchargeOption] = useState<MovingCatalogOption | null>(null);
+  const [carrySurcharges, setCarrySurcharges] = useState<MovingCatalogOption[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
@@ -63,6 +70,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
         setCatalogOptions(data.options ?? []);
         setServiceOptions(data.services ?? []);
         setFloorSurchargeOption(data.floorSurcharge ?? null);
+        setCarrySurcharges(data.carrySurcharges ?? []);
       } catch (err) {
         if ((err as { name?: string })?.name !== "AbortError") {
           setCatalogError(t("Could not load pricing", "Kunne ikke laste priser"));
@@ -116,13 +124,11 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   // price; a private customer pays each line + 25%, rounded to whole kroner —
   // movingCustomerTotals is what the order's payment link charges too
   // (lib/orders/movingOrderPricing.ts).
-  // No-lift floor surcharge per end — from the parsed property, so an answer
-  // left over from an earlier type (e.g. "no lift, 5th floor" before switching
-  // to Enebolig) never shows a charge the server wouldn't make.
-  const chargeableFloors = (draft: MovingPropertyDraft) => {
-    const parsed = parseMovingProperty(draft);
-    return parsed.ok ? movingChargeableFloors(parsed.property) : 0;
-  };
+  // No-lift floor surcharge per end, live from each draft as the floor box
+  // changes — not only once the whole section (size, parking) is answered.
+  // Only counts while the lift question applies, so an answer left over
+  // from an earlier type never shows a charge the server wouldn't make.
+  const chargeableFloors = movingDraftChargeableFloors;
   // One entry per end with chargeable floors, priced like the server prices
   // them (movingFloorSurchargeLines) — `end` labels the summary row.
   const floorLines = [
@@ -131,7 +137,20 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   ].flatMap(({ end, chargeableFloors }) =>
     movingFloorSurchargeLines(floorSurchargeOption, [{ label: end, chargeableFloors }]).map((line) => ({ ...line, end })),
   );
-  const totals = movingCustomerTotals(selectedOption ? [selectedOption, ...selectedServices, ...floorLines] : []);
+  // Carrying-distance surcharge per end, from its parking answer (right
+  // outside is free) — also priced like the server prices it.
+  const carryLines = [
+    { end: t("from", "fra"), parking: origin.parking },
+    { end: t("to", "til"), parking: destination.parking },
+  ].flatMap(({ end, parking }) =>
+    movingCarrySurchargeLines(carrySurcharges, [{ label: end, parking }]).map((line) => {
+      const option = carrySurcharges.find((o) => o.code === line.code);
+      return { ...line, end, labelNo: option?.labelNo ?? line.labelEn, labelEn: option?.labelEn ?? line.labelEn };
+    }),
+  );
+  const totals = movingCustomerTotals(
+    selectedOption ? [selectedOption, ...selectedServices, ...floorLines, ...carryLines] : [],
+  );
   const vatDisplay = websiteCustomerTotalDisplay({
     totalExVat: totals.totalExVat,
     totalIncVat: totals.totalIncVat,
@@ -144,6 +163,27 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
     const [line] = movingFloorSurchargeLines(floorSurchargeOption, [{ label: "", chargeableFloors: floors }]);
     return line && line.customerPriceCents > 0 ? formatKr(linePrice(line)) : null;
   };
+  // What each parking pill shows: its carrying-distance surcharge, if any.
+  const parkingPriceLabel = (parking: MovingParkingCode) => {
+    const [line] = movingCarrySurchargeLines(carrySurcharges, [{ label: "", parking }]);
+    return line && line.customerPriceCents > 0 ? formatKr(linePrice(line)) : null;
+  };
+  // One live calculator — the delivery modal's order-summary card — shared
+  // by every step from "moving from" until "your details" (SteppedModal's
+  // `aside`), following them in a sticky right column instead of each step
+  // carrying its own.
+  const summary = movingSummary({ locale, sizeOption: selectedOption, services: selectedServices, floorLines, carryLines });
+  const calculator = (
+    <WhiteGoodsOrderSummary
+      locale={locale}
+      products={summary.products}
+      orderExtras={summary.orderExtras}
+      totalExVat={totals.totalExVat}
+      totalIncVat={totals.totalIncVat}
+      customerType={customerType ?? "private"}
+      hideProductHints
+    />
+  );
   const toggleService = (code: string) =>
     setServiceCodes((codes) => (codes.includes(code) ? codes.filter((c) => c !== code) : [...codes, code]));
 
@@ -229,6 +269,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
           sizeOptions={catalogOptions}
           sizePrice={(option) => formatKr(linePrice(option))}
           floorSurchargeLabel={floorSurchargeLabel}
+          parkingPriceLabel={parkingPriceLabel}
           catalogLoading={catalogLoading}
           catalogError={catalogError}
           onReady={onComplete}
@@ -257,6 +298,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
           onChange={setDestination}
           sizeOptions={catalogOptions}
           floorSurchargeLabel={floorSurchargeLabel}
+          parkingPriceLabel={parkingPriceLabel}
           catalogLoading={catalogLoading}
           catalogError={catalogError}
           onReady={onComplete}
@@ -461,6 +503,14 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
                   <span>+ {formatKr(linePrice(line))}</span>
                 </div>
               ))}
+              {carryLines.map((line) => (
+                <div key={line.end} className="flex justify-between gap-4">
+                  <span>
+                    {locale === "no" ? line.labelNo : line.labelEn}, {line.end}
+                  </span>
+                  <span>+ {formatKr(linePrice(line))}</span>
+                </div>
+              ))}
               <div className="flex justify-between gap-4">
                 <span>{t("Date", "Dato")}</span>
                 <span>
@@ -503,5 +553,12 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
       ),
   };
 
-  return <SteppedModal sections={sections} finalStep={finalStep} onClose={onClose} />;
+  return (
+    <SteppedModal
+      sections={sections}
+      finalStep={finalStep}
+      onClose={onClose}
+      aside={{ node: calculator, fromId: "moving-from", untilId: "your-details" }}
+    />
+  );
 }

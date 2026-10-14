@@ -9,7 +9,8 @@ import {
   MOVING_PARKING_OPTIONS,
   movingLiftApplies,
   isMovingEndReady,
-  movingChargeableFloors,
+  movingDraftChargeableFloors,
+  type MovingParkingCode,
   type MovingPropertyDraft,
 } from "@/lib/orders/movingProperty";
 import { sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
@@ -37,6 +38,9 @@ type Props = {
   // or null for none — shown live next to the "which floor?" box, like the
   // delivery modal.
   floorSurchargeLabel: (chargeableFloors: number) => string | null;
+  // The carrying-distance surcharge for a parking answer, formatted the same
+  // way, or null when it's free — shown on the parking pills.
+  parkingPriceLabel: (parking: MovingParkingCode) => string | null;
   catalogLoading: boolean;
   catalogError: string | null;
   // SteppedModal's onComplete/onUncomplete: the next section appears as
@@ -105,6 +109,7 @@ export function PropertySection({
   sizeOptions,
   sizePrice,
   floorSurchargeLabel,
+  parkingPriceLabel,
   catalogLoading,
   catalogError,
   onReady,
@@ -116,7 +121,7 @@ export function PropertySection({
   const [addressTouched, setAddressTouched] = useState(false);
   const addressNotSelected = addressTouched && !!address.trim() && !addressSelected;
   const [floorTouched, setFloorTouched] = useState(false);
-  const floorSurcharge = floorSurchargeLabel(movingChargeableFloors(value));
+  const floorSurcharge = floorSurchargeLabel(movingDraftChargeableFloors(value));
   const stepButton =
     "flex h-8 w-8 items-center justify-center rounded-full border border-logoblue/30 bg-white text-lg font-semibold text-logoblue transition hover:border-logoblue disabled:pointer-events-none disabled:opacity-35";
 
@@ -249,11 +254,16 @@ export function PropertySection({
 
       <SubHeading>{t("How close can we park?", "Hvor nær kan vi parkere?")}</SubHeading>
       <div className="grid grid-cols-3 gap-2">
-        {MOVING_PARKING_OPTIONS.map((p) => (
-          <Chip key={p.code} active={value.parking === p.code} onClick={() => set({ parking: p.code })}>
-            {locale === "no" ? p.labelNo : p.labelEn}
-          </Chip>
-        ))}
+        {MOVING_PARKING_OPTIONS.map((p) => {
+          const price = parkingPriceLabel(p.code);
+          const active = value.parking === p.code;
+          return (
+            <Chip key={p.code} active={active} onClick={() => set({ parking: p.code })}>
+              {locale === "no" ? p.labelNo : p.labelEn}
+              {price && <span className={`ml-1.5 font-normal ${active ? "text-white/80" : "text-black/45"}`}>+{price}</span>}
+            </Chip>
+          );
+        })}
       </div>
 
       <AutoAdvance ready={isReady} onReady={onReady} onRetract={onRetract} />

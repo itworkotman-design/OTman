@@ -8,10 +8,11 @@ use the same rules. Client-safe (no DB import).
 
 ## Exports
 - `MOVING_HOME_TYPES` — `APARTMENT` (Leilighet), `TOWNHOUSE` (Rekkehus), `DETACHED` (Enebolig), `OFFICE` (Kontor).
-- `MOVING_PARKING_OPTIONS` — `OUTSIDE` (Rett utenfor), `WITHIN_50M` (Innen 50 m), `FURTHER` (Lenger unna).
+- `MOVING_PARKING_OPTIONS` — `OUTSIDE` (Rett utenfor, free), `WITHIN_50M` (Innen 50 m), `FURTHER` (Lenger unna); each `surchargeCode` names its carrying-distance line on the moving price list (`CARRY_WITHIN_50M`/`CARRY_FURTHER`, null for outside).
 - `MOVING_MAX_FLOORS` — 4.
 - `movingLiftApplies(homeType)` — the lift question only applies to apartments and offices.
 - `floorNumber` (draft + parsed) — which floor it's on; asked and required only when the lift applies and the answer is "no lift". Whole, non-zero, up to 3 digits (1 = ground floor, -1 = first basement, as in the delivery modal); nulled otherwise.
+- `movingDraftChargeableFloors(draft)` — the same straight from the flow's draft (only while the lift question applies to the picked type), so the live calculator and "+N kr" pill follow the floor box before size/parking are answered.
 - `movingChargeableFloors(property)` — floors that cost extra: `getChargeableFloors` (the delivery modal's rule: free up to the 2nd floor and down to -1), only with no lift.
 - `emptyMovingProperty()` — the flow's starting `MovingPropertyDraft` (nothing picked, 1 floor).
 - `parseMovingProperty(v)` — `{ ok: true, property }` or `{ ok: false, errors }` keyed by field

@@ -53,6 +53,17 @@ describe("GET /api/site/moving-request/catalog", () => {
     expect(json.floorSurcharge).toEqual(floorSurcharge);
   });
 
+  it("returns the carrying-distance surcharges", async () => {
+    const carrySurcharges = [
+      { code: "CARRY_FURTHER", labelEn: "Carrying distance: further away", labelNo: "Bæreavstand: lenger unna", customerPriceCents: 150000, subcontractorPriceCents: 0 },
+    ];
+    mocks.getMovingCatalogMock.mockResolvedValue({ priceListId: "pl-moving", options: [], services: [], floorSurcharge: null, carrySurcharges });
+
+    const json = await (await GET()).json();
+
+    expect(json.carrySurcharges).toEqual(carrySurcharges);
+  });
+
   it("returns 404 when the moving price list hasn't been seeded", async () => {
     mocks.getMovingCatalogMock.mockResolvedValue(null);
 

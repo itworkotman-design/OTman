@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   productOptionUpsert: vi.fn(),
   productOptionUpdateMany: vi.fn(),
   priceListItemUpsert: vi.fn(),
+  priceListItemUpdateMany: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -13,12 +14,14 @@ vi.mock("@/lib/db", () => ({
     priceList: { upsert: mocks.priceListUpsert },
     product: { upsert: mocks.productUpsert },
     productOption: { upsert: mocks.productOptionUpsert, updateMany: mocks.productOptionUpdateMany },
-    priceListItem: { upsert: mocks.priceListItemUpsert },
+    priceListItem: { upsert: mocks.priceListItemUpsert, updateMany: mocks.priceListItemUpdateMany },
   },
 }));
 
 import { seedMovingCatalog } from "./seedMovingCatalog";
 import {
+  MOVING_CARRY_SURCHARGE_OPTIONS,
+  MOVING_CARRY_SURCHARGE_PRODUCT_CODE,
   MOVING_FLOOR_SURCHARGE_OPTION,
   MOVING_FLOOR_SURCHARGE_PRODUCT_CODE,
   MOVING_PRICE_LIST_CODE,
@@ -38,7 +41,9 @@ describe("seedMovingCatalog", () => {
           ? "p-services"
           : arg.create.code === MOVING_FLOOR_SURCHARGE_PRODUCT_CODE
             ? "p-floor"
-            : "p-moving",
+            : arg.create.code === MOVING_CARRY_SURCHARGE_PRODUCT_CODE
+              ? "p-carry"
+              : "p-moving",
     }));
     mocks.productOptionUpsert.mockResolvedValue({ id: "o" });
     mocks.priceListItemUpsert.mockResolvedValue({});
@@ -91,8 +96,10 @@ describe("seedMovingCatalog", () => {
     expect(serviceOptions.every((arg) => arg.create.category === "service")).toBe(true);
     expect(result.servicesUpserted).toBe(MOVING_SERVICE_OPTIONS.length);
     // Same price list, same "never overwrite staff prices" rule as sizes.
-    // + the per-floor surcharge line.
-    expect(mocks.priceListItemUpsert).toHaveBeenCalledTimes(MOVING_SIZE_OPTIONS.length + MOVING_SERVICE_OPTIONS.length + 1);
+    // + the per-floor surcharge line and the carrying-distance lines.
+    expect(mocks.priceListItemUpsert).toHaveBeenCalledTimes(
+      MOVING_SIZE_OPTIONS.length + MOVING_SERVICE_OPTIONS.length + 1 + MOVING_CARRY_SURCHARGE_OPTIONS.length,
+    );
   });
 
   it("includes Nedpakking and Flyttevask (Mellomlagring left out for now)", () => {
@@ -136,7 +143,9 @@ describe("seedMovingCatalog — options removed from code", () => {
           ? "p-services"
           : arg.create.code === MOVING_FLOOR_SURCHARGE_PRODUCT_CODE
             ? "p-floor"
-            : "p-moving",
+            : arg.create.code === MOVING_CARRY_SURCHARGE_PRODUCT_CODE
+              ? "p-carry"
+              : "p-moving",
     }));
     mocks.productOptionUpsert.mockResolvedValue({ id: "o" });
     mocks.priceListItemUpsert.mockResolvedValue({});
@@ -186,5 +195,66 @@ describe("seedMovingCatalog — floor surcharge", () => {
       .find((arg) => arg.create.productId === `p-${MOVING_FLOOR_SURCHARGE_PRODUCT_CODE}`);
     expect(option.create.code).toBe(MOVING_FLOOR_SURCHARGE_OPTION.code);
     expect(option.create.description).toBe("Etasjetillegg (per etasje, uten heis)");
+  });
+});
+
+describe("seedMovingCatalog — starting prices", () => {
+  beforeEach(() => {
+    Object.values(mocks).forEach((mock) => mock.mockReset());
+    mocks.priceListUpsert.mockResolvedValue({ id: "pl-moving" });
+    mocks.productUpsert.mockImplementation(async (arg: { create: { code: string } }) => ({ id: `p-${arg.create.code}` }));
+    mocks.productOptionUpsert.mockImplementation(async (arg: { create: { code: string } }) => ({ id: `o-${arg.create.code}` }));
+    mocks.priceListItemUpsert.mockResolvedValue({});
+    mocks.priceListItemUpdateMany.mockResolvedValue({ count: 0 });
+    mocks.productOptionUpdateMany.mockResolvedValue({ count: 0 });
+  });
+
+  it("has real starting prices (ex. VAT) for every size, service and the floor surcharge", () => {
+    expect(MOVING_SIZE_OPTIONS.map((o) => o.customerPrice)).toEqual([3200, 5000, 7500, 12000, 19000]);
+    expect(MOVING_SERVICE_OPTIONS.map((o) => [o.labelNo, o.customerPrice])).toEqual([
+      ["Nedpakking", 4000],
+      ["Flyttevask", 4800],
+    ]);
+    expect(MOVING_FLOOR_SURCHARGE_OPTION.customerPrice).toBe(400);
+  });
+
+  it("fills in a price still at the 0 kr placeholder, but never touches one staff have set", async () => {
+    await seedMovingCatalog();
+
+    const call = mocks.priceListItemUpdateMany.mock.calls
+      .map(([arg]) => arg)
+      .find((arg) => arg.where.productOptionId === "o-SIZE_UNDER_40");
+    // Only matches while the price is still the placeholder 0 — any price a
+    // staff member entered (non-zero) is left alone.
+    expect(call).toEqual({
+      where: { priceListId: "pl-moving", productOptionId: "o-SIZE_UNDER_40", customerPriceCents: 0 },
+      data: { customerPriceCents: 500000 },
+    });
+  });
+});
+
+describe("seedMovingCatalog — carrying distance", () => {
+  beforeEach(() => {
+    Object.values(mocks).forEach((mock) => mock.mockReset());
+    mocks.priceListUpsert.mockResolvedValue({ id: "pl-moving" });
+    mocks.productUpsert.mockImplementation(async (arg: { create: { code: string } }) => ({ id: `p-${arg.create.code}` }));
+    mocks.productOptionUpsert.mockImplementation(async (arg: { create: { code: string } }) => ({ id: `o-${arg.create.code}` }));
+    mocks.priceListItemUpsert.mockResolvedValue({});
+    mocks.priceListItemUpdateMany.mockResolvedValue({ count: 0 });
+    mocks.productOptionUpdateMany.mockResolvedValue({ count: 0 });
+  });
+
+  it("seeds 500 kr (within 50 m) and 1 500 kr (further away) ex. VAT on the moving price list", async () => {
+    expect(MOVING_CARRY_SURCHARGE_OPTIONS.map((o) => [o.code, o.customerPrice])).toEqual([
+      ["CARRY_WITHIN_50M", 500],
+      ["CARRY_FURTHER", 1500],
+    ]);
+
+    await seedMovingCatalog();
+
+    const options = mocks.productOptionUpsert.mock.calls
+      .map(([arg]) => arg)
+      .filter((arg) => arg.create.productId === `p-${MOVING_CARRY_SURCHARGE_PRODUCT_CODE}`);
+    expect(options.map((arg) => arg.create.description)).toEqual(["Bæreavstand: innen 50 m", "Bæreavstand: lenger unna"]);
   });
 });

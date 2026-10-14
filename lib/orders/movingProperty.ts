@@ -24,9 +24,11 @@ export type MovingHomeTypeCode = MovingHomeType["code"];
 
 // Carrying distance from the van to the door — what actually changes the job.
 export const MOVING_PARKING_OPTIONS = [
-  { code: "OUTSIDE", labelEn: "Right outside", labelNo: "Rett utenfor" },
-  { code: "WITHIN_50M", labelEn: "Within 50 m", labelNo: "Innen 50 m" },
-  { code: "FURTHER", labelEn: "Further away", labelNo: "Lenger unna" },
+  // surchargeCode: the carrying-distance line on the moving price list
+  // (MOVING_CARRY_SURCHARGE_OPTIONS) — parking right outside is free.
+  { code: "OUTSIDE", labelEn: "Right outside", labelNo: "Rett utenfor", surchargeCode: null },
+  { code: "WITHIN_50M", labelEn: "Within 50 m", labelNo: "Innen 50 m", surchargeCode: "CARRY_WITHIN_50M" },
+  { code: "FURTHER", labelEn: "Further away", labelNo: "Lenger unna", surchargeCode: "CARRY_FURTHER" },
 ] as const;
 
 export type MovingParkingOption = (typeof MOVING_PARKING_OPTIONS)[number];
@@ -148,4 +150,14 @@ export function isMovingEndReady(params: {
 export function movingChargeableFloors(property: Pick<MovingProperty, "hasLift" | "floorNumber">): number {
   if (property.hasLift !== false || property.floorNumber === null) return 0;
   return getChargeableFloors(property.floorNumber, false);
+}
+
+// The same, straight from the flow's draft — for the live calculator and the
+// "+N kr" pill, which should follow the floor box as it's typed, before the
+// rest of the section (size, parking) is answered. Only counts while the
+// lift question applies to the picked type, so a "no lift, 5th floor" left
+// over from Leilighet doesn't charge an Enebolig.
+export function movingDraftChargeableFloors(draft: MovingPropertyDraft): number {
+  if (!movingLiftApplies(draft.homeType)) return 0;
+  return movingChargeableFloors(draft);
 }

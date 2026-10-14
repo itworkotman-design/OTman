@@ -6,7 +6,7 @@ One end of the move in `MovingRequestFlow` — used for both "Hvor flytter du fr
 (with prices only when `sizePrice` is given — the origin), `HouseIllustration` + floors stepper,
 "Er det heis?" (only for Leilighet/Kontor, `movingLiftApplies`) — on "Nei", "Hvilken etasje ligger den i?" with the
 delivery modal's `FloorInput` and a live `+N kr` surcharge pill (`floorSurchargeLabel` from the flow) — and
-"Hvor nær kan vi parkere?".
+"Hvor nær kan vi parkere?" — each pill shows its carrying-distance surcharge (`parkingPriceLabel` from the flow).
 The next section opens (via `AutoAdvance`, `onReady`/`onRetract`) as soon as `isMovingEndReady` — the address
 picked from the suggestions (`addressSelected`; free-typed shows "Velg en adresse fra forslagene" after blur, as in
 the delivery modal) and every answer in —

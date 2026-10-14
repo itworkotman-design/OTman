@@ -52,6 +52,10 @@ type Props = {
   // Replaces the card's own total and "final price may vary" note, inside the
   // same card — the review page passes its VAT breakdown + highlighted total.
   totalFooter?: ReactNode;
+  // The moving flow has no products to choose and its price doesn't depend
+  // on the address, so it drops the "Choose a product…" empty hint and the
+  // "final price may vary based on your address…" note.
+  hideProductHints?: boolean;
 };
 
 function formatKr(n: number) {
@@ -66,6 +70,7 @@ export function WhiteGoodsOrderSummary({
   totalIncVat,
   customerType,
   totalFooter,
+  hideProductHints = false,
 }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const vatDisplay = websiteCustomerTotalDisplay({ totalExVat, totalIncVat, customerType });
@@ -80,7 +85,9 @@ export function WhiteGoodsOrderSummary({
       <h3 className="flex items-center gap-2 text-lg font-semibold text-logoblue">{t("Order summary", "Ordreoppsummering")}</h3>
 
       {products.length === 0 ? (
-        <p className="mt-3 text-sm text-black/50">{t("Choose a product to see pricing here.", "Velg et produkt for å se pris her.")}</p>
+        !hideProductHints && (
+          <p className="mt-3 text-sm text-black/50">{t("Choose a product to see pricing here.", "Velg et produkt for å se pris her.")}</p>
+        )
       ) : (
         <div className="mt-4 flex flex-col gap-4">
           {products.map((product) => (
@@ -184,12 +191,14 @@ export function WhiteGoodsOrderSummary({
             </div>
           </div>
 
-          <p className="mt-3 rounded-lg bg-logoblue/5 p-3 text-sm text-black/60">
-            {t(
-              "The final price may vary based on your address and any additional items.",
-              "Den endelige prisen kan variere basert på adressen din og eventuelle tilleggsvalg.",
-            )}
-          </p>
+          {!hideProductHints && (
+            <p className="mt-3 rounded-lg bg-logoblue/5 p-3 text-sm text-black/60">
+              {t(
+                "The final price may vary based on your address and any additional items.",
+                "Den endelige prisen kan variere basert på adressen din og eventuelle tilleggsvalg.",
+              )}
+            </p>
+          )}
         </>
       )}
     </div>
