@@ -57,3 +57,10 @@ export function withPickupContacts(loaded: unknown[], form: unknown[]): Stop[] {
     return { ...(stop as Stop), contactName: now.contactName ?? "", contactPhone: now.contactPhone ?? "" };
   });
 }
+
+// What the edit bar's main button does. While the whole order can still be
+// changed the customer sees the summary (the same one a new order ends on)
+// before saving; within 24h the changes are small and saved straight away.
+export function customerEditPrimaryAction(params: { beforeCutoff: boolean; summaryOpen: boolean }): "summary" | "save" {
+  return params.beforeCutoff && !params.summaryOpen ? "summary" : "save";
+}

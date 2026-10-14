@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
-import { buildCustomerEditPayload, type CustomerEditDraft } from "./customerEditPayload";
+import { buildCustomerEditPayload, customerEditPrimaryAction, type CustomerEditDraft } from "./customerEditPayload";
 
 type Props = {
   orderNumber: string;
@@ -16,6 +16,10 @@ type Props = {
   // Why the change can't be saved yet (e.g. a product without a pickup
   // address); Save stays disabled while it's set.
   blockedMessage?: string | null;
+  // Before the cutoff the changes are checked on the summary page first (see
+  // customerEditPrimaryAction): whether it's open, and how to open it.
+  summaryOpen?: boolean;
+  onOpenSummary?: () => void;
 };
 
 const PREVIEW_DELAY_MS = 800;
@@ -36,6 +40,8 @@ export default function CustomerOrderEditFooter({
   onCancel,
   onSaved,
   blockedMessage = null,
+  summaryOpen = false,
+  onOpenSummary,
 }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   // The totals the customer sees and confirms: incl. VAT (prices are stored ex. VAT).
@@ -150,6 +156,7 @@ export default function CustomerOrderEditFooter({
   }
 
   const delta = preview ? preview.total - preview.previousTotal : 0;
+  const toSummary = !!onOpenSummary && customerEditPrimaryAction({ beforeCutoff, summaryOpen }) === "summary";
 
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
@@ -191,11 +198,15 @@ export default function CustomerOrderEditFooter({
         {(blockedMessage || error) && <p className="text-sm font-medium text-red-600">{blockedMessage || error}</p>}
         <button
           type="button"
-          onClick={save}
+          onClick={toSummary ? onOpenSummary : save}
           disabled={!!blockedMessage || !hasChanges || saving || previewing || (!preview && !!error)}
           className="inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-5 text-sm font-semibold text-white disabled:opacity-50"
         >
-          {saving ? t("Saving…", "Lagrer…") : t("Save changes", "Lagre endringer")}
+          {toSummary
+            ? t("Go to summary", "Gå til oppsummering")
+            : saving
+              ? t("Saving…", "Lagrer…")
+              : t("Save changes", "Lagre endringer")}
         </button>
         <button
           type="button"

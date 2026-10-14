@@ -3,6 +3,7 @@ import {
   heightHoldAction,
   nextRevealedCount,
   finalStepScrollTarget,
+  isFinalStepShown,
   progressPercent,
   showsBottomSpace,
   retractedRevealedCount,
@@ -179,5 +180,18 @@ describe("finalStepScrollTarget", () => {
   it("leaves the scroll alone when the final step didn't toggle", () => {
     expect(finalStepScrollTarget(false, false)).toBeNull();
     expect(finalStepScrollTarget(true, true)).toBeNull();
+  });
+});
+
+describe("isFinalStepShown", () => {
+  it("shows it once the last section is completed, in the stepped flow", () => {
+    expect(isFinalStepShown({ showAll: false, reached: true })).toBe(true);
+    expect(isFinalStepShown({ showAll: false, reached: false })).toBe(false);
+  });
+
+  it("with every section open, only shows it when the caller opens it (My order's summary)", () => {
+    expect(isFinalStepShown({ showAll: true, reached: true })).toBe(false);
+    expect(isFinalStepShown({ showAll: true, reached: false, open: true })).toBe(true);
+    expect(isFinalStepShown({ showAll: true, reached: true, open: false })).toBe(false);
   });
 });

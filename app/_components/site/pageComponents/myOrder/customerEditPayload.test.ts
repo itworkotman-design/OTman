@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCustomerEditPayload, withPickupContacts, type CustomerEditDraft } from "./customerEditPayload";
+import { buildCustomerEditPayload, customerEditPrimaryAction, withPickupContacts, type CustomerEditDraft } from "./customerEditPayload";
 
 const initial: CustomerEditDraft = {
   customer: { name: "Kari", phone: "87654321", email: "kari@example.no", comments: "" },
@@ -65,5 +65,19 @@ describe("withPickupContacts", () => {
       { address: "Strømmen 1", productNames: ["Vaskemaskin"], contactName: "Ola", contactPhone: "12345678" },
       { address: "Bjerkeveien 2", contactName: "Kari", contactPhone: "87654321" },
     ]);
+  });
+});
+
+describe("customerEditPrimaryAction", () => {
+  it("goes to the summary first when the whole order can still be changed", () => {
+    expect(customerEditPrimaryAction({ beforeCutoff: true, summaryOpen: false })).toBe("summary");
+  });
+
+  it("saves from the summary", () => {
+    expect(customerEditPrimaryAction({ beforeCutoff: true, summaryOpen: true })).toBe("save");
+  });
+
+  it("saves straight away within 24h (only contact details and added services)", () => {
+    expect(customerEditPrimaryAction({ beforeCutoff: false, summaryOpen: false })).toBe("save");
   });
 });

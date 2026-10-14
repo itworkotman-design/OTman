@@ -273,6 +273,9 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   const adminInitialRouteKey = useRef<string | null>(null);
   // Customer editing: the order as loaded, to send only what they changed.
   const [customerInitialDraft, setCustomerInitialDraft] = useState<CustomerEditDraft | null>(null);
+  // Before the cutoff the changes are reviewed on the summary page (the
+  // final step) before saving; the edit bar below saves from there.
+  const [customerSummaryOpen, setCustomerSummaryOpen] = useState(false);
   // Within 24h of the job: only contact details (incl. pickup contact
   // persons) and added services — the "late change" sections below.
   const customerLocked = !!customer && !customer.beforeCutoff;
@@ -1445,8 +1448,10 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
                 }
               />
 
-              {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+              {/* "My order" saves from its edit bar (CustomerOrderEditFooter). */}
+              {!customer && submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
+              {!customer && (
               <button
                 type="button"
                 disabled={!canSubmit}
@@ -1455,6 +1460,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
               >
                 {submitLoading ? t("Sending…", "Sender…") : t("Submit order", "Send bestilling")}
               </button>
+              )}
             </div>
           </div>
         </div>
@@ -1599,6 +1605,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
         sectionGap={customerLocked ? 16 : undefined}
         sections={adminReady ? customerSections : loadingSections}
         finalStep={finalStep}
+        finalStepOpen={!customerLocked && customerSummaryOpen}
+        onFinalStepBack={() => setCustomerSummaryOpen(false)}
         onClose={onClose}
         title={
           <span className="truncate text-base font-semibold text-logoblue">
@@ -1616,6 +1624,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
               onCancel={onClose}
               onSaved={customer.onSaved}
               blockedMessage={pickupBlockedMessage}
+              summaryOpen={customerSummaryOpen}
+              onOpenSummary={() => setCustomerSummaryOpen(true)}
             />
           ) : null
         }

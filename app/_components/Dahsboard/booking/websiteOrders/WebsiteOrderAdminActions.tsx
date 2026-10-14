@@ -260,7 +260,7 @@ export default function WebsiteOrderAdminActions({
         <div className="mt-4 flex flex-col gap-3 text-sm">
           <label className="flex flex-col gap-1">
             <span className={labelClass}>{t("Description (internal)", "Beskrivelse (intern)")}</span>
-            <textarea value={handling.description} onChange={(e) => setField("description", e.target.value)} rows={4} className={fieldClass} />
+            <textarea value={handling.description} onChange={(e) => setField("description", e.target.value)} rows={8} className={fieldClass} />
           </label>
 
           <div className="flex flex-col gap-3">

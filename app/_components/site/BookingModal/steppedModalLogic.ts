@@ -88,3 +88,11 @@ export function progressPercent(revealedCount: number, totalSections: number): n
   if (totalSections <= 0) return 0;
   return Math.min(100, Math.max(0, (revealedCount / totalSections) * 100));
 }
+
+// Whether the final (review) step replaces the sections. The stepped flow
+// reaches it by completing the last section; with every section open
+// (`showAll`) there is no last section to complete, so only the caller can
+// open it (`open`) — "My order"'s summary before saving.
+export function isFinalStepShown(params: { showAll: boolean; reached: boolean; open?: boolean }): boolean {
+  return params.showAll ? params.open === true : params.reached;
+}

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { finalStepScrollTarget, heightHoldAction, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
+import { finalStepScrollTarget, heightHoldAction, isFinalStepShown, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
 
 export type StepSectionRenderProps = {
   // True for the one section currently being answered (the last one
@@ -52,9 +52,12 @@ type SteppedModalProps = {
   sections: StepSection[];
   finalStep: FinalStep;
   onClose: () => void;
-  // Every section open at once, nothing gated and no final step — the admin
-  // editing an existing order (see WhiteGoodsBookingFlow's `admin`).
+  // Every section open at once, nothing gated — editing an existing order
+  // (see WhiteGoodsBookingFlow's `customer`). The final step then only shows
+  // while `finalStepOpen` is set; its back action calls `onFinalStepBack`.
   showAll?: boolean;
+  finalStepOpen?: boolean;
+  onFinalStepBack?: () => void;
   // Shown next to the logo (e.g. which order is being edited).
   title?: ReactNode;
   // Pinned below the scrolling body (e.g. the admin's save bar).
@@ -174,7 +177,17 @@ export function AnimatedStack({ items, gap, className = "" }: { items: AnimatedS
   );
 }
 
-export function SteppedModal({ sections, finalStep, onClose, showAll = false, title, footer, sectionGap = 40 }: SteppedModalProps) {
+export function SteppedModal({
+  sections,
+  finalStep,
+  onClose,
+  showAll = false,
+  finalStepOpen,
+  onFinalStepBack,
+  title,
+  footer,
+  sectionGap = 40,
+}: SteppedModalProps) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -228,7 +241,7 @@ export function SteppedModal({ sections, finalStep, onClose, showAll = false, ti
   const [revealedSteps, setRevealedCount] = useState(1);
   const [finalStepReached, setShowFinalStep] = useState(false);
   const revealedCount = showAll ? sections.length : revealedSteps;
-  const showFinalStep = !showAll && finalStepReached;
+  const showFinalStep = isFinalStepShown({ showAll, reached: finalStepReached, open: finalStepOpen });
   const visibleSections = sections.slice(0, revealedCount);
   const shownIds = shownSectionIds(visibleSections);
   const structureKey = `${showFinalStep ? "final" : "steps"}:${shownIds.join("|")}`;
@@ -341,7 +354,7 @@ export function SteppedModal({ sections, finalStep, onClose, showAll = false, ti
 
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-8 sm:py-8">
           <div ref={contentRef}>
-          {showFinalStep && finalStep.render({ onBack: () => setShowFinalStep(false) })}
+          {showFinalStep && finalStep.render({ onBack: onFinalStepBack ?? (() => setShowFinalStep(false)) })}
 
           {/* Kept mounted (just hidden) rather than conditionally rendered,
               so RevealSection's per-section reveal state survives toggling
