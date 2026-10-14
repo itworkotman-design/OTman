@@ -15,3 +15,10 @@ every type), `variant` (`house`/`townhouse`/`apartment`/`office` from `MOVING_HO
 codes from `lib/orders/movingProperty.ts`; null → `house`) and `roof` — `style: "gable"` (rise scales with width,
 `ROOF_PITCH`) or `"flat"` (apartment/office, just a parapet). A townhouse is centred
 on its front face (its side wall is hidden by the neighbour); everything else on front + side.
+
+`houseGeometry(..., floorNumber = null)` — for an apartment/office with a known floor
+(1 = ground, negative = basement), also returns `building`: the unit's levels plus just
+enough neighbouring levels to fill the viewBox (`levels`, bottom-up, each with
+`floorNumber`/`isUnit`/`isGround`/`isBasement`), the shifted `groundY` (a high unit is
+scrolled to the middle, so the ground may be off-screen) and `fadeBottom`. An empty or 0 floor counts as floor 1. `null` for
+houses/townhouses.

@@ -24,8 +24,9 @@ const SIZE_SHAPES: Record<string, { width: number; windowsPerFloor: number }> = 
   SIZE_UNDER_20: { width: 90, windowsPerFloor: 1 },
   SIZE_UNDER_40: { width: 110, windowsPerFloor: 2 },
   SIZE_UNDER_60: { width: 130, windowsPerFloor: 2 },
-  SIZE_UNDER_100: { width: 155, windowsPerFloor: 3 },
-  SIZE_OVER_100: { width: 180, windowsPerFloor: 4 },
+  SIZE_UNDER_100: { width: 150, windowsPerFloor: 3 },
+  SIZE_UNDER_150: { width: 170, windowsPerFloor: 4 },
+  SIZE_OVER_150: { width: 190, windowsPerFloor: 5 },
 };
 const DEFAULT_SHAPE = SIZE_SHAPES.SIZE_UNDER_60;
 
@@ -48,6 +49,31 @@ export type HouseGeometry = {
   // Which building to draw — the floor stack is the same for all of them.
   variant: HouseVariant;
   roof: { style: "gable" | "flat"; leftX: number; rightX: number; baseY: number; peakY: number };
+  // Apartment/office once its floor is known: the unit drawn inside the rest
+  // of its building (replaces `floors` + `roof`), otherwise null.
+  building: SurroundingBuilding | null;
+};
+
+export type BuildingLevel = {
+  // As the customer counts them: 1 = ground floor, negative = basement (no 0).
+  floorNumber: number;
+  y: number;
+  height: number;
+  // One of the customer's own floors (the rest are neighbours).
+  isUnit: boolean;
+  isGround: boolean;
+  isBasement: boolean;
+};
+
+export type SurroundingBuilding = {
+  // Bottom-up; only the levels that fall inside the viewBox.
+  levels: BuildingLevel[];
+  // Where the ground line ended up after scrolling the unit into view — may
+  // be outside the viewBox.
+  groundY: number;
+  // The building carries on past the bottom edge (unit high up, or a
+  // basement), so the drawing fades out there. The top always fades.
+  fadeBottom: boolean;
 };
 
 export type HouseVariant = "house" | "townhouse" | "apartment" | "office";
@@ -59,10 +85,61 @@ const VARIANTS: Record<MovingHomeTypeCode, HouseVariant> = {
   OFFICE: "office",
 };
 
+// 1 → 0 (ground), 2 → 1, …; basements stay negative (-1 → -1).
+function floorLevel(floorNumber: number): number {
+  return floorNumber >= 1 ? floorNumber - 1 : floorNumber;
+}
+
+function levelFloorNumber(level: number): number {
+  return level >= 0 ? level + 1 : level;
+}
+
+// The unit (`unitFloors` stacked floors from `floorNumber` up) with just
+// enough of its building around it to fill the viewBox: neighbouring floors
+// above up past the top edge, and below either down to the ground or past
+// the bottom edge. A unit near the ground keeps the ground where a house's
+// would be; a higher one (or a basement) is scrolled to the middle instead.
+function surroundingBuilding(floorNumber: number, unitFloors: number): SurroundingBuilding {
+  const unitBottom = floorLevel(Math.round(floorNumber));
+  const unitTop = unitBottom + unitFloors - 1;
+  const levelTop = (level: number, ground: number) => ground - FLOOR_HEIGHT * (level + 1);
+
+  // Centre the unit a little below the middle, leaving room for the side
+  // wall that recedes upward.
+  const target = (VIEWBOX_HEIGHT + DEPTH.dy) / 2;
+  const unitCentre = levelTop(unitBottom, GROUND_Y) + (FLOOR_HEIGHT * unitFloors) / 2;
+  const shift = unitBottom >= 0 ? Math.max(0, target - unitCentre) : target - unitCentre;
+  const groundY = GROUND_Y + shift;
+
+  // Lowest level still inside the box, but never below the unit's own
+  // basement level (nothing to show underneath it).
+  const firstVisible = Math.floor((groundY - VIEWBOX_HEIGHT) / FLOOR_HEIGHT);
+  const lowest = Math.max(firstVisible, Math.min(0, unitBottom));
+  // Highest level whose side wall still reaches into the box.
+  const highest = Math.max(unitTop, Math.ceil((groundY + DEPTH.dy) / FLOOR_HEIGHT) - 1);
+
+  const levels: BuildingLevel[] = [];
+  for (let level = lowest; level <= highest; level++) {
+    levels.push({
+      floorNumber: levelFloorNumber(level),
+      y: levelTop(level, groundY),
+      height: FLOOR_HEIGHT,
+      isUnit: level >= unitBottom && level <= unitTop,
+      isGround: level === 0,
+      isBasement: level < 0,
+    });
+  }
+
+  return { levels, groundY, fadeBottom: groundY > GROUND_Y };
+}
+
 export function houseGeometry(
   sizeCode: string | null,
   floorCount: number,
   homeType: MovingHomeTypeCode | null = null,
+  // Which floor an apartment/office is on (MovingPropertyDraft.floorNumber);
+  // ignored for houses and townhouses.
+  floorNumber: number | null = null,
 ): HouseGeometry {
   const variant = homeType ? VARIANTS[homeType] : "house";
   const flat = variant === "apartment" || variant === "office";
@@ -96,5 +173,12 @@ export function houseGeometry(
       baseY,
       peakY: baseY - (flat ? PARAPET_HEIGHT : Math.max(MIN_ROOF_HEIGHT, shape.width * ROOF_PITCH)),
     },
+    // While the floor box is empty (or mid-edit), shown on the ground floor.
+    building: flat
+      ? surroundingBuilding(
+          floorNumber != null && Number.isFinite(floorNumber) && Math.round(floorNumber) !== 0 ? floorNumber : 1,
+          count,
+        )
+      : null,
   };
 }

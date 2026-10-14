@@ -24,7 +24,6 @@ import {
   emptyMovingProperty,
   isMovingEndReady,
   movingDraftChargeableFloors,
-  type MovingParkingCode,
   type MovingPropertyDraft,
 } from "@/lib/orders/movingProperty";
 import { PropertyDetailsSection, PropertyWhereSection, floorsLabel, propertySummary } from "./PropertySection";
@@ -158,16 +157,6 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   });
   const linePrice = (option: { customerPriceCents: number }) =>
     websiteCustomerPrice(option.customerPriceCents / 100, customerType ?? "private");
-  // What the "which floor?" pill shows for this many chargeable floors.
-  const floorSurchargeLabel = (floors: number) => {
-    const [line] = movingFloorSurchargeLines(floorSurchargeOption, [{ label: "", chargeableFloors: floors }]);
-    return line && line.customerPriceCents > 0 ? formatKr(linePrice(line)) : null;
-  };
-  // What each parking pill shows: its carrying-distance surcharge, if any.
-  const parkingPriceLabel = (parking: MovingParkingCode) => {
-    const [line] = movingCarrySurchargeLines(carrySurcharges, [{ label: "", parking }]);
-    return line && line.customerPriceCents > 0 ? formatKr(linePrice(line)) : null;
-  };
   // One live calculator — the delivery modal's order-summary card — shared
   // by every step from "about the place you're moving from" until "your
   // details" (SteppedModal's `aside`), following them in a sticky right
@@ -279,9 +268,6 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
           value={origin}
           onChange={setOrigin}
           sizeOptions={catalogOptions}
-          sizePrice={(option) => formatKr(linePrice(option))}
-          floorSurchargeLabel={floorSurchargeLabel}
-          parkingPriceLabel={parkingPriceLabel}
           catalogLoading={catalogLoading}
           catalogError={catalogError}
           onReady={onComplete}
@@ -324,8 +310,6 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
           value={destination}
           onChange={setDestination}
           sizeOptions={catalogOptions}
-          floorSurchargeLabel={floorSurchargeLabel}
-          parkingPriceLabel={parkingPriceLabel}
           catalogLoading={catalogLoading}
           catalogError={catalogError}
           onReady={onComplete}

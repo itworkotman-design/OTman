@@ -55,7 +55,9 @@ export type MovingPropertyDraft = {
 };
 
 export function emptyMovingProperty(): MovingPropertyDraft {
-  return { homeType: null, sizeOptionCode: null, floors: 1, hasLift: null, floorNumber: null, parking: null };
+  // Floor 1 pre-filled for apartments/offices (houses ignore it — parse,
+  // pricing and the summary all gate on movingLiftApplies).
+  return { homeType: null, sizeOptionCode: null, floors: 1, hasLift: null, floorNumber: 1, parking: null };
 }
 
 export type MovingProperty = {

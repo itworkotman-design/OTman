@@ -10,8 +10,6 @@ import {
   movingLiftApplies,
   isMovingEndReady,
   isMovingEndWhereReady,
-  movingDraftChargeableFloors,
-  type MovingParkingCode,
   type MovingPropertyDraft,
 } from "@/lib/orders/movingProperty";
 import { sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
@@ -46,18 +44,9 @@ type DetailsProps = SectionProps & {
   // asked in the section before).
   address: string;
   addressSelected: boolean;
+  // No prices on the size tiles, next to the floor box or on the parking
+  // pills — the live calculator beside the flow already shows them.
   sizeOptions: MovingCatalogOption[];
-  // Shown on the size tiles when given (the origin is what's priced);
-  // omitted for the destination, whose size is information for staff only.
-  sizePrice?: (option: MovingCatalogOption) => string;
-  // The customer-facing surcharge for this many chargeable floors, formatted
-  // (VAT mode applied by the caller, rounded on the line like the charge),
-  // or null for none — shown live next to the "which floor?" box, like the
-  // delivery modal.
-  floorSurchargeLabel: (chargeableFloors: number) => string | null;
-  // The carrying-distance surcharge for a parking answer, formatted the same
-  // way, or null when it's free — shown on the parking pills.
-  parkingPriceLabel: (parking: MovingParkingCode) => string | null;
   catalogLoading: boolean;
   catalogError: string | null;
 };
@@ -99,13 +88,23 @@ function SubHeading({ children }: { children: React.ReactNode }) {
   return <p className="pt-1 text-center text-xs font-semibold uppercase tracking-[0.18em] text-black/40">{children}</p>;
 }
 
-function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function Chip({
+  active,
+  onClick,
+  children,
+  className = "",
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
     <button
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`w-full rounded-full border px-4 py-2 text-center text-sm font-semibold transition ${
+      className={`w-full rounded-full border px-4 py-2 text-center text-sm font-semibold transition ${className} ${
         active ? "border-logoblue bg-logoblue text-white" : "border-black/10 bg-white text-logoblue hover:border-logoblue/40"
       }`}
     >
@@ -118,7 +117,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 // is asked in two sections, so neither reveals too much at once:
 // PropertyWhereSection (address + property type), then
 // PropertyDetailsSection (size + floors with the house preview, then for
-// apartments/offices which floor it's on and then the lift, and parking).
+// apartments/offices which floor + lift in one row, and parking).
 export function PropertyWhereSection({
   locale,
   address,
@@ -175,9 +174,6 @@ export function PropertyDetailsSection({
   value,
   onChange,
   sizeOptions,
-  sizePrice,
-  floorSurchargeLabel,
-  parkingPriceLabel,
   catalogLoading,
   catalogError,
   onReady,
@@ -187,7 +183,6 @@ export function PropertyDetailsSection({
   const set = (patch: Partial<MovingPropertyDraft>) => onChange({ ...value, ...patch });
   const isReady = isMovingEndReady({ address, addressSelected, property: value });
   const [floorTouched, setFloorTouched] = useState(false);
-  const floorSurcharge = floorSurchargeLabel(movingDraftChargeableFloors(value));
   const stepButton =
     "flex h-8 w-8 items-center justify-center rounded-full border border-logoblue/30 bg-white text-lg font-semibold text-logoblue transition hover:border-logoblue disabled:pointer-events-none disabled:opacity-35";
 
@@ -196,31 +191,65 @@ export function PropertyDetailsSection({
       {catalogLoading && <p className="text-sm text-black/50">{t("Loading sizes…", "Laster størrelser…")}</p>}
       {catalogError && <p className="text-sm text-red-600">{catalogError}</p>}
 
-      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-center">
-        <div className="grid gap-2 md:grid-cols-2">
-          {sizeOptions.map((option) => {
-            const active = value.sizeOptionCode === option.code;
-            return (
-              <button
-                key={option.code}
-                type="button"
-                onClick={() => set({ sizeOptionCode: option.code })}
-                className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm transition ${
-                  active ? "border-logoblue bg-logoblue text-white" : "border-black/8 bg-white text-textColor"
-                }`}
-              >
-                <span className="font-semibold">{locale === "no" ? option.labelNo : option.labelEn}</span>
-                {sizePrice && <span className={active ? "text-white/90" : "text-black/50"}>{sizePrice(option)}</span>}
-              </button>
-            );
-          })}
+      {/* Size tiles, then (apartments/offices) the floor and lift questions on the
+          left; the house preview fills the column on the right beside all of them. */}
+      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_220px]">
+        <div className="flex min-w-0 flex-col gap-3">
+          <div className="grid gap-2 md:grid-cols-2">
+            {sizeOptions.map((option) => {
+              const active = value.sizeOptionCode === option.code;
+              return (
+                <button
+                  key={option.code}
+                  type="button"
+                  onClick={() => set({ sizeOptionCode: option.code })}
+                  className={`rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                    active ? "border-logoblue bg-logoblue text-white" : "border-black/8 bg-white text-textColor"
+                  }`}
+                >
+                  {locale === "no" ? option.labelNo : option.labelEn}
+                </button>
+              );
+            })}
+          </div>
+
+        {/* Apartments/offices: which floor + lift side by side in one row.
+            Without a lift the floor costs extra (same rule and floor box as
+            the delivery modal). */}
+        {movingLiftApplies(value.homeType) && (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex min-w-0 flex-col gap-2">
+              <SubHeading>{t("Which floor?", "Hvilken etasje?")}</SubHeading>
+              <FloorInput
+                value={value.floorNumber}
+                onChange={(floorNumber) => set({ floorNumber })}
+                onBlur={() => setFloorTouched(true)}
+                hasError={floorTouched && value.floorNumber === null}
+                placeholder={t("e.g. 1", "f.eks. 1")}
+                large
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-2">
+              <SubHeading>{t("Lift?", "Heis?")}</SubHeading>
+              <div className="grid grid-cols-2 gap-2">
+                <Chip active={value.hasLift === true} onClick={() => set({ hasLift: true })} className="h-12">
+                  {t("Yes", "Ja")}
+                </Chip>
+                <Chip active={value.hasLift === false} onClick={() => set({ hasLift: false })} className="h-12">
+                  {t("No", "Nei")}
+                </Chip>
+              </div>
+            </div>
+          </div>
+        )}
         </div>
 
-        <div className="flex flex-col items-center gap-2 rounded-2xl bg-logoblue/5 px-3 py-3">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-logoblue/5 px-3 py-3">
           <HouseIllustration
             sizeCode={value.sizeOptionCode}
             floors={value.floors}
             homeType={value.homeType}
+            floorNumber={movingLiftApplies(value.homeType) ? value.floorNumber : null}
             className="h-auto w-full max-w-50"
           />
           <div className="flex items-center gap-3">
@@ -249,66 +278,13 @@ export function PropertyDetailsSection({
         </div>
       </div>
 
-      {/* Apartments/offices: which floor first, then — once that's
-          answered — the lift. Without a lift the floor costs extra (same rule
-          and floor box as the delivery modal). */}
-      {movingLiftApplies(value.homeType) && (
-        <>
-          <SubHeading>{t("Which floor is it on?", "Hvilken etasje ligger den i?")}</SubHeading>
-          {/* The box keeps one fixed, centred width; the surcharge pill sits in
-              the column beside it instead of squeezing it when it appears. */}
-          <div className="grid w-full grid-cols-[1fr_minmax(0,22rem)_1fr] items-center gap-2">
-            <div className="col-start-2">
-              <FloorInput
-                value={value.floorNumber}
-                onChange={(floorNumber) => set({ floorNumber })}
-                onBlur={() => setFloorTouched(true)}
-                hasError={floorTouched && value.floorNumber === null}
-                placeholder={t("e.g. 1 for the ground floor", "f.eks. 1 for bakkeplan")}
-                large
-              />
-            </div>
-            {floorSurcharge && (
-              <span className="justify-self-start whitespace-nowrap rounded-lg bg-amber-50 px-2.5 py-2 text-sm font-semibold text-amber-700">
-                +{floorSurcharge}
-              </span>
-            )}
-          </div>
-          <p className="-mt-1 text-center text-xs text-black/45">
-            {t(
-              "1 is the ground floor, -1 the basement. Without a lift, floors above the 2nd or below the 1st basement add a surcharge.",
-              "1. etasje er bakkeplan, -1 er kjeller. Uten heis tilkommer et tillegg for etasjer over 2. og under -1.",
-            )}
-          </p>
-
-          {value.floorNumber !== null && (
-            <>
-              <SubHeading>{t("Is there a lift?", "Er det heis?")}</SubHeading>
-              <div className="grid grid-cols-2 gap-2">
-                <Chip active={value.hasLift === true} onClick={() => set({ hasLift: true })}>
-                  {t("Yes", "Ja")}
-                </Chip>
-                <Chip active={value.hasLift === false} onClick={() => set({ hasLift: false })}>
-                  {t("No", "Nei")}
-                </Chip>
-              </div>
-            </>
-          )}
-        </>
-      )}
-
       <SubHeading>{t("How close can we park?", "Hvor nær kan vi parkere?")}</SubHeading>
       <div className="grid grid-cols-3 gap-2">
-        {MOVING_PARKING_OPTIONS.map((p) => {
-          const price = parkingPriceLabel(p.code);
-          const active = value.parking === p.code;
-          return (
-            <Chip key={p.code} active={active} onClick={() => set({ parking: p.code })}>
-              {locale === "no" ? p.labelNo : p.labelEn}
-              {price && <span className={`ml-1.5 font-normal ${active ? "text-white/80" : "text-black/45"}`}>+{price}</span>}
-            </Chip>
-          );
-        })}
+        {MOVING_PARKING_OPTIONS.map((p) => (
+          <Chip key={p.code} active={value.parking === p.code} onClick={() => set({ parking: p.code })}>
+            {locale === "no" ? p.labelNo : p.labelEn}
+          </Chip>
+        ))}
       </div>
 
       <AutoAdvance ready={isReady} onReady={onReady} onRetract={onRetract} />

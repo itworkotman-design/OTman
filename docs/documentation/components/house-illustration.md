@@ -19,3 +19,8 @@ under `prefers-reduced-motion`). No dependencies.
 Renders from `houseGeometry()` (`houseGeometry.ts`) via internal `Building`
 (floor stack + roof), `Facade`/`SideWindow` (per-type windows/doors) and
 `GableRoof`/`FlatRoof`.
+
+`floorNumber` (apartment/office only; empty → floor 1): the unit is drawn inside its block
+(`SurroundingBuilding`) — the unit's floors in full colour, neighbouring floors above and
+below washed out, faded off the top edge (and the bottom when the ground is off-screen);
+basements sit under the ground line in front of a soil band. No roof in this mode.

@@ -176,8 +176,13 @@ describe("floor number (apartment/office — asked before the lift)", () => {
     );
   });
 
-  it("starts empty in the flow's draft", () => {
-    expect(emptyMovingProperty().floorNumber).toBeNull();
+  it("starts on the ground floor in the flow's draft", () => {
+    expect(emptyMovingProperty().floorNumber).toBe(1);
+  });
+
+  it("ignores the default floor for houses (not asked, not charged)", () => {
+    const house = { ...emptyMovingProperty(), homeType: "DETACHED" as const, hasLift: null };
+    expect(movingDraftChargeableFloors(house)).toBe(0);
   });
 });
 

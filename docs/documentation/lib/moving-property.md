@@ -14,7 +14,7 @@ use the same rules. Client-safe (no DB import).
 - `floorNumber` (draft + parsed) — which floor it's on; asked (before the lift) and required for every apartment/office. Whole, non-zero, up to 3 digits (1 = ground floor, -1 = first basement, as in the delivery modal); nulled for houses/townhouses. Only costs extra with no lift.
 - `movingDraftChargeableFloors(draft)` — the same straight from the flow's draft (only while the lift question applies to the picked type), so the live calculator and "+N kr" pill follow the floor box before size/parking are answered.
 - `movingChargeableFloors(property)` — floors that cost extra: `getChargeableFloors` (the delivery modal's rule: free up to the 2nd floor and down to -1), only with no lift.
-- `emptyMovingProperty()` — the flow's starting `MovingPropertyDraft` (nothing picked, 1 floor).
+- `emptyMovingProperty()` — the flow's starting `MovingPropertyDraft` (nothing picked, 1 floor, `floorNumber` pre-filled to 1 — only used for apartments/offices).
 - `parseMovingProperty(v)` — `{ ok: true, property }` or `{ ok: false, errors }` keyed by field
   (`homeType`, `sizeOptionCode`, `floors`, `hasLift`, `parking`; "Required"/"Invalid"). A non-object is
   treated as empty. `hasLift` is required when the lift applies, and nulled when it doesn't. Size codes

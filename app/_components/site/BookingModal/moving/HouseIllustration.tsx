@@ -6,6 +6,8 @@ type Props = {
   sizeCode: string | null;
   floors: number;
   homeType?: MovingHomeTypeCode | null;
+  // Apartment/office: which floor it's on (1 = ground, negative = basement).
+  floorNumber?: number | null;
   className?: string;
 };
 
@@ -224,30 +226,41 @@ function FlatRoof({ g }: { g: HouseGeometry }) {
   );
 }
 
-// One building: the floor stack plus its roof.
-function Building({ g }: { g: HouseGeometry }) {
+// One story: side wall, front face and its windows/doors. A basement gets
+// just a row of small windows.
+function Floor({ g, top, height, isGround, isBasement = false }: { g: HouseGeometry; top: number; height: number; isGround: boolean; isBasement?: boolean }) {
   const { dx, dy } = g.depth;
   const right = g.x + g.width;
+  const bottom = top + height;
   return (
     <>
-      {g.floors.map((floor, i) => {
-        const top = floor.y;
-        const bottom = floor.y + floor.height;
-        return (
-          <g key={i} className="house-floor">
-            <polygon
-              points={pts([right, top], [right + dx, top - dy], [right + dx, bottom - dy], [right, bottom])}
-              fill={SIDE}
-              stroke={STROKE}
-              strokeWidth={1.5}
-              strokeLinejoin="round"
-            />
-            <SideWindow g={g} top={top} height={floor.height} />
-            <rect x={g.x} y={top} width={g.width} height={floor.height} fill={FRONT} stroke={STROKE} strokeWidth={1.5} />
-            <Facade g={g} top={top} height={floor.height} isGround={i === 0} />
-          </g>
-        );
-      })}
+      <polygon
+        points={pts([right, top], [right + dx, top - dy], [right + dx, bottom - dy], [right, bottom])}
+        fill={SIDE}
+        stroke={STROKE}
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+      />
+      {!isBasement && <SideWindow g={g} top={top} height={height} />}
+      <rect x={g.x} y={top} width={g.width} height={height} fill={FRONT} stroke={STROKE} strokeWidth={1.5} />
+      {isBasement ? (
+        windowXs(g.x, right, g.windowsPerFloor).map((wx) => <Window key={wx} x={wx} y={top + 5} />)
+      ) : (
+        <Facade g={g} top={top} height={height} isGround={isGround} />
+      )}
+    </>
+  );
+}
+
+// One building: the floor stack plus its roof.
+function Building({ g }: { g: HouseGeometry }) {
+  return (
+    <>
+      {g.floors.map((floor, i) => (
+        <g key={i} className="house-floor">
+          <Floor g={g} top={floor.y} height={floor.height} isGround={i === 0} />
+        </g>
+      ))}
 
       {/* Moved as one piece onto the top floor so the move animates instead of snapping. */}
       <g className="house-roof" style={{ transform: `translateY(${g.roof.baseY}px)`, transition: MOTION }}>
@@ -257,16 +270,71 @@ function Building({ g }: { g: HouseGeometry }) {
   );
 }
 
+// Apartment/office on a known floor: the unit's own floors in full colour,
+// the neighbouring floors of the block washed out around it, running off the
+// top of the box (and off the bottom when the ground isn't in view) behind a
+// fade. Basements sit below the ground line, in front of a band of soil.
+function SurroundingBuilding({ g: house, washId, idBase }: { g: HouseGeometry; washId: string; idBase: string }) {
+  const b = house.building!;
+  // The ground moves when the unit is scrolled into view; the entrance doors follow it.
+  const g = { ...house, groundY: b.groundY };
+  const { dx, dy } = g.depth;
+  const fadeId = `${idBase}-fade`;
+  const maskId = `${idBase}-mask`;
+  const h = g.viewBoxHeight;
+
+  return (
+    <>
+      <defs>
+        <linearGradient id={fadeId} gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={0} y2={h}>
+          <stop offset={0} stopColor="#fff" stopOpacity={0} />
+          <stop offset={0.2} stopColor="#fff" stopOpacity={1} />
+          <stop offset={b.fadeBottom ? 0.82 : 1} stopColor="#fff" stopOpacity={1} />
+          <stop offset={1} stopColor="#fff" stopOpacity={b.fadeBottom ? 0 : 1} />
+        </linearGradient>
+        <mask id={maskId} maskUnits="userSpaceOnUse" x={0} y={-dy} width={g.viewBoxWidth} height={h + dy}>
+          <rect x={0} y={-dy} width={g.viewBoxWidth} height={h + dy} fill={`url(#${fadeId})`} />
+        </mask>
+      </defs>
+
+      <g mask={`url(#${maskId})`}>
+        {b.groundY < h && (
+          <>
+            {b.levels[0].isBasement && (
+              <rect x={0} y={b.groundY - dy / 2} width={g.viewBoxWidth} height={h} fill={STROKE} opacity={0.06} />
+            )}
+            <ellipse cx={g.x + (g.width + dx) / 2} cy={b.groundY - dy / 2} rx={(g.width + dx) / 2 + 14} ry={dy / 2 + 7} fill={STROKE} opacity={0.1} />
+          </>
+        )}
+        {b.levels.map((level, i) =>
+          level.isUnit ? (
+            // Keyed by floor so a newly added unit floor pops in like a house's.
+            <g key={`unit-${level.floorNumber}`} className="house-floor">
+              <Floor g={g} top={level.y} height={level.height} isGround={level.isGround} isBasement={level.isBasement} />
+            </g>
+          ) : (
+            <g key={`n-${i}`} filter={`url(#${washId})`}>
+              <Floor g={g} top={level.y} height={level.height} isGround={level.isGround} isBasement={level.isBasement} />
+            </g>
+          ),
+        )}
+      </g>
+    </>
+  );
+}
+
 // Decorative preview next to the moving flow's size tiles — wider for a
 // bigger size bracket, one stacked floor per story, styled by property type
 // (detached house, townhouse with its neighbours, apartment block, office),
 // drawn in 3D. Floors pop in from above and the roof slides up to sit on the
-// new top floor.
-export function HouseIllustration({ sizeCode, floors, homeType = null, className }: Props) {
-  const g = houseGeometry(sizeCode, floors, homeType);
+// new top floor. Once an apartment/office's floor is known, it's shown
+// inside the rest of its block instead (SurroundingBuilding).
+export function HouseIllustration({ sizeCode, floors, homeType = null, floorNumber = null, className }: Props) {
+  const g = houseGeometry(sizeCode, floors, homeType, floorNumber);
   const { dx, dy } = g.depth;
   const townhouse = g.variant === "townhouse";
-  const washId = `house-wash-${useId().replace(/:/g, "")}`;
+  const idBase = `house-${useId().replace(/:/g, "")}`;
+  const washId = `${idBase}-wash`;
 
   return (
     <svg viewBox={`0 0 ${g.viewBoxWidth} ${g.viewBoxHeight}`} className={className} aria-hidden="true">
@@ -281,14 +349,18 @@ export function HouseIllustration({ sizeCode, floors, homeType = null, className
         </filter>
       </defs>
 
-      <ellipse
-        cx={g.x + (g.width + dx) / 2}
-        cy={g.groundY - dy / 2}
-        rx={townhouse ? g.viewBoxWidth / 2 : (g.width + dx) / 2 + 14}
-        ry={dy / 2 + 7}
-        fill={STROKE}
-        opacity={0.1}
-      />
+      {g.building ? (
+        <SurroundingBuilding g={g} washId={washId} idBase={idBase} />
+      ) : (
+        <ellipse
+          cx={g.x + (g.width + dx) / 2}
+          cy={g.groundY - dy / 2}
+          rx={townhouse ? g.viewBoxWidth / 2 : (g.width + dx) / 2 + 14}
+          ry={dy / 2 + 7}
+          fill={STROKE}
+          opacity={0.1}
+        />
+      )}
 
       {/* Rekkehus: faded neighbouring units on both sides. The right one is
           drawn last so it hides this unit's side wall — they're attached. */}
@@ -297,7 +369,7 @@ export function HouseIllustration({ sizeCode, floors, homeType = null, className
           <Building g={g} />
         </g>
       )}
-      <Building g={g} />
+      {!g.building && <Building g={g} />}
       {townhouse && (
         <g transform={`translate(${g.width} 0)`} filter={`url(#${washId})`}>
           <Building g={g} />
