@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { movingOrderPricing } from "@/lib/orders/movingOrderPricing";
+import { movingOrderDescription, parseMovingFloors } from "@/lib/orders/movingOrderDescription";
 import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
 import { createOrderCreatedEvent, buildOrderEventSnapshot } from "@/lib/orders/orderEvents";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
@@ -76,7 +77,12 @@ async function createMovingRequest(
   // The random number customers see; displayId stays internal/sequential.
   const orderNumber = await reservePublicOrderNumber(prisma, membership.companyId);
 
-  const descriptionParts = [`Approximate size: ${sizeOption.labelEn}`, str(body.notes)].filter(Boolean);
+  const floors = parseMovingFloors(body.floors);
+  const description = movingOrderDescription({
+    sizeLabel: sizeOption.labelEn,
+    floors: floors.ok ? floors.floors : null,
+    notes: str(body.notes),
+  });
 
   const movingPricing = movingOrderPricing(sizeOption);
   const order = await prisma.order.create({
@@ -95,7 +101,7 @@ async function createMovingRequest(
       email: str(body.email),
       deliveryDate: str(body.preferredDate),
       timeWindow: str(body.timeWindow),
-      description: descriptionParts.join("\n\n") || null,
+      description,
       // Ex. VAT, with what the customer pays (incl. VAT, whole kroner) in the snapshot.
       ...movingPricing,
       pricingSnapshot: movingPricing.pricingSnapshot as unknown as Prisma.InputJsonValue,
@@ -198,6 +204,7 @@ export async function POST(req: Request) {
   if (!str(body.deliveryAddress)) errors.deliveryAddress = "Required";
   if (!str(body.name)) errors.name = "Required";
   if (!str(body.sizeOptionCode)) errors.sizeOptionCode = "Required";
+  if (!parseMovingFloors(body.floors).ok) errors.floors = "Invalid";
 
   if (Object.keys(errors).length > 0) {
     return NextResponse.json({ ok: false, reason: "VALIDATION_FAILED", errors }, { status: 422 });

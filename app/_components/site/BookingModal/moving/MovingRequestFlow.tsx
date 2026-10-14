@@ -13,6 +13,8 @@ import {
   type CustomerType,
 } from "@/lib/booking/pricing/websiteVat";
 import type { MovingCatalogOption } from "@/lib/content/getMovingCatalog";
+import { HouseIllustration } from "./HouseIllustration";
+import { HOUSE_MAX_FLOORS, HOUSE_MIN_FLOORS, clampFloors } from "./houseGeometry";
 import {
   isValidEmail,
   sanitizeEmailInput,
@@ -64,6 +66,9 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
   const [pickupAddress, setPickupAddress] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [sizeOptionCode, setSizeOptionCode] = useState<string | null>(null);
+  const [floors, setFloors] = useState(HOUSE_MIN_FLOORS);
+  const floorsLabel = (n: number) =>
+    locale === "no" ? `${n} ${n === 1 ? "etasje" : "etasjer"}` : `${n} ${n === 1 ? "floor" : "floors"}`;
 
   const [preferredDate, setPreferredDate] = useState("");
   const [timeWindow, setTimeWindow] = useState("");
@@ -118,6 +123,7 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
           pickupAddress,
           deliveryAddress,
           sizeOptionCode,
+          floors,
           preferredDate,
           timeWindow,
           name,
@@ -183,24 +189,53 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
           {catalogLoading && <p className="text-sm text-black/50">{t("Loading pricing…", "Laster priser…")}</p>}
           {catalogError && <p className="text-sm text-red-600">{catalogError}</p>}
 
-          <div className="grid gap-2 sm:grid-cols-2">
-            {catalogOptions.map((option) => {
-              const active = sizeOptionCode === option.code;
-              const optionPrice = websiteCustomerPrice(option.customerPriceCents / 100, customerType ?? "private");
-              return (
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-center">
+            <div className="grid gap-2 md:grid-cols-2">
+              {catalogOptions.map((option) => {
+                const active = sizeOptionCode === option.code;
+                const optionPrice = websiteCustomerPrice(option.customerPriceCents / 100, customerType ?? "private");
+                return (
+                  <button
+                    key={option.code}
+                    type="button"
+                    onClick={() => setSizeOptionCode(option.code)}
+                    className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm transition ${
+                      active ? "border-logoblue bg-logoblue text-white" : "border-black/8 bg-white text-textColor"
+                    }`}
+                  >
+                    <span className="font-semibold">{locale === "no" ? option.labelNo : option.labelEn}</span>
+                    <span className={active ? "text-white/90" : "text-black/50"}>{formatKr(optionPrice)}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-col items-center gap-2 rounded-2xl bg-logoblue/5 px-3 py-3">
+              <HouseIllustration sizeCode={sizeOptionCode} floors={floors} className="h-auto w-full max-w-50" />
+              <div className="flex items-center gap-3">
                 <button
-                  key={option.code}
                   type="button"
-                  onClick={() => setSizeOptionCode(option.code)}
-                  className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm transition ${
-                    active ? "border-logoblue bg-logoblue text-white" : "border-black/8 bg-white text-textColor"
-                  }`}
+                  onClick={() => setFloors((n) => clampFloors(n - 1))}
+                  disabled={floors <= HOUSE_MIN_FLOORS}
+                  aria-label={t("Remove a floor", "Fjern en etasje")}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-logoblue/30 bg-white text-lg font-semibold text-logoblue transition hover:border-logoblue disabled:pointer-events-none disabled:opacity-35"
                 >
-                  <span className="font-semibold">{locale === "no" ? option.labelNo : option.labelEn}</span>
-                  <span className={active ? "text-white/90" : "text-black/50"}>{formatKr(optionPrice)}</span>
+                  −
                 </button>
-              );
-            })}
+                <span className="min-w-18 text-center text-sm font-semibold text-logoblue" aria-live="polite">
+                  {floorsLabel(floors)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setFloors((n) => clampFloors(n + 1))}
+                  disabled={floors >= HOUSE_MAX_FLOORS}
+                  aria-label={t("Add a floor", "Legg til en etasje")}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-logoblue/30 bg-white text-lg font-semibold text-logoblue transition hover:border-logoblue disabled:pointer-events-none disabled:opacity-35"
+                >
+                  +
+                </button>
+              </div>
+            </div>
           </div>
 
           <button
@@ -349,6 +384,10 @@ export function MovingRequestFlow({ locale, onClose }: Props) {
                   <span>{locale === "no" ? selectedOption.labelNo : selectedOption.labelEn}</span>
                 </div>
               )}
+              <div className="flex justify-between gap-4">
+                <span>{t("Floors", "Etasjer")}</span>
+                <span>{floors}</span>
+              </div>
               <div className="flex justify-between gap-4">
                 <span>{t("Date", "Dato")}</span>
                 <span>

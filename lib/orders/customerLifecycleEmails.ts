@@ -412,7 +412,7 @@ export function buildOrderReceivedEmail(order: LifecycleEmailOrder) {
             : `Logg inn med passordet du allerede har. <a href="${escapeHtml(forgotPasswordUrl)}" style="color:#273097;">Glemt passord?</a>`;
           return `
     <p style="margin:0 0 16px 0;">
-      Under <strong>Min bestilling</strong> kan du se bestillingen og legge til tjenester i tilfelle du har glemt noe,
+      Under <strong>Min bestilling</strong> kan du se bestillingen og <strong>legge til tjenester i tilfelle du har glemt noe</strong>,
       eller endre den hvis du har bestilt noe for mye. Du kan alltid kontakte oss for hjelp!
     </p>
     <p style="margin:0 0 8px 0;">Brukernavn: <strong>${escapeHtml(order.customerLogin.email)}</strong><br/>${password}</p>

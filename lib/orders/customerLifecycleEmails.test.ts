@@ -209,6 +209,12 @@ describe("buildOrderReceivedEmail", () => {
     expect(html).toContain("legge til tjenester");
   });
 
+  it("bolds the 'add services in case you forgot something' hint in the login section", () => {
+    const { html } = buildOrderReceivedEmail({ ...order, orderNumber: "K7MQ4XZ2", customerLogin, orderDetails: details });
+
+    expect(html).toContain("<strong>legge til tjenester i tilfelle du har glemt noe</strong>");
+  });
+
   it("states the 24h rule without a date when the order has none", () => {
     const { html } = buildOrderReceivedEmail({ ...order, orderNumber: "K7MQ4XZ2", customerLogin, orderDetails: { ...details, deliveryDate: null } });
 

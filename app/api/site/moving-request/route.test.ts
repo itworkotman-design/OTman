@@ -162,6 +162,13 @@ describe("POST /api/site/moving-request", () => {
     expect(json.errors.notes).toBeDefined();
   });
 
+  it("returns 422 when floors is out of range", async () => {
+    const res = await post({ ...validBody, floors: 9 });
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.errors.floors).toBeDefined();
+  });
+
   it("returns 429 on a second request within a minute", async () => {
     const POST = await freshPOST();
     await POST(jsonRequest(validBody));

@@ -34,3 +34,8 @@ bracket.
 - `POST` — validates the body, rate-limits, resolves the selected size
   bracket's real price, then creates the `Order` + `OrderItem` +
   `OrderEvent` + staff `OrderNotification`.
+
+## Floors
+Optional `floors` (integer 1–4, from the flow's house stepper) is validated by
+`parseMovingFloors` and written into `Order.description` as `Floors: N` via
+`movingOrderDescription` (`lib/orders/movingOrderDescription.ts`).

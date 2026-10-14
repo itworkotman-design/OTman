@@ -23,7 +23,9 @@ Submits to `POST /api/site/moving-request`.
 Four sections — Privat/Bedrift (`CustomerTypeStep`, asked first and only
 once, so the size-tier tile prices shown on the very next step are already
 in the right VAT mode), move details (addresses + size-bracket picker with
-live prices), timing, contact details — plus a final review/submit step
+live prices, with a `HouseIllustration` preview + floors stepper (1–4,
+starts at 1) to its right, sent as `floors`), timing, contact details — plus
+a final review/submit step
 showing the selected bracket's total. Copy makes clear the price is based
 on the self-reported size and gets confirmed on staff review, not
 literally instant.
