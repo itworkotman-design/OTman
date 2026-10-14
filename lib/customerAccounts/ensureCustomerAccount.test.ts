@@ -86,6 +86,28 @@ describe("ensureCustomerAccountForOrder", () => {
     });
   });
 
+  it("detaches an expired account's old orders, as if the cron had deleted it", async () => {
+    const old = new Date("2026-09-01T00:00:00Z");
+    mocks.accountFindUnique.mockResolvedValue(
+      liveAccount([{ id: "other", status: "completed", statusChangedAt: old, updatedAt: old, gdprHold: false }]),
+    );
+
+    await ensureCustomerAccountForOrder({ orderId: "o2", email: "kari@example.com", now: NOW });
+
+    expect(mocks.orderUpdateMany).toHaveBeenCalledWith({
+      where: { customerAccountId: "acc-1", id: { not: "o2" } },
+      data: { customerAccountId: null },
+    });
+  });
+
+  it("keeps a live account's orders when staff send a new login", async () => {
+    mocks.accountFindUnique.mockResolvedValue(liveAccount());
+
+    await ensureCustomerAccountForOrder({ orderId: "o2", email: "kari@example.com", forceNewPassword: true, now: NOW });
+
+    expect(mocks.orderUpdateMany).not.toHaveBeenCalled();
+  });
+
   it("ignores the order being linked when deciding whether the account expired", async () => {
     // The account's only order is this one: nothing else keeps it alive, so
     // the customer needs a fresh password.

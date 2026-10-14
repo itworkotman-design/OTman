@@ -57,7 +57,17 @@ export async function ensureCustomerAccountForOrder(params: {
   // account past its delete time (cron not run yet) starts over with a new
   // password, the old one is as good as gone.
   const otherOrders = account.orders.filter((order) => order.id !== params.orderId);
-  const needsPassword = params.forceNewPassword === true || isCustomerAccountExpired(otherOrders, now);
+  const expired = isCustomerAccountExpired(otherOrders, now);
+  const needsPassword = params.forceNewPassword === true || expired;
+
+  // The cron would have deleted it and its orders lost the link — do the
+  // same here, or the new login shows all the old (closed) jobs.
+  if (expired && otherOrders.length > 0) {
+    await prisma.order.updateMany({
+      where: { customerAccountId: account.id, id: { not: params.orderId } },
+      data: { customerAccountId: null },
+    });
+  }
 
   let newPassword: string | null = null;
   if (needsPassword) {
