@@ -9,6 +9,7 @@ import { ServiceWindowItem } from "./ServiceWindowItem";
 import { SteppedModal, type FinalStep, type StepSection } from "../BookingModal/SteppedModal";
 import { WhiteGoodsBookingFlow } from "../BookingModal/whiteGoods/WhiteGoodsBookingFlow";
 import { MovingRequestFlow } from "../BookingModal/moving/MovingRequestFlow";
+import { ServiceRequestFlow } from "../BookingModal/services/ServiceRequestFlow";
 import { serviceModalKind } from "./serviceModalRouting";
 import type {
   Locale,
@@ -354,6 +355,14 @@ const localizedItems = useMemo(
 
       {activeModal && modalKind === "moving" && (
         <MovingRequestFlow
+          key={activeModal.id}
+          locale={locale}
+          onClose={() => setActiveModal(null)}
+        />
+      )}
+
+      {activeModal && modalKind === "services" && (
+        <ServiceRequestFlow
           key={activeModal.id}
           locale={locale}
           onClose={() => setActiveModal(null)}

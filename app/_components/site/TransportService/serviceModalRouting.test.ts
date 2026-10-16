@@ -7,7 +7,7 @@ describe("serviceModalKind", () => {
     const kinds = Object.fromEntries(serviceWindowContent.items.map((item) => [item.title.en, serviceModalKind(item.id)]));
     expect(kinds).toEqual({
       Delivery: "white-goods",
-      Services: "placeholder",
+      Services: "services",
       Moving: "moving",
     });
   });

@@ -14,7 +14,7 @@ opens is decided by its own id via `serviceModalKind` (`serviceModalRouting.ts`)
 | Tile (id) | Modal |
 | --- | --- |
 | Delivery (`collection-pickup`) | `WhiteGoodsBookingFlow` — the real data-backed white-goods + furniture (+ parcel/pallet) booking flow |
-| Services (`services`) | Placeholder `SteppedModal` (no dedicated flow yet) |
+| Services (`services`) | `ServiceRequestFlow` |
 | Moving (`moving`) | `MovingRequestFlow` |
 
 Any unrecognised id also falls back to the placeholder `SteppedModal`.
@@ -32,6 +32,6 @@ longer rendered; see `docs/homepage-ordering-roadmap.md` §3a for its status.
 | Function | Description |
 | --- | --- |
 | `ServiceWindow` | Renders localized service cards, handles carousel scroll/snap behavior, and opens the modal `serviceModalKind` picks for the clicked tile. |
-| `serviceModalKind` | Pure mapping from a tile id to `"white-goods"`, `"moving"` or `"placeholder"`. |
-| `buildPlaceholderSections` | Builds the two dummy "Step 1"/"Step 2" sections for the placeholder modal (used by the Services tile). |
+| `serviceModalKind` | Pure mapping from a tile id to `"white-goods"`, `"moving"`, `"services"` or `"placeholder"`. |
+| `buildPlaceholderSections` | Builds the two dummy "Step 1"/"Step 2" sections for the placeholder modal (only reached by an unrecognised tile id). |
 | `buildPlaceholderFinalStep` | Builds the placeholder final/summary step; its "Continue to payment" button is not wired to anything. |
