@@ -15,7 +15,7 @@ const row = (productCode: string, optionCode: string, optionLabel: string, custo
   subcontractorPriceCents,
 });
 
-const quote = row("SERVICE_QUOTE", "QUOTE", "Electrician", 400000, 250000);
+const quote = row("SERVICE_QUOTE", "QUOTE:option-1", "Electrician", 400000, 250000);
 const express = row("MOVING_EXPRESS", "EXPRESS_DELIVERY", "Express delivery", 150000, 80000);
 
 describe("serviceOrderCalculatorView (a service order in the admin calculator)", () => {
@@ -25,7 +25,7 @@ describe("serviceOrderCalculatorView (a service order in the admin calculator)",
       ["Service", false, ["Electrician"]],
       ["Order extras", true, ["Express delivery"]],
     ]);
-    expect(view.products[0].lines[0]).toMatchObject({ customer: 4000, partner: 2500, lineKey: "SERVICE_QUOTE:QUOTE" });
+    expect(view.products[0].lines[0]).toMatchObject({ customer: 4000, partner: 2500, lineKey: "SERVICE_QUOTE:QUOTE:option-1" });
     expect(view.customer).toMatchObject({ subtotal: 5500, total: 5500, totalIncVat: 6875 });
     expect(view.partner).toMatchObject({ base: 3300, total: 3300 });
   });
@@ -59,7 +59,7 @@ describe("serviceOrderAdjustedPricing (what a service order stores)", () => {
   });
 
   it("keeps the lines set to 0 on the snapshot", () => {
-    const nulledLines = { customer: ["SERVICE_QUOTE:QUOTE"], subcontractor: [] };
+    const nulledLines = { customer: ["SERVICE_QUOTE:QUOTE:option-1"], subcontractor: [] };
     const pricing = serviceOrderAdjustedPricing([quote], { ...NO_ADJUSTMENTS, nulledLines });
     expect(pricing.priceExVat).toBe(0);
     expect((pricing.pricingSnapshot as Record<string, unknown>).movingNulledLines).toEqual(nulledLines);

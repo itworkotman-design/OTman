@@ -36,7 +36,9 @@ vi.mock("@/lib/orders/sendCustomerLifecycleEmail", () => ({ sendLifecycleEmailsF
 import { GET, PUT } from "./route";
 
 const NOW = new Date("2026-10-05T10:00:00Z");
-const service = { serviceCode: "option-1", customService: "", jobDescription: "Install lights.", address: "Storgata 1, Oslo" };
+const electrician = { serviceCode: "option-1", customService: "", jobDescription: "Install lights." };
+const carpenter = { serviceCode: "option-2", customService: "", jobDescription: "Fix the door." };
+const service = { address: "Storgata 1, Oslo", services: [electrician] };
 const quoteItem = {
   cardId: 0,
   itemType: "product",
@@ -44,7 +46,7 @@ const quoteItem = {
   productCode: "SERVICE_QUOTE",
   productName: "Service",
   deliveryType: null,
-  optionCode: "QUOTE",
+  optionCode: "QUOTE:option-1",
   optionLabel: "Electrician",
   quantity: 1,
   rawData: null,
@@ -82,7 +84,7 @@ function order(overrides: Record<string, unknown> = {}) {
     productsSummary: "Service request (Electrician)",
     gsmSentAt: null,
     websiteOrderKind: "SERVICE",
-    websiteBookingDetails: { version: 1, customerType: "private", serviceCode: "option-1", customService: "", jobDescription: "Install lights." },
+    websiteBookingDetails: { version: 2, customerType: "private", services: [electrician] },
     productCardsSnapshot: null,
     payments: [],
     events: [],
@@ -125,53 +127,94 @@ describe("customer order route — a homepage service request", () => {
   });
 
   it("saves a new job description and address, keeping the price and the quote", async () => {
-    const changed = { ...service, jobDescription: "Install four lights.", address: "Kirkegata 5, Oslo" };
+    const changed = { address: "Kirkegata 5, Oslo", services: [{ ...electrician, jobDescription: "Install four lights." }] };
     const json = await (await put({ service: changed })).json();
     expect(json).toMatchObject({ ok: true, changed: true, priceExVat: 4000, totalIncVat: 5000 });
 
     const writes = transactionWrites();
     expect(writes["items.createMany"].data).toEqual([
-      expect.objectContaining({ productCode: "SERVICE_QUOTE", customerPriceCents: 400000, subcontractorPriceCents: 250000 }),
+      expect.objectContaining({ optionCode: "QUOTE:option-1", customerPriceCents: 400000, subcontractorPriceCents: 250000 }),
     ]);
     expect(writes["order.update"].data).toMatchObject({
       deliveryAddress: "Kirkegata 5, Oslo",
-      description: "Service: Electrician\n\nCustomer type: Private\n\nInstall four lights.",
-      websiteBookingDetails: expect.objectContaining({ jobDescription: "Install four lights." }),
+      description: "Customer type: Private\n\nService: Electrician\nInstall four lights.",
+      websiteBookingDetails: expect.objectContaining({ services: [{ ...electrician, jobDescription: "Install four lights." }] }),
       priceExVat: 4000,
     });
     // Staff are told what changed.
-    expect(mocks.createOrderNotification).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: "MANUAL_REVIEW" }));
+    expect(mocks.createOrderNotification).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ type: "MANUAL_REVIEW", message: expect.stringContaining("Electrician — what needs doing: Install lights. → Install four lights.") }),
+    );
   });
 
-  it("renames the quote line when the customer picks another service", async () => {
-    await put({ service: { ...service, serviceCode: "custom", customService: "Painter" } });
+  it("adds a service — unpriced until staff quote it, so the price stays", async () => {
+    const json = await (await put({ service: { ...service, services: [electrician, carpenter] } })).json();
+    expect(json).toMatchObject({ ok: true, priceExVat: 4000 });
     const writes = transactionWrites();
-    expect(writes["items.createMany"].data[0]).toMatchObject({ optionLabel: "Custom service — Painter" });
-    expect(writes["order.update"].data).toMatchObject({ productsSummary: "Service request (Custom service — Painter)" });
+    expect(writes["items.createMany"].data).toHaveLength(1);
+    expect(writes["order.update"].data).toMatchObject({ productsSummary: "Service request (Electrician + Carpenter)" });
+    expect(mocks.createOrderNotification).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ message: expect.stringContaining("Service added: Carpenter") }),
+    );
+  });
+
+  it("removes a quoted service at the price shown — its line goes, the total drops", async () => {
+    const carpenterLine = { ...quoteItem, optionCode: "QUOTE:option-2", optionLabel: "Carpenter", customerPriceCents: 100000, subcontractorPriceCents: 60000 };
+    mocks.orderFindFirst.mockResolvedValue(
+      order({
+        websiteBookingDetails: { version: 2, customerType: "private", services: [electrician, carpenter] },
+        items: [quoteItem, carpenterLine],
+        priceExVat: 5000,
+        pricingSnapshot: { customer: { totalExVat: 5000, totalIncVat: 6250 }, lines: [] },
+      }),
+    );
+    const preview = await (await put({ service, dryRun: true })).json();
+    expect(preview).toMatchObject({ previousTotalIncVat: 6250, totalIncVat: 5000 });
+    expect((await put({ service })).status).toBe(400);
+    const json = await (await put({ service, shownTotal: 5000 })).json();
+    expect(json).toMatchObject({ ok: true, priceExVat: 4000 });
+    expect(transactionWrites()["items.createMany"].data).toEqual([expect.objectContaining({ optionCode: "QUOTE:option-1" })]);
+  });
+
+  it("won't make a paid order cheaper", async () => {
+    const carpenterLine = { ...quoteItem, optionCode: "QUOTE:option-2", customerPriceCents: 100000 };
+    mocks.orderFindFirst.mockResolvedValue(
+      order({
+        websiteBookingDetails: { version: 2, customerType: "private", services: [electrician, carpenter] },
+        items: [quoteItem, carpenterLine],
+        priceExVat: 5000,
+        payments: [{ amountChargedCents: 625000, createdAt: new Date(), orderSnapshot: null }],
+      }),
+    );
+    const res = await put({ service, shownTotal: 5000 });
+    expect(res.status).toBe(422);
+    expect((await res.json()).reason).toBe("WOULD_DECREASE_PRICE");
   });
 
   it("previews a service change at the same price (dryRun)", async () => {
-    const json = await (await put({ service: { ...service, jobDescription: "More lights." }, dryRun: true })).json();
+    const json = await (await put({ service: { ...service, services: [{ ...electrician, jobDescription: "More lights." }] }, dryRun: true })).json();
     expect(json).toMatchObject({ ok: true, dryRun: true, previousTotalIncVat: 5000, totalIncVat: 5000 });
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid service", async () => {
-    const res = await put({ service: { ...service, jobDescription: "" } });
+    const res = await put({ service: { ...service, services: [{ ...electrician, jobDescription: "" }] } });
     expect(res.status).toBe(422);
     expect((await res.json()).reason).toBe("INVALID_DETAILS");
   });
 
-  it("within 24h still lets the customer change the job description", async () => {
+  it("within 24h still lets the customer change a job description", async () => {
     mocks.orderFindFirst.mockResolvedValue(order(afterCutoff));
-    const json = await (await put({ service: { ...service, jobDescription: "Install four lights." } })).json();
+    const json = await (await put({ service: { ...service, services: [{ ...electrician, jobDescription: "Install four lights." }] } })).json();
     expect(json.ok).toBe(true);
   });
 
-  it("within 24h refuses another address or service", async () => {
+  it("within 24h refuses another address or another service", async () => {
     mocks.orderFindFirst.mockResolvedValue(order(afterCutoff));
     expect((await put({ service: { ...service, address: "Kirkegata 5, Oslo" } })).status).toBe(403);
-    expect((await put({ service: { ...service, serviceCode: "option-2" } })).status).toBe(403);
+    expect((await put({ service: { ...service, services: [electrician, carpenter] } })).status).toBe(403);
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 

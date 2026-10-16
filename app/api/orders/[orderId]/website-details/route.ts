@@ -224,7 +224,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
     });
   }
 
-  // A homepage service request: its answers and staff's quote (one line),
+  // A homepage service request: its answers and staff's quotes (a line per service),
   // with express/deviation, in the same calculator as a move.
   const serviceEdit = order.websiteOrderKind === SERVICE_ORDER_KIND ? serviceEditFromOrder(order) : null;
   if (serviceEdit) {
@@ -238,7 +238,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
         handling: movingHandlingFromOrder(order),
         service: {
           // The partner price only for who may see it.
-          edit: canSeePartnerPrices ? serviceEdit : { ...serviceEdit, quote: { ...serviceEdit.quote, partner: null } },
+          edit: canSeePartnerPrices
+            ? serviceEdit
+            : { ...serviceEdit, services: serviceEdit.services.map((s) => ({ ...s, quote: { ...s.quote, partner: null } })) },
           customerType: parseServiceBookingDetails(order.websiteBookingDetails)?.customerType ?? null,
           preferredDate: order.deliveryDate ?? "",
           timeWindow: order.timeWindow ?? "",

@@ -58,10 +58,8 @@ async function post(body: unknown) {
 
 const validBody = {
   customerType: "private",
-  serviceCode: "option-1",
-  customService: "",
+  services: [{ serviceCode: "option-1", customService: "", jobDescription: "Install three ceiling lights in the living room." }],
   address: "Storgata 1, Oslo",
-  jobDescription: "Install three ceiling lights in the living room.",
   preferredDate: "2026-10-20",
   timeWindow: "08:00-16:00",
   name: "Kari Nordmann",
@@ -98,11 +96,11 @@ describe("POST /api/site/service-request", () => {
   });
 
   it.each([
-    ["serviceCode", { serviceCode: "" }, "Required"],
-    ["serviceCode", { serviceCode: "option-99" }, "Unknown service"],
-    ["customService", { serviceCode: "custom", customService: "" }, "Required"],
+    ["services", { services: [] }, "Required"],
+    ["services.0.serviceCode", { services: [{ serviceCode: "option-99", customService: "", jobDescription: "x" }] }, "Unknown service"],
+    ["services.0.customService", { services: [{ serviceCode: "custom", customService: "", jobDescription: "x" }] }, "Required"],
+    ["services.0.jobDescription", { services: [{ serviceCode: "option-1", customService: "", jobDescription: "" }] }, "Required"],
     ["address", { address: "" }, "Required"],
-    ["jobDescription", { jobDescription: "" }, "Required"],
     ["name", { name: "" }, "Required"],
     ["email", { email: "" }, "Required"],
     ["phone", { phone: "" }, "Required"],
@@ -147,11 +145,9 @@ describe("POST /api/site/service-request", () => {
       // Opens in the admin WebsiteOrderModal, with the answers as cards.
       websiteOrderKind: "SERVICE",
       websiteBookingDetails: {
-        version: 1,
+        version: 2,
         customerType: "business",
-        serviceCode: "option-1",
-        customService: "",
-        jobDescription: "Install three ceiling lights in the living room.",
+        services: [{ serviceCode: "option-1", customService: "", jobDescription: "Install three ceiling lights in the living room." }],
       },
     });
     expect(data.description).toContain("Service: Electrician");
@@ -164,15 +160,33 @@ describe("POST /api/site/service-request", () => {
     expect(mocks.welcomeWebsiteOrderCustomerMock).toHaveBeenCalledWith(expect.objectContaining({ id: "order1" }));
   });
 
-  it("labels a custom service by what the customer typed", async () => {
+  it("takes several services, each with its own job, and labels a custom one by what the customer typed", async () => {
     mockOrderCreation();
 
-    const res = await post({ ...validBody, serviceCode: "custom", customService: "Painter" });
+    const res = await post({
+      ...validBody,
+      services: [
+        { serviceCode: "option-1", customService: "", jobDescription: "Install lights." },
+        { serviceCode: "custom", customService: "Painter", jobDescription: "Paint the hall." },
+      ],
+    });
 
     expect(res.status).toBe(200);
     const data = mocks.orderCreate.mock.calls[0][0].data;
-    expect(data.productsSummary).toBe("Service request (Custom service — Painter)");
-    expect(data.websiteBookingDetails).toMatchObject({ serviceCode: "custom", customService: "Painter" });
+    expect(data.productsSummary).toBe("Service request (Electrician + Custom service — Painter)");
+    expect(data.description).toBe("Customer type: Private\n\nService: Electrician\nInstall lights.\n\nService: Custom service — Painter\nPaint the hall.");
+    expect(data.websiteBookingDetails.services).toEqual([
+      { serviceCode: "option-1", customService: "", jobDescription: "Install lights." },
+      { serviceCode: "custom", customService: "Painter", jobDescription: "Paint the hall." },
+    ]);
+  });
+
+  it("keeps the customer's comment on its own", async () => {
+    mockOrderCreation();
+    await post({ ...validBody, notes: "Ring the bell twice" });
+    const data = mocks.orderCreate.mock.calls[0][0].data;
+    expect(data.customerComments).toBe("Ring the bell twice");
+    expect(data.description).not.toContain("Ring the bell twice");
   });
 
   it("returns 500 when the website membership isn't configured", async () => {

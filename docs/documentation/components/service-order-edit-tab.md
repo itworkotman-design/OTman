@@ -5,10 +5,10 @@ The admin's "Edit order" tab for a homepage service request in `WebsiteOrderModa
 `MovingOrderEditTab` (`EditTabParts.tsx`).
 
 ## Behaviour
-- **Service:** the services modal's tiles (`SERVICE_REQUEST_OPTIONS` with `ServiceIcon`), the custom service's name, and
-  what needs doing.
+- **Services:** the services modal's tiles (`SERVICE_REQUEST_OPTIONS` with `ServiceIcon`) toggle services on and off; each
+  picked service gets its own card (with Remove): the custom service's name, what needs doing, and its quote — customer
+  price and partner price, ex. VAT, its own priced line. Empty = not priced yet.
 - **Where:** the address (`AddressAutocompleteInput`).
-- **Quote:** customer price and partner price, ex. VAT — the order's one priced line. Empty = not priced yet.
 - **Date and time** (`TimeWindowChoice`) and **Customer** (Private / Business, name, phone, email, comments).
 - **Calculator:** the Overview's `WebsiteOrderCalculator` beside them (`externalPricing`; no "Use new price"), with the
   payment preview under it.
@@ -18,5 +18,5 @@ The admin's "Edit order" tab for a homepage service request in `WebsiteOrderModa
 ## `serviceEditBody.ts`
 - `serviceEditBody(initial, current)` — the save body, only what changed (`edit`, `customer`, `customerType`,
   `preferredDate` + `timeWindow`). Tested.
-- `serviceEditBlockers(draft)` — fields keeping Save disabled: no service, a custom service without its name, no job
+- `serviceEditBlockers(draft)` — fields keeping Save disabled: no service at all, or per service (`services.<i>.…`) a custom service without its name, no job
   description, no address, a negative price, an incomplete time window. Tested.

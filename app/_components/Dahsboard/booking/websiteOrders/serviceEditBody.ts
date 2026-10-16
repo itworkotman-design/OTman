@@ -37,20 +37,24 @@ export function serviceEditBody(initial: ServiceEditDraft, current: ServiceEditD
   return body;
 }
 
-// One field keeping Save disabled (the server checks the same: parseServiceEdit).
-export type ServiceEditBlocker = "serviceCode" | "customService" | "jobDescription" | "address" | "quote" | "timeWindow";
+// One field keeping Save disabled (the server checks the same:
+// parseServiceEdit): no service at all, a service's field
+// (`services.<index>.customService` / `.jobDescription` / `.quote`), the
+// address or the time window.
+export type ServiceEditBlocker = string;
 
 const badPrice = (value: number | null) => value !== null && (!Number.isFinite(value) || value < 0);
 
 export function serviceEditBlockers(draft: ServiceEditDraft): ServiceEditBlocker[] {
   const { edit } = draft;
   const blockers: ServiceEditBlocker[] = [];
-  if (!isServiceChoiceReady(edit.serviceCode, edit.customService)) {
-    blockers.push(isServiceChoiceReady(edit.serviceCode, "x") ? "customService" : "serviceCode");
-  }
-  if (!edit.jobDescription.trim()) blockers.push("jobDescription");
+  if (edit.services.length === 0) blockers.push("services");
+  edit.services.forEach((service, index) => {
+    if (!isServiceChoiceReady(service.serviceCode, service.customService)) blockers.push(`services.${index}.customService`);
+    if (!service.jobDescription.trim()) blockers.push(`services.${index}.jobDescription`);
+    if (badPrice(service.quote.customer) || badPrice(service.quote.partner)) blockers.push(`services.${index}.quote`);
+  });
   if (!edit.address.trim()) blockers.push("address");
-  if (badPrice(edit.quote.customer) || badPrice(edit.quote.partner)) blockers.push("quote");
   if (draft.schedule.timeWindow && !isTimeWindowComplete(draft.schedule.timeWindow)) blockers.push("timeWindow");
   return blockers;
 }

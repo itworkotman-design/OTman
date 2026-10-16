@@ -12,6 +12,7 @@ import { buildMovingReviewBlocks } from "@/app/_components/site/BookingModal/mov
 import { OrderReviewBlocks } from "@/app/_components/site/BookingModal/whiteGoods/OrderReviewParts";
 import MovingOrderEditTab from "./MovingOrderEditTab";
 import type { ServiceEdit } from "@/lib/orders/serviceOrderEdit";
+import { serviceRequestLabel } from "@/lib/content/serviceRequestCatalog";
 import { buildServiceReviewBlocks } from "@/app/_components/site/BookingModal/services/serviceReview";
 import ServiceOrderEditTab from "./ServiceOrderEditTab";
 import type { ProductGroup } from "@/lib/orders/websiteOrderProducts";
@@ -129,6 +130,14 @@ function formatKr(n: number) {
   return `${n.toLocaleString("nb-NO")} kr`;
 }
 
+// The services of a request staff haven't priced yet, by name.
+function unquotedServices(services: ServiceEdit["services"], locale: "en" | "no") {
+  return services
+    .filter((s) => s.quote.customer === null)
+    .map((s) => serviceRequestLabel(s.serviceCode, s.customService, locale) ?? s.serviceCode)
+    .join(", ");
+}
+
 
 // Admin view of a homepage website order — a white-goods delivery (every
 // pickup stop, the delivery, the calculator), a move (both ends, timing,
@@ -193,10 +202,8 @@ export default function WebsiteOrderModal({
     order.kind === "service"
       ? buildServiceReviewBlocks(siteLocale, {
           customerType: order.service.customerType,
-          serviceCode: order.service.edit.serviceCode,
-          customService: order.service.edit.customService,
+          services: order.service.edit.services,
           address: order.service.edit.address,
-          jobDescription: order.service.edit.jobDescription,
           preferredDate: order.service.preferredDate,
           timeWindow: order.service.timeWindow,
           contact,
@@ -387,11 +394,14 @@ export default function WebsiteOrderModal({
                 </ul>
               </div>
             )}
-            {tab === "overview" && order.kind === "service" && order.service.edit.quote.customer === null && (
+            {tab === "overview" && order.kind === "service" && order.service.edit.services.some((s) => s.quote.customer === null) && (
               <p className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
                 {canEditOrder
-                  ? t("Not quoted yet — add the price under \"Edit order\" → Quote.", "Ikke priset ennå — legg inn prisen under «Endre bestilling» → Tilbud.")
-                  : t("This request was never quoted.", "Denne forespørselen ble aldri priset.")}
+                  ? t(
+                      `Not quoted yet: ${unquotedServices(order.service.edit.services, "en")} — add the price under "Edit order".`,
+                      `Ikke priset ennå: ${unquotedServices(order.service.edit.services, "no")} — legg inn prisen under «Endre bestilling».`,
+                    )
+                  : t("This request was never fully quoted.", "Denne forespørselen ble aldri ferdig priset.")}
               </p>
             )}
             {editNotice && (

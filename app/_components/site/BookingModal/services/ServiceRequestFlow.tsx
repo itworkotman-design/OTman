@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import CustomerOrderEditFooter from "@/app/_components/site/pageComponents/myOrder/CustomerOrderEditFooter";
-import type { CustomerEditDraft, CustomerServiceDraft } from "@/app/_components/site/pageComponents/myOrder/customerEditPayload";
+import type {
+  CustomerEditDraft,
+  CustomerServiceDraft,
+  CustomerServiceItemDraft,
+} from "@/app/_components/site/pageComponents/myOrder/customerEditPayload";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 import { SteppedModal, type FinalStep, type StepSection } from "../SteppedModal";
 import { CustomerTypeStep } from "../whiteGoods/CustomerTypeStep";
@@ -29,9 +33,9 @@ import { buildServiceReviewBlocks } from "./serviceReview";
 
 // The homepage "Services" card's modal — the same stepped flow as delivery
 // (WhiteGoodsBookingFlow) and moving (MovingRequestFlow): private or business
-// first, then which service (the /tjenester page's list, as icon tiles —
-// lib/content/serviceRequestCatalog.ts) with what needs doing right under
-// it, the address, when, and the contact details with an optional comment
+// first, then which services — one or more (the /tjenester page's list, as
+// icon tiles — lib/content/serviceRequestCatalog.ts) with what needs doing
+// for each right under them, the address, when, and the contact details with an optional comment
 // (its own thing, Order.customerComments). Not priced: it lands as an unpriced
 // website order that staff quote (/api/site/service-request).
 
@@ -39,7 +43,8 @@ import { buildServiceReviewBlocks } from "./serviceReview";
 // (like MovingCustomerEdit): loaded from /api/customer/orders/[orderNumber]
 // with every section open, saved through its PUT from the edit bar
 // (CustomerOrderEditFooter). Within 24h of the job only the contact details
-// and the job description are left. The quote is staff's — never shown here.
+// and the job descriptions are left (no services added or removed). The
+// quotes are staff's — never shown here.
 
 export type ServiceCustomerEdit = {
   orderNumber: string;
@@ -58,14 +63,22 @@ export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
 
   const [customerType, setCustomerType] = useState<CustomerType | null>(null);
 
-  const [serviceCode, setServiceCode] = useState<string | null>(null);
-  const [customService, setCustomService] = useState("");
-  // The custom service's text only counts once the customer leaves the field
-  // (or presses Enter), so the next step doesn't open — and scroll — on the
-  // first letter typed.
-  const [customServiceCommitted, setCustomServiceCommitted] = useState(false);
-  const isCustom = serviceCode === SERVICE_REQUEST_CUSTOM_CODE;
-  const serviceReady = isServiceChoiceReady(serviceCode, customService) && (!isCustom || customServiceCommitted);
+  // The services picked (as many as needed, in the order picked), each with
+  // what needs doing for it — asked right under the tiles, as part of the
+  // request, not with the contact details. The next step opens as soon as
+  // every picked service is described (and a custom one named).
+  const [services, setServices] = useState<CustomerServiceItemDraft[]>([]);
+  const servicesReady =
+    services.length > 0 &&
+    services.every((service) => isServiceChoiceReady(service.serviceCode, service.customService) && !!service.jobDescription.trim());
+  const updateService = (serviceCode: string, patch: Partial<CustomerServiceItemDraft>) =>
+    setServices((list) => list.map((service) => (service.serviceCode === serviceCode ? { ...service, ...patch } : service)));
+  const toggleService = (serviceCode: string) =>
+    setServices((list) =>
+      list.some((service) => service.serviceCode === serviceCode)
+        ? list.filter((service) => service.serviceCode !== serviceCode)
+        : [...list, { serviceCode, customService: "", jobDescription: "" }],
+    );
 
   const [address, setAddress] = useState("");
   // Picked from the autocomplete suggestions (not free-typed) — required to
@@ -83,10 +96,6 @@ export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  // What needs doing — asked with the service (part of the request), not
-  // with the contact details. The next step opens as soon as there's text.
-  const [jobDescription, setJobDescription] = useState("");
-  const serviceStepReady = serviceReady && !!jobDescription.trim();
   // The customer's own comment, with their details — its own thing.
   const [notes, setNotes] = useState("");
 
@@ -114,12 +123,9 @@ export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
           return;
         }
         const service = details.service as CustomerServiceDraft;
-        setServiceCode(service.serviceCode);
-        setCustomService(service.customService);
-        setCustomServiceCommitted(!!service.customService.trim());
+        setServices(service.services);
         setAddress(service.address);
         setAddressSelected(true);
-        setJobDescription(service.jobDescription);
         setPreferredDate(details.preferredDate);
         setTimeWindow(details.timeWindow);
         setName(details.customer.name);
@@ -150,13 +156,12 @@ export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
 
   const canSubmit =
     !!customerType &&
-    isServiceChoiceReady(serviceCode, customService) &&
+    servicesReady &&
     addressReady &&
     canContinueTiming &&
     !!name.trim() &&
     validatePhoneField(phone) === null &&
     isValidEmail(email) &&
-    !!jobDescription.trim() &&
     !submitLoading;
 
   async function handleSubmit() {
@@ -168,10 +173,8 @@ export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerType,
-          serviceCode,
-          customService: isCustom ? customService : "",
+          services,
           address,
-          jobDescription,
           preferredDate,
           timeWindow,
           name,
@@ -219,28 +222,36 @@ export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
     },
     {
       id: "service",
-      title: t("Which service do you need?", "Hvilken tjeneste trenger du?"),
+      title: t("Which services do you need?", "Hvilke tjenester trenger du?"),
       render: ({ onComplete, onUncomplete }) => (
         <div className="flex flex-col items-center gap-4">
-          {/* Same icon tiles as the delivery modal's category picker (WebsiteListTiles). */}
+          <p className="-mt-2 text-sm text-black/50">{t("Pick one or more.", "Velg én eller flere.")}</p>
+          {/* Same icon tiles as the delivery modal's category picker
+              (WebsiteListTiles); each one toggles its service. */}
           <div className="flex flex-wrap justify-center gap-3">
             {SERVICE_REQUEST_OPTIONS.map((option) => {
-              const selected = serviceCode === option.code;
+              const selected = services.some((service) => service.serviceCode === option.code);
               return (
                 <button
                   key={option.code}
                   type="button"
                   aria-pressed={selected}
-                  // Within 24h of the job the service is locked (only the description can change).
-                  disabled={customerLocked && !selected}
-                  onClick={() => setServiceCode(option.code)}
+                  // Within 24h of the job the services are locked (only their descriptions can change).
+                  disabled={customerLocked}
+                  onClick={() => toggleService(option.code)}
                   className={[
-                    "flex w-36 flex-col items-center gap-2 rounded-2xl border px-4 py-4 text-center transition disabled:opacity-40",
+                    "relative flex w-36 flex-col items-center gap-2 rounded-2xl border px-4 py-4 text-center transition",
+                    customerLocked && !selected ? "opacity-40" : "",
                     selected
                       ? "border-logoblue bg-logoblue/5"
-                      : "border-black/10 hover:-translate-y-0.5 hover:border-logoblue/40 hover:shadow-md",
+                      : "border-black/10 hover:-translate-y-0.5 hover:border-logoblue/40 hover:shadow-md disabled:hover:translate-y-0 disabled:hover:shadow-none",
                   ].join(" ")}
                 >
+                  {selected && (
+                    <span aria-hidden="true" className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-logoblue text-xs text-white">
+                      ✓
+                    </span>
+                  )}
                   <span
                     className={[
                       "grid h-14 w-14 place-items-center rounded-full",
@@ -256,43 +267,46 @@ export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
               );
             })}
           </div>
-          {isCustom && (
-            <input
-              value={customService}
-              maxLength={200}
-              autoFocus={!customer}
-              disabled={customerLocked}
-              onChange={(e) => {
-                const next = sanitizeTextInput(e.target.value);
-                setCustomService(next);
-                if (!next.trim()) setCustomServiceCommitted(false);
-              }}
-              onBlur={() => setCustomServiceCommitted(!!customService.trim())}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") setCustomServiceCommitted(!!customService.trim());
-              }}
-              placeholder={t("Which service do you need?", "Hvilken tjeneste trenger du?")}
-              className="h-11 w-full max-w-md rounded-lg border border-black/15 px-3 text-sm"
-            />
-          )}
-          {/* What needs doing — saved with the service, right under it. */}
-          <textarea
-            value={jobDescription}
-            onChange={(e) => setJobDescription(sanitizeTextInput(e.target.value))}
-            rows={4}
-            maxLength={1000}
-            placeholder={t(
-              "What do you need done? The more detail, the more accurate the quote.",
-              "Hva skal gjøres? Jo flere detaljer, jo mer presist tilbud.",
-            )}
-            className="w-full max-w-xl rounded-lg border border-black/15 px-3 py-2 text-sm"
-          />
-          <AutoAdvance
-            ready={serviceStepReady}
-            hold={isCustom && !!customService.trim()}
-            onReady={onComplete}
-            onRetract={onUncomplete}
-          />
+
+          {/* What needs doing — one box per picked service, right under the
+              tiles, saved with that service. */}
+          {services.map((service) => {
+            const option = SERVICE_REQUEST_OPTIONS.find((o) => o.code === service.serviceCode);
+            const isCustom = service.serviceCode === SERVICE_REQUEST_CUSTOM_CODE;
+            return (
+              <div key={service.serviceCode} className="flex w-full max-w-xl flex-col gap-2 rounded-2xl border border-black/10 bg-white p-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-logoblue">
+                  <ServiceIcon iconKey={option?.iconKey ?? "custom"} className="h-5 w-5" />
+                  {option ? (locale === "no" ? option.labelNo : option.labelEn) : service.serviceCode}
+                </div>
+                {isCustom && (
+                  <input
+                    value={service.customService}
+                    maxLength={200}
+                    autoFocus={!customer}
+                    disabled={customerLocked}
+                    onChange={(e) => updateService(service.serviceCode, { customService: sanitizeTextInput(e.target.value) })}
+                    placeholder={t("Which service do you need?", "Hvilken tjeneste trenger du?")}
+                    className="h-11 w-full rounded-lg border border-black/15 px-3 text-sm"
+                  />
+                )}
+                <textarea
+                  value={service.jobDescription}
+                  onChange={(e) => updateService(service.serviceCode, { jobDescription: sanitizeTextInput(e.target.value) })}
+                  rows={3}
+                  maxLength={1000}
+                  placeholder={t(
+                    "What do you need done? The more detail, the more accurate the quote.",
+                    "Hva skal gjøres? Jo flere detaljer, jo mer presist tilbud.",
+                  )}
+                  className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm"
+                />
+              </div>
+            );
+          })}
+          {/* Held while any service is picked, so adding another (not yet
+              described) doesn't fold the steps already opened below. */}
+          <AutoAdvance ready={servicesReady} hold={services.length > 0} onReady={onComplete} onRetract={onUncomplete} />
         </div>
       ),
     },
@@ -405,10 +419,8 @@ export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
 
   const reviewBlocks = buildServiceReviewBlocks(locale, {
     customerType,
-    serviceCode,
-    customService,
+    services,
     address,
-    jobDescription,
     preferredDate,
     timeWindow,
     contact: { name, phone, email, notes },
@@ -496,14 +508,15 @@ export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
       customer: { name, phone, email, comments: notes },
       preferredDate,
       timeWindow,
-      service: { serviceCode: serviceCode ?? "", customService: isCustom ? customService : "", jobDescription, address },
+      service: { address, services },
     };
     // A typed address must be picked from the suggestions before saving, as when booking.
-    const blockedMessage = !jobDescription.trim()
-      ? t("Describe what needs doing.", "Beskriv hva som skal gjøres.")
-      : !customerLocked && !isServiceChoiceReady(serviceCode, customService)
-        ? t("Choose a service.", "Velg en tjeneste.")
-        : !customerLocked && !addressReady
+    const blockedMessage =
+      services.length === 0
+        ? t("Choose at least one service.", "Velg minst én tjeneste.")
+        : !servicesReady
+          ? t("Describe what needs doing for every service.", "Beskriv hva som skal gjøres for hver tjeneste.")
+          : !customerLocked && !addressReady
           ? t("Please choose an address from the suggestions.", "Velg en adresse fra forslagene.")
           : null;
     return (

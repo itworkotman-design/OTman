@@ -199,15 +199,24 @@ function describeChanges(
   ];
 }
 
-// A service request's service and job description in words (the address is
-// already among the order's detail changes).
+// A service request's services and their job descriptions in words — what
+// was added, removed or described differently (the address is already among
+// the order's detail changes).
 function describeServiceChanges(before: ServiceAnswers, after: ServiceAnswers, locale: ChangeLocale): string[] {
+  const t = (en: string, no: string) => (locale === "no" ? no : en);
+  const key = (service: ServiceAnswers["services"][number]) => `${service.serviceCode}:${service.customService.trim()}`;
+  const label = (service: ServiceAnswers["services"][number]) =>
+    serviceRequestLabel(service.serviceCode, service.customService, locale) ?? service.serviceCode;
   const lines: string[] = [];
-  const label = (answers: ServiceAnswers) =>
-    serviceRequestLabel(answers.serviceCode, answers.customService, locale) ?? answers.serviceCode;
-  if (label(before) !== label(after)) lines.push(`${locale === "no" ? "Tjeneste" : "Service"}: ${label(before)} → ${label(after)}`);
-  if (before.jobDescription.trim() !== after.jobDescription.trim()) {
-    lines.push(`${locale === "no" ? "Hva skal gjøres" : "What needs doing"}: ${before.jobDescription || "–"} → ${after.jobDescription || "–"}`);
+  for (const service of before.services) {
+    if (!after.services.some((s) => key(s) === key(service))) lines.push(`${t("Service removed", "Tjeneste fjernet")}: ${label(service)}`);
+  }
+  for (const service of after.services) {
+    const was = before.services.find((s) => key(s) === key(service));
+    if (!was) lines.push(`${t("Service added", "Tjeneste lagt til")}: ${label(service)} — ${service.jobDescription}`);
+    else if (was.jobDescription.trim() !== service.jobDescription.trim()) {
+      lines.push(`${label(service)} — ${t("what needs doing", "hva skal gjøres")}: ${was.jobDescription || "–"} → ${service.jobDescription || "–"}`);
+    }
   }
   return lines;
 }
@@ -319,14 +328,22 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
     if (movingKinds.length > 0) movingEdit = parsed;
   }
 
-  // A service request: the service, the job and the address as edited
-  // (classifyServiceEdit), saved with staff's quote and lines untouched.
+  // A service request: its services, their jobs and the address as edited
+  // (classifyServiceEdit), each service keeping staff's quote — a new one
+  // has none yet.
   let serviceSave: ReturnType<typeof serviceOrderSaveData> | null = null;
   let serviceAfter: ServiceAnswers | null = null;
   const serviceKinds: CustomerEditKind[] = [];
   if (details.kind === "service" && body.service !== undefined) {
     const stored = serviceEditFromOrder(order);
-    const parsed = stored ? parseServiceEdit({ ...record(body.service), quote: stored.quote }) : null;
+    const sent = record(body.service);
+    const sentServices = Array.isArray(sent.services) ? sent.services : [];
+    const withQuotes = sentServices.map((entry) => {
+      const service = record(entry);
+      const quote = stored?.services.find((s) => s.serviceCode === service.serviceCode)?.quote ?? { customer: null, partner: null };
+      return { ...service, quote };
+    });
+    const parsed = stored ? parseServiceEdit({ address: sent.address, services: withQuotes }) : null;
     if (!parsed?.ok) return reject("INVALID_DETAILS", 422, { errors: parsed && !parsed.ok ? parsed.errors : {} });
     serviceAfter = serviceAnswersOf(parsed.edit);
     serviceKinds.push(...classifyServiceEdit(details.service, serviceAfter));
@@ -502,19 +519,20 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
     }
     afterOrder = { ...order, ...contactAndSchedule, ...save.orderData };
   } else if (serviceSave) {
-    // Staff's quote is kept, so the price stays what it was.
-    const previousTotalIncVat = customerOrderTotalIncVatNok(order);
-    const pricedAfter = { ...order, ...serviceSave.orderData, priceExVat: serviceSave.pricing.priceExVat };
-    const totalIncVat = customerOrderTotalIncVatNok(pricedAfter);
+    // Staff's quotes are kept: the price only moves when a quoted service is
+    // removed (its line goes); an added one waits for staff to quote it.
+    const priceExVat = serviceSave.pricing.priceExVat;
+    const previousPriceExVat = order.priceExVat;
+    // Refunds aren't built: once something is paid the order can't get cheaper here.
+    if (priceExVat < previousPriceExVat && order.payments.length > 0) return reject("WOULD_DECREASE_PRICE", 422);
+    const previousTotalIncVat = customerOrderTotalIncVatNok(order) ?? 0;
+    const totalIncVat = serviceSave.pricing.pricingSnapshot.customer.totalIncVat;
     if (dryRun) {
-      return NextResponse.json({
-        ok: true,
-        dryRun: true,
-        previousPriceExVat: order.priceExVat,
-        priceExVat: serviceSave.pricing.priceExVat,
-        previousTotalIncVat,
-        totalIncVat,
-      });
+      return NextResponse.json({ ok: true, dryRun: true, previousPriceExVat, priceExVat, previousTotalIncVat, totalIncVat });
+    }
+    if (priceExVat !== previousPriceExVat) {
+      if (shownTotal === null) return reject("SHOWN_TOTAL_REQUIRED", 400);
+      if (Math.abs(shownTotal - totalIncVat) >= 0.5) return reject("PRICE_CHANGED", 409, { priceExVat, totalIncVat });
     }
     const contactAndSchedule = {
       customerName: customer.name,

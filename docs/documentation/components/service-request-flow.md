@@ -4,9 +4,9 @@
 The homepage "Services" card's booking modal (routed by `serviceModalKind` →
 `"services"`), built on `SteppedModal` like `WhiteGoodsBookingFlow` and
 `MovingRequestFlow`. Sections: customer type (`CustomerTypeStep`) → which
-service (icon tiles from `SERVICE_REQUEST_OPTIONS`, a text field for the
-custom service, and the required "what needs doing" description right under
-it — saved with the service) → address (`AddressAutocompleteInput`, must be
+services (icon tiles from `SERVICE_REQUEST_OPTIONS`, any number — each picked
+service gets its own box under the tiles: a name for the custom one and the
+required "what needs doing", saved with that service) → address (`AddressAutocompleteInput`, must be
 picked from the suggestions) → timing (`DateTimeWindowFields`) → contact
 details plus an optional comment (`notes` → `Order.customerComments`, its own
 thing) → review page (`buildServiceReviewBlocks`) with the submit button. Not
@@ -15,13 +15,13 @@ website order for staff to quote.
 
 ## Functions
 ### `ServiceRequestFlow({ locale, onClose, customer? })`
-Holds the flow's state and renders the `SteppedModal`. The custom service's
-text completes the service step once the field loses focus (or Enter); the job
-description completes it as soon as it has any text, opening the address step
-right away.
+Holds the flow's state and renders the `SteppedModal`. The service step is
+complete as soon as every picked service is described (and a custom one named),
+opening the address step right away; it's held while any service is picked, so
+adding another doesn't fold the steps already opened.
 
 With `customer` (`ServiceCustomerEdit`: "My order") it loads the customer's
 own request from `/api/customer/orders/[orderNumber]`, shows every section but
 the customer type, and saves through `CustomerOrderEditFooter`. Within 24h of
-the job only the service step (its tiles locked, the description editable) and
+the job only the service step (its tiles locked, the descriptions editable) and
 "Your details" are shown.

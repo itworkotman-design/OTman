@@ -584,7 +584,7 @@ describe("GET /api/orders/[orderId]/website-details — a homepage move", () => 
 describe("GET /api/orders/[orderId]/website-details — a homepage service request", () => {
   const quoteItem = {
     productCode: "SERVICE_QUOTE",
-    optionCode: "QUOTE",
+    optionCode: "QUOTE:option-1",
     optionLabel: "Electrician",
     quantity: 1,
     customerPriceCents: 400000,
@@ -594,7 +594,14 @@ describe("GET /api/orders/[orderId]/website-details — a homepage service reque
   const serviceOrder = {
     ...whiteGoodsOrder,
     websiteOrderKind: "SERVICE",
-    websiteBookingDetails: { version: 1, customerType: "business", serviceCode: "option-1", customService: "", jobDescription: "Install lights." },
+    websiteBookingDetails: {
+      version: 2,
+      customerType: "business",
+      services: [
+        { serviceCode: "option-1", customService: "", jobDescription: "Install lights." },
+        { serviceCode: "option-2", customService: "", jobDescription: "Fix the door." },
+      ],
+    },
     pickupAddress: null,
     deliveryAddress: "Storgata 1, Oslo",
     deliveryDate: "2026-10-22",
@@ -619,11 +626,12 @@ describe("GET /api/orders/[orderId]/website-details — a homepage service reque
     expect(order.kind).toBe("service");
     expect(order.service).toEqual({
       edit: {
-        serviceCode: "option-1",
-        customService: "",
-        jobDescription: "Install lights.",
         address: "Storgata 1, Oslo",
-        quote: { customer: 4000, partner: 2500 },
+        services: [
+          { serviceCode: "option-1", customService: "", jobDescription: "Install lights.", quote: { customer: 4000, partner: 2500 } },
+          // Not quoted yet.
+          { serviceCode: "option-2", customService: "", jobDescription: "Fix the door.", quote: { customer: null, partner: null } },
+        ],
       },
       customerType: "business",
       preferredDate: "2026-10-22",
@@ -639,7 +647,7 @@ describe("GET /api/orders/[orderId]/website-details — a homepage service reque
   it("opens an unquoted request with an empty calculator", async () => {
     mocks.orderFindFirstMock.mockResolvedValue({ ...serviceOrder, items: [], priceExVat: 0 });
     const { order } = await (await call()).json();
-    expect(order.service.edit.quote).toEqual({ customer: null, partner: null });
+    expect(order.service.edit.services[0].quote).toEqual({ customer: null, partner: null });
     expect(order.calculator.products).toEqual([]);
     expect(order.totalsCheck.missingFromLines).toBe(0);
   });
@@ -648,6 +656,6 @@ describe("GET /api/orders/[orderId]/website-details — a homepage service reque
     mocks.membershipFindFirstMock.mockResolvedValue({ role: "USER", appAccess: [{ module: "WEBSITE_ORDERS", enabled: true, level: "VIEWER" }] });
     const { order } = await (await call()).json();
     expect(order.calculator.partner).toBeNull();
-    expect(order.service.edit.quote.partner).toBeNull();
+    expect(order.service.edit.services[0].quote).toEqual({ customer: 4000, partner: null });
   });
 });

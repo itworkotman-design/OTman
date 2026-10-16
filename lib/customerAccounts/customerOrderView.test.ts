@@ -129,7 +129,7 @@ describe("customerOrderDetails — a homepage service request", () => {
       preferredDate: "2026-10-22",
       timeWindow: "08:00-16:00",
       customerType: "business",
-      service: { serviceCode: "option-1", customService: "", jobDescription: "Install lights.", address: "Storgata 1, Oslo" },
+      service: { address: "Storgata 1, Oslo", services: [{ serviceCode: "option-1", customService: "", jobDescription: "Install lights." }] },
     });
   });
 

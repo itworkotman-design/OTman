@@ -6,8 +6,12 @@ import { createOrderCreatedEvent, buildOrderEventSnapshot } from "@/lib/orders/o
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import { reservePublicOrderNumber } from "@/lib/orders/publicOrderNumber";
 import { welcomeWebsiteOrderCustomer } from "@/lib/customerAccounts/welcomeWebsiteOrderCustomer";
-import { parseServiceChoice, type ParsedServiceChoice } from "@/lib/content/serviceRequestCatalog";
-import { buildServiceBookingDetails, SERVICE_ORDER_KIND } from "@/lib/orders/serviceBookingDetails";
+import {
+  buildServiceBookingDetails,
+  parseServiceRequestItems,
+  SERVICE_ORDER_KIND,
+  type ParsedServiceRequestItems,
+} from "@/lib/orders/serviceBookingDetails";
 import { serviceOrderDescription, serviceOrderSummary } from "@/lib/orders/serviceOrderEdit";
 import {
   validateEmailField,
@@ -16,13 +20,14 @@ import {
 } from "@/lib/orders/websiteOrderValidation";
 
 // Final submission for the homepage "Services" modal (ServiceRequestFlow):
-// a trade/outsourcing job (electrician, carpenter, … or a custom service —
-// lib/content/serviceRequestCatalog.ts) at one address. Lands unpriced, like
+// one or more trade/outsourcing jobs (electrician, carpenter, … or a custom
+// service — lib/content/serviceRequestCatalog.ts), each with what needs
+// doing, at one address. Lands unpriced, like
 // the special-goods quote flow: staff review it and quote manually via the
 // same approve/reject/Stripe pipeline every other website order uses. The
 // job's address is stored as the order's delivery address (where we go); the
 // answers are kept (serviceBookingDetails) so the admin WebsiteOrderModal
-// shows and edits them, with staff's quote as the order's line.
+// shows and edits them, with staff's quote for each service as its own line.
 // The older /tjenester page form still posts to /api/public/manpower.
 
 const _rl = { lastAt: 0, dayStr: "", dayCount: 0 };
@@ -51,7 +56,7 @@ function str(v: unknown): string | null {
 
 async function createServiceRequest(
   body: RequestBody,
-  service: Extract<ParsedServiceChoice, { ok: true }>,
+  services: Extract<ParsedServiceRequestItems, { ok: true }>["items"],
 ): Promise<{ orderId: string; displayId: number; orderNumber: string | null }> {
   const membershipId = process.env.WEBSITE_MEMBERSHIP_ID;
   if (!membershipId) throw new Error("WEBSITE_MEMBERSHIP_ID not configured");
@@ -70,14 +75,11 @@ async function createServiceRequest(
   const orderNumber = await reservePublicOrderNumber(prisma, membership.companyId);
 
   const customerType = body.customerType === "business" || body.customerType === "private" ? body.customerType : null;
-  const jobDescription = str(body.jobDescription) ?? "";
-  const description = serviceOrderDescription({ labelEn: service.labelEn, customerType, jobDescription });
-  const summary = serviceOrderSummary(service.labelEn);
+  const description = serviceOrderDescription({ customerType, services });
+  const summary = serviceOrderSummary(services.map((service) => service.labelEn));
   const bookingDetails = buildServiceBookingDetails({
     customerType,
-    serviceCode: service.code,
-    customService: service.customService,
-    jobDescription,
+    services: services.map(({ serviceCode, customService, jobDescription }) => ({ serviceCode, customService, jobDescription })),
   });
 
   const order = await prisma.order.create({
@@ -176,7 +178,7 @@ export async function POST(req: Request) {
     if (emailErr) errors.email = emailErr;
   }
 
-  const textFields = ["address", "jobDescription", "customService", "name", "timeWindow", "notes"];
+  const textFields = ["address", "name", "timeWindow", "notes"];
   for (const field of textFields) {
     if (field in body && !(field in errors)) {
       const err = validateTextField(s(body[field]));
@@ -185,20 +187,20 @@ export async function POST(req: Request) {
   }
 
   if (!str(body.address)) errors.address = "Required";
-  if (!str(body.jobDescription)) errors.jobDescription = "Required";
   if (!str(body.name)) errors.name = "Required";
 
-  const service = parseServiceChoice(body.serviceCode, body.customService);
-  if (!service.ok) {
-    for (const [field, message] of Object.entries(service.errors)) errors[field] ??= message;
+  // One or more services, each with what needs doing.
+  const services = parseServiceRequestItems(body.services);
+  if (!services.ok) {
+    for (const [field, message] of Object.entries(services.errors)) errors[field] ??= message;
   }
 
-  if (Object.keys(errors).length > 0 || !service.ok) {
+  if (Object.keys(errors).length > 0 || !services.ok) {
     return NextResponse.json({ ok: false, reason: "VALIDATION_FAILED", errors }, { status: 422 });
   }
 
   try {
-    const result = await createServiceRequest(body, service);
+    const result = await createServiceRequest(body, services.items);
     return NextResponse.json({ ok: true, ...result }, { status: 200 });
   } catch (err) {
     console.error("[service-request] Order creation failed:", err);

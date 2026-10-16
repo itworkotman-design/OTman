@@ -83,7 +83,9 @@ describe("customerEditPrimaryAction", () => {
 });
 
 describe("buildCustomerEditPayload — a service request", () => {
-  const service = { serviceCode: "option-1", customService: "", jobDescription: "Install lights.", address: "Storgata 1, Oslo" };
+  const electrician = { serviceCode: "option-1", customService: "", jobDescription: "Install lights." };
+  const carpenter = { serviceCode: "option-2", customService: "", jobDescription: "Fix the door." };
+  const service = { address: "Storgata 1, Oslo", services: [electrician, carpenter] };
   const request: CustomerEditDraft = {
     customer: { name: "Kari", phone: "87654321", email: "kari@example.no", comments: "" },
     preferredDate: "2026-10-10",
@@ -97,9 +99,15 @@ describe("buildCustomerEditPayload — a service request", () => {
     expect(buildCustomerEditPayload(request, current, true)).toEqual({ service: current.service });
   });
 
-  it("within 24h sends only the job description, on the service exactly as loaded", () => {
-    const current = { ...structuredClone(request), service: { ...service, address: "Kirkegata 5, Oslo", jobDescription: "Install four lights." } };
-    expect(buildCustomerEditPayload(request, current, false)).toEqual({ service: { ...service, jobDescription: "Install four lights." } });
+  it("within 24h sends only the job descriptions, on the services exactly as loaded", () => {
+    const plumber = { serviceCode: "option-3", customService: "", jobDescription: "Fix the tap." };
+    const current = {
+      ...structuredClone(request),
+      service: { address: "Kirkegata 5, Oslo", services: [{ ...electrician, jobDescription: "Install four lights." }, carpenter, plumber] },
+    };
+    expect(buildCustomerEditPayload(request, current, false)).toEqual({
+      service: { ...service, services: [{ ...electrician, jobDescription: "Install four lights." }, carpenter] },
+    });
   });
 });
 

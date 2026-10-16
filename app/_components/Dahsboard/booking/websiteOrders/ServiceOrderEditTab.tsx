@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
+import type { ServiceEditItem } from "@/lib/orders/serviceOrderEdit";
 import { SERVICE_REQUEST_CUSTOM_CODE, SERVICE_REQUEST_OPTIONS, serviceRequestLabel } from "@/lib/content/serviceRequestCatalog";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 import { BuildingIcon, HomeIcon, PinIcon, SearchIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
@@ -38,10 +39,11 @@ function formatKr(n: number) {
 
 // The admin's "Edit order" tab for a homepage service request
 // (WebsiteOrderModal), in the same dashboard style as the moving and delivery
-// Edit tabs (EditTabParts): the service (the services modal's tiles, a custom
-// one by name) and what needs doing, the address, staff's quote (customer and
-// partner price ex. VAT — the order's one priced line), the date and time
-// window, and the customer, beside the Overview's calculator. Every change is
+// Edit tabs (EditTabParts): the services (the services modal's tiles, any
+// number), each in its own card with a custom one's name, what needs doing
+// and staff's quote (customer and partner price ex. VAT — its own priced
+// line), then the address, the date and time window, and the customer,
+// beside the Overview's calculator. Every change is
 // priced by the server (PUT /api/orders/[orderId]/service-details, dryRun)
 // against what was paid, and saved at that price. Drivers, express and the
 // deviation stay in the Overview's "Handle order" panel.
@@ -96,7 +98,7 @@ export default function ServiceOrderEditTab({
 
   const reasonText = (reason: unknown) =>
     reason === "INVALID_DETAILS"
-      ? t("Check the service, the address and the prices.", "Sjekk tjenesten, adressen og prisene.")
+      ? t("Check the services, the address and the prices.", "Sjekk tjenestene, adressen og prisene.")
       : reason === "NOT_EDITABLE_STATUS"
         ? t("This order can't be changed any more.", "Denne bestillingen kan ikke endres lenger.")
         : t("Couldn't save the order.", "Kunne ikke lagre bestillingen.");
@@ -149,7 +151,19 @@ export default function ServiceOrderEditTab({
   }
 
   const setEdit = (patch: Partial<ServiceEditDraft["edit"]>) => setDraft((d) => ({ ...d, edit: { ...d.edit, ...patch } }));
-  const setQuote = (patch: Partial<ServiceEditDraft["edit"]["quote"]>) => setEdit({ quote: { ...draft.edit.quote, ...patch } });
+  const setService = (index: number, patch: Partial<ServiceEditItem>) =>
+    setDraft((d) => ({ ...d, edit: { ...d.edit, services: d.edit.services.map((s, i) => (i === index ? { ...s, ...patch } : s)) } }));
+  // A tile adds its service (unpriced, nothing described yet) or removes it.
+  const toggleService = (serviceCode: string) =>
+    setDraft((d) => ({
+      ...d,
+      edit: {
+        ...d.edit,
+        services: d.edit.services.some((s) => s.serviceCode === serviceCode)
+          ? d.edit.services.filter((s) => s.serviceCode !== serviceCode)
+          : [...d.edit.services, { serviceCode, customService: "", jobDescription: "", quote: { customer: null, partner: null } }],
+      },
+    }));
   const setCustomer = (patch: Partial<ServiceEditDraft["customer"]>) => setDraft((d) => ({ ...d, customer: { ...d.customer, ...patch } }));
   const setSchedule = (patch: Partial<ServiceEditDraft["schedule"]>) => setDraft((d) => ({ ...d, schedule: { ...d.schedule, ...patch } }));
   // An emptied price field is "no price yet".
@@ -157,7 +171,6 @@ export default function ServiceOrderEditTab({
 
   const blockers = serviceEditBlockers(draft);
   const blocked = (field: ServiceEditBlocker) => blockers.includes(field);
-  const serviceLabel = serviceRequestLabel(draft.edit.serviceCode, draft.edit.customService, siteLocale);
 
   const sectionClass = "customContainer flex flex-col gap-4";
   const fieldClass = "customInput w-full";
@@ -167,43 +180,106 @@ export default function ServiceOrderEditTab({
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
       <div className="flex flex-col gap-4">
-        {/* The service — the same tiles the customer picked from. */}
+        {/* The services — the same tiles the customer picked from, then one
+            card per service: what needs doing and staff's quote for it (its
+            own line; the calculator's discount/extra and partner minus/plus
+            come on top). */}
         <section className={sectionClass}>
-          <h3 className="text-lg font-semibold text-logoblue">{t("Service", "Tjeneste")}</h3>
-          <div className="rounded-xl border border-neutral-200 p-4">
-            <CardHeading
-              icon={<ServiceIcon iconKey={SERVICE_REQUEST_OPTIONS.find((o) => o.code === draft.edit.serviceCode)?.iconKey ?? "custom"} />}
-              title={serviceLabel ?? t("Service", "Tjeneste")}
-              summary={draft.edit.jobDescription}
-            />
-
-            <div className="mb-3">
-              <span className={labelClass}>{t("Type of job", "Type jobb")}</span>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {SERVICE_REQUEST_OPTIONS.map((option) => (
-                  <ChoiceButton key={option.code} wide selected={draft.edit.serviceCode === option.code} onClick={() => setEdit({ serviceCode: option.code })}>
-                    <ServiceIcon iconKey={option.iconKey} className="h-4 w-4" />
-                    {locale === "nb" ? option.labelNo : option.labelEn}
-                  </ChoiceButton>
-                ))}
-              </div>
-              {blocked("serviceCode") && <p className={errorClass}>{t("Choose a service.", "Velg en tjeneste.")}</p>}
-            </div>
-
-            {draft.edit.serviceCode === SERVICE_REQUEST_CUSTOM_CODE && (
-              <label className="mb-3 block">
-                <span className={labelClass}>{t("Which service", "Hvilken tjeneste")}</span>
-                <input autoComplete="off" maxLength={200} className={fieldClass} value={draft.edit.customService} onChange={(e) => setEdit({ customService: e.target.value })} />
-                {blocked("customService") && <p className={errorClass}>{t("Name the service.", "Skriv hvilken tjeneste.")}</p>}
-              </label>
-            )}
-
-            <label className="block">
-              <span className={labelClass}>{t("What needs doing", "Hva skal gjøres")}</span>
-              <textarea rows={4} className={`${fieldClass} resize-none`} value={draft.edit.jobDescription} onChange={(e) => setEdit({ jobDescription: e.target.value })} />
-              {blocked("jobDescription") && <p className={errorClass}>{t("Describe the job.", "Beskriv jobben.")}</p>}
-            </label>
+          <div>
+            <h3 className="text-lg font-semibold text-logoblue">{t("Services", "Tjenester")}</h3>
+            <p className="text-xs text-black/45">{t("Prices ex. VAT", "Priser eks. mva")}</p>
           </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {SERVICE_REQUEST_OPTIONS.map((option) => (
+              <ChoiceButton
+                key={option.code}
+                wide
+                selected={draft.edit.services.some((s) => s.serviceCode === option.code)}
+                onClick={() => toggleService(option.code)}
+              >
+                <ServiceIcon iconKey={option.iconKey} className="h-4 w-4" />
+                {locale === "nb" ? option.labelNo : option.labelEn}
+              </ChoiceButton>
+            ))}
+          </div>
+          {blocked("services") && <p className={errorClass}>{t("Choose at least one service.", "Velg minst én tjeneste.")}</p>}
+
+          {draft.edit.services.map((service, index) => {
+            const option = SERVICE_REQUEST_OPTIONS.find((o) => o.code === service.serviceCode);
+            return (
+              <div key={service.serviceCode} className="rounded-xl border border-neutral-200 p-4">
+                <CardHeading
+                  icon={<ServiceIcon iconKey={option?.iconKey ?? "custom"} />}
+                  title={serviceRequestLabel(service.serviceCode, service.customService, siteLocale) ?? t("Service", "Tjeneste")}
+                  summary={service.jobDescription}
+                  action={
+                    <button
+                      type="button"
+                      onClick={() => toggleService(service.serviceCode)}
+                      className="text-xs font-semibold text-red-600 hover:underline"
+                    >
+                      {t("Remove", "Fjern")}
+                    </button>
+                  }
+                />
+
+                {service.serviceCode === SERVICE_REQUEST_CUSTOM_CODE && (
+                  <label className="mb-3 block">
+                    <span className={labelClass}>{t("Which service", "Hvilken tjeneste")}</span>
+                    <input
+                      autoComplete="off"
+                      maxLength={200}
+                      className={fieldClass}
+                      value={service.customService}
+                      onChange={(e) => setService(index, { customService: e.target.value })}
+                    />
+                    {blocked(`services.${index}.customService`) && <p className={errorClass}>{t("Name the service.", "Skriv hvilken tjeneste.")}</p>}
+                  </label>
+                )}
+
+                <label className="mb-3 block">
+                  <span className={labelClass}>{t("What needs doing", "Hva skal gjøres")}</span>
+                  <textarea
+                    rows={3}
+                    className={`${fieldClass} resize-none`}
+                    value={service.jobDescription}
+                    onChange={(e) => setService(index, { jobDescription: e.target.value })}
+                  />
+                  {blocked(`services.${index}.jobDescription`) && <p className={errorClass}>{t("Describe the job.", "Beskriv jobben.")}</p>}
+                </label>
+
+                <div className="grid grid-cols-1 gap-3 border-t border-neutral-200 pt-3 sm:grid-cols-2">
+                  <label>
+                    <span className={labelClass}>{t("Customer price", "Kundepris")}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      inputMode="decimal"
+                      className={fieldClass}
+                      value={service.quote.customer ?? ""}
+                      onChange={(e) => setService(index, { quote: { ...service.quote, customer: priceValue(e.target.value) } })}
+                    />
+                  </label>
+                  <label>
+                    <span className={labelClass}>{t("Partner price", "Partnerpris")}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      inputMode="decimal"
+                      className={fieldClass}
+                      value={service.quote.partner ?? ""}
+                      onChange={(e) => setService(index, { quote: { ...service.quote, partner: priceValue(e.target.value) } })}
+                    />
+                  </label>
+                  {blocked(`services.${index}.quote`) && (
+                    <p className={`${errorClass} sm:col-span-2`}>{t("Prices can't be negative.", "Prisene kan ikke være negative.")}</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </section>
 
         <section className={sectionClass}>
@@ -218,42 +294,6 @@ export default function ServiceOrderEditTab({
               icon={<SearchIcon />}
             />
             {blocked("address") && <p className={errorClass}>{t("Add an address.", "Legg til en adresse.")}</p>}
-          </div>
-        </section>
-
-        {/* Staff's quote — the order's one priced line; the calculator's
-            discount/extra and partner minus/plus come on top. */}
-        <section className={sectionClass}>
-          <div>
-            <h3 className="text-lg font-semibold text-logoblue">{t("Quote", "Tilbud")}</h3>
-            <p className="text-xs text-black/45">{t("Prices ex. VAT", "Priser eks. mva")}</p>
-          </div>
-          <div className="grid grid-cols-1 gap-3 rounded-xl border border-neutral-200 p-4 sm:grid-cols-2">
-            <label>
-              <span className={labelClass}>{t("Customer price", "Kundepris")}</span>
-              <input
-                type="number"
-                min={0}
-                step="any"
-                inputMode="decimal"
-                className={fieldClass}
-                value={draft.edit.quote.customer ?? ""}
-                onChange={(e) => setQuote({ customer: priceValue(e.target.value) })}
-              />
-            </label>
-            <label>
-              <span className={labelClass}>{t("Partner price", "Partnerpris")}</span>
-              <input
-                type="number"
-                min={0}
-                step="any"
-                inputMode="decimal"
-                className={fieldClass}
-                value={draft.edit.quote.partner ?? ""}
-                onChange={(e) => setQuote({ partner: priceValue(e.target.value) })}
-              />
-            </label>
-            {blocked("quote") && <p className={`${errorClass} sm:col-span-2`}>{t("Prices can't be negative.", "Prisene kan ikke være negative.")}</p>}
           </div>
         </section>
 

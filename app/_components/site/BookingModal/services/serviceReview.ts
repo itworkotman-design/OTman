@@ -6,15 +6,14 @@ import type { ReviewBlock, ReviewRow } from "../whiteGoods/orderReview";
 
 // The services flow's review page (its final step), in the same block shape
 // as the delivery and moving reviews so it renders through the same
-// OrderReviewBlocks cards: the service, where, when, and the contact answers.
-// No prices — a service request is quoted by staff.
+// OrderReviewBlocks cards: each service with what needs doing, where, when,
+// and the contact answers (with the customer's own comment). No prices — a
+// service request is quoted by staff.
 
 export type ServiceReviewInput = {
   customerType: CustomerType | null;
-  serviceCode: string | null;
-  customService: string;
+  services: { serviceCode: string; customService: string; jobDescription: string }[];
   address: string;
-  jobDescription: string;
   preferredDate: string;
   timeWindow: string;
   contact: { name: string; phone: string; email: string; notes: string };
@@ -31,11 +30,15 @@ export function buildServiceReviewBlocks(locale: Locale, input: ServiceReviewInp
   return [
     {
       kind: "details",
-      title: t("Service", "Tjeneste"),
+      title: input.services.length > 1 ? t("Services", "Tjenester") : t("Service", "Tjeneste"),
       rows: present([
         [t("Ordering as", "Bestiller som"), customerType],
-        [t("Service", "Tjeneste"), serviceRequestLabel(input.serviceCode, input.customService, locale)],
-        [t("What needs doing", "Hva skal gjøres"), input.jobDescription],
+        ...input.services.map(
+          (service): [string, string] => [
+            serviceRequestLabel(service.serviceCode, service.customService, locale) ?? t("Service", "Tjeneste"),
+            service.jobDescription,
+          ],
+        ),
       ]),
     },
     {
@@ -58,7 +61,7 @@ export function buildServiceReviewBlocks(locale: Locale, input: ServiceReviewInp
         [t("Name", "Navn"), input.contact.name],
         [t("Phone", "Telefon"), input.contact.phone],
         [t("Email", "E-post"), input.contact.email],
-        [t("Notes", "Merknader"), input.contact.notes],
+        [t("Comment", "Kommentar"), input.contact.notes],
       ]),
     },
   ];

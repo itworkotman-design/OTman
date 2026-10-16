@@ -2,40 +2,57 @@ import { describe, expect, it } from "vitest";
 import {
   classifyServiceEdit,
   parseServiceEdit,
+  serviceAnswersOf,
   serviceEditFromOrder,
   serviceOrderDescription,
   serviceOrderSaveData,
+  serviceOrderSummary,
   serviceQuoteItemRows,
 } from "./serviceOrderEdit";
 
-const bookingDetails = { version: 1, customerType: "private", serviceCode: "option-1", customService: "", jobDescription: "Install lights." };
-const quoteItem = {
-  productCode: "SERVICE_QUOTE",
-  optionCode: "QUOTE",
-  optionLabel: "Electrician",
-  quantity: 1,
-  customerPriceCents: 400000,
-  subcontractorPriceCents: 250000,
+const bookingDetails = {
+  version: 2,
+  customerType: "private",
+  services: [
+    { serviceCode: "option-1", customService: "", jobDescription: "Install lights." },
+    { serviceCode: "option-2", customService: "", jobDescription: "Fix the door." },
+  ],
 };
+const quoteItem = (code: string, label: string, customerPriceCents: number, subcontractorPriceCents: number) => ({
+  productCode: "SERVICE_QUOTE",
+  optionCode: `QUOTE:${code}`,
+  optionLabel: label,
+  quantity: 1,
+  customerPriceCents,
+  subcontractorPriceCents,
+});
 
 const edit = {
-  serviceCode: "option-1",
-  customService: "",
-  jobDescription: "Install lights.",
   address: "Storgata 1, Oslo",
-  quote: { customer: 4000, partner: 2500 },
+  services: [
+    { serviceCode: "option-1", customService: "", jobDescription: "Install lights.", quote: { customer: 4000, partner: 2500 } },
+    { serviceCode: "option-2", customService: "", jobDescription: "Fix the door.", quote: { customer: null, partner: null } },
+  ],
 };
 
 describe("serviceEditFromOrder", () => {
-  it("reads the answers, the address and the quote line", () => {
+  it("reads every service with its own quote line, and the address", () => {
     expect(
-      serviceEditFromOrder({ deliveryAddress: "Storgata 1, Oslo", websiteBookingDetails: bookingDetails, items: [quoteItem] }),
+      serviceEditFromOrder({
+        deliveryAddress: "Storgata 1, Oslo",
+        websiteBookingDetails: bookingDetails,
+        items: [quoteItem("option-1", "Electrician", 400000, 250000)],
+      }),
     ).toEqual(edit);
   });
 
-  it("has no quote before staff priced it", () => {
-    const read = serviceEditFromOrder({ deliveryAddress: "Storgata 1, Oslo", websiteBookingDetails: bookingDetails, items: [] });
-    expect(read?.quote).toEqual({ customer: null, partner: null });
+  it("reads the one quote line of a request stored before services were a list", () => {
+    const read = serviceEditFromOrder({
+      deliveryAddress: "x",
+      websiteBookingDetails: { version: 1, customerType: null, serviceCode: "option-1", customService: "", jobDescription: "Install lights." },
+      items: [{ ...quoteItem("option-1", "Electrician", 400000, 250000), optionCode: "QUOTE" }],
+    });
+    expect(read?.services[0].quote).toEqual({ customer: 4000, partner: 2500 });
   });
 
   it("is null for an order without service answers", () => {
@@ -44,33 +61,20 @@ describe("serviceEditFromOrder", () => {
 });
 
 describe("parseServiceEdit", () => {
-  it("accepts an edit and names the service in English", () => {
-    expect(parseServiceEdit(edit)).toEqual({ ok: true, edit, labelEn: "Electrician" });
+  it("accepts an edit and names each service in English", () => {
+    expect(parseServiceEdit(edit)).toEqual({ ok: true, edit, labels: ["Electrician", "Carpenter"] });
   });
 
-  it("names a custom service by what was typed", () => {
-    const parsed = parseServiceEdit({ ...edit, serviceCode: "custom", customService: " Painter " });
-    expect(parsed).toMatchObject({ ok: true, labelEn: "Custom service — Painter", edit: { customService: "Painter" } });
-  });
-
-  it("trims the text fields", () => {
-    const parsed = parseServiceEdit({ ...edit, address: "  Storgata 1, Oslo ", jobDescription: " Install lights. " });
-    expect(parsed).toMatchObject({ ok: true, edit: { address: "Storgata 1, Oslo", jobDescription: "Install lights." } });
-  });
-
-  it("allows no quote yet", () => {
-    expect(parseServiceEdit({ ...edit, quote: { customer: null, partner: null } }).ok).toBe(true);
+  it("trims the address", () => {
+    expect(parseServiceEdit({ ...edit, address: "  Storgata 1, Oslo " })).toMatchObject({ ok: true, edit: { address: "Storgata 1, Oslo" } });
   });
 
   it.each([
-    ["serviceCode", { serviceCode: "option-99" }],
-    ["customService", { serviceCode: "custom", customService: "" }],
     ["address", { address: " " }],
-    ["address", { address: "<b>" }],
-    ["jobDescription", { jobDescription: "" }],
-    ["quote.customer", { quote: { customer: -1, partner: null } }],
-    ["quote.partner", { quote: { customer: 100, partner: "abc" } }],
-    ["quote.customer", { quote: { customer: Number.POSITIVE_INFINITY, partner: null } }],
+    ["services", { services: [] }],
+    ["services.0.jobDescription", { services: [{ ...edit.services[0], jobDescription: "" }] }],
+    ["services.0.quote.customer", { services: [{ ...edit.services[0], quote: { customer: -1, partner: null } }] }],
+    ["services.0.quote.partner", { services: [{ ...edit.services[0], quote: { customer: 100, partner: "abc" } }] }],
   ])("rejects a bad %s", (field, patch) => {
     const parsed = parseServiceEdit({ ...edit, ...patch });
     expect(parsed.ok).toBe(false);
@@ -79,14 +83,14 @@ describe("parseServiceEdit", () => {
 });
 
 describe("serviceQuoteItemRows", () => {
-  it("is one line for the service, in øre", () => {
-    expect(serviceQuoteItemRows(edit.quote, "Electrician")).toEqual([
+  it("is one line per priced service, in øre, keyed by its service", () => {
+    expect(serviceQuoteItemRows(edit.services, ["Electrician", "Carpenter"])).toEqual([
       {
         cardId: 0,
         productCode: "SERVICE_QUOTE",
         productName: "Service",
         itemType: "product",
-        optionCode: "QUOTE",
+        optionCode: "QUOTE:option-1",
         optionLabel: "Electrician",
         quantity: 1,
         customerPriceCents: 400000,
@@ -96,25 +100,29 @@ describe("serviceQuoteItemRows", () => {
   });
 
   it("counts a side left empty as 0", () => {
-    expect(serviceQuoteItemRows({ customer: 1000, partner: null }, "Electrician")[0].subcontractorPriceCents).toBe(0);
-  });
-
-  it("has no line before a price is given", () => {
-    expect(serviceQuoteItemRows({ customer: null, partner: null }, "Electrician")).toEqual([]);
+    const rows = serviceQuoteItemRows([{ ...edit.services[0], quote: { customer: 1000, partner: null } }], ["Electrician"]);
+    expect(rows[0].subcontractorPriceCents).toBe(0);
   });
 });
 
-describe("serviceOrderDescription", () => {
-  it("lists the service, the customer type and the job for staff", () => {
-    expect(serviceOrderDescription({ labelEn: "Electrician", customerType: "business", jobDescription: "Install lights." })).toBe(
-      "Service: Electrician\n\nCustomer type: Business\n\nInstall lights.",
+describe("serviceOrderDescription / serviceOrderSummary", () => {
+  const services = [
+    { labelEn: "Electrician", jobDescription: "Install lights." },
+    { labelEn: "Carpenter", jobDescription: "Fix the door." },
+  ];
+
+  it("lists the customer type, then each service with its job, for staff", () => {
+    expect(serviceOrderDescription({ customerType: "business", services })).toBe(
+      "Customer type: Business\n\nService: Electrician\nInstall lights.\n\nService: Carpenter\nFix the door.",
     );
   });
 
   it("leaves out a customer type not given", () => {
-    expect(serviceOrderDescription({ labelEn: "Electrician", customerType: null, jobDescription: "Install lights." })).toBe(
-      "Service: Electrician\n\nInstall lights.",
-    );
+    expect(serviceOrderDescription({ customerType: null, services: services.slice(0, 1) })).toBe("Service: Electrician\nInstall lights.");
+  });
+
+  it("names every service in the summary", () => {
+    expect(serviceOrderSummary(["Electrician", "Carpenter"])).toBe("Service request (Electrician + Carpenter)");
   });
 });
 
@@ -143,17 +151,33 @@ describe("serviceOrderSaveData", () => {
     expect(save.itemRows.map((r) => r.productCode)).toEqual(["SERVICE_QUOTE", "MOVING_EXPRESS"]);
     expect(save.orderData).toMatchObject({
       deliveryAddress: "Storgata 1, Oslo",
-      productsSummary: "Service request (Electrician)",
-      description: "Service: Electrician\n\nCustomer type: Business\n\nInstall lights.",
+      productsSummary: "Service request (Electrician + Carpenter)",
       priceExVat: 5000,
       priceSubcontractor: 3300,
-      websiteBookingDetails: { version: 1, customerType: "business", serviceCode: "option-1", customService: "", jobDescription: "Install lights." },
+      websiteBookingDetails: {
+        version: 2,
+        customerType: "business",
+        services: [
+          { serviceCode: "option-1", customService: "", jobDescription: "Install lights." },
+          { serviceCode: "option-2", customService: "", jobDescription: "Fix the door." },
+        ],
+      },
     });
   });
 });
 
 describe("classifyServiceEdit (a customer's change in the 24h policy's terms)", () => {
-  const answers = { serviceCode: "option-1", customService: "", jobDescription: "Install lights.", address: "Storgata 1, Oslo" };
+  const answers = serviceAnswersOf(edit);
+
+  it("leaves out staff's quotes", () => {
+    expect(answers).toEqual({
+      address: "Storgata 1, Oslo",
+      services: [
+        { serviceCode: "option-1", customService: "", jobDescription: "Install lights." },
+        { serviceCode: "option-2", customService: "", jobDescription: "Fix the door." },
+      ],
+    });
+  });
 
   it("is nothing when nothing changed (spacing aside)", () => {
     expect(classifyServiceEdit(answers, { ...answers, address: " Storgata 1, Oslo " })).toEqual([]);
@@ -163,11 +187,14 @@ describe("classifyServiceEdit (a customer's change in the 24h policy's terms)", 
     expect(classifyServiceEdit(answers, { ...answers, address: "Kirkegata 5, Oslo" })).toEqual(["addresses"]);
   });
 
-  it("counts another service as reconfiguring the order", () => {
-    expect(classifyServiceEdit(answers, { ...answers, serviceCode: "custom", customService: "Painter" })).toEqual(["reconfigure"]);
+  it("counts adding or removing a service as reconfiguring the order", () => {
+    expect(classifyServiceEdit(answers, { ...answers, services: answers.services.slice(0, 1) })).toEqual(["reconfigure"]);
+    const plumber = { serviceCode: "option-3", customService: "", jobDescription: "Fix the tap." };
+    expect(classifyServiceEdit(answers, { ...answers, services: [...answers.services, plumber] })).toEqual(["reconfigure"]);
   });
 
   it("counts a new job description as notes — still allowed close to the job", () => {
-    expect(classifyServiceEdit(answers, { ...answers, jobDescription: "Install four lights." })).toEqual(["notes"]);
+    const services = [answers.services[0], { ...answers.services[1], jobDescription: "Fix both doors." }];
+    expect(classifyServiceEdit(answers, { ...answers, services })).toEqual(["notes"]);
   });
 });

@@ -34,6 +34,6 @@ from `Order.items` (`movingOrderPriceView`), and `calculator` the same calculato
 
 ## Homepage service requests
 A `SERVICE` order with stored answers returns `{ kind: "service", service: { edit, customerType, preferredDate, timeWindow },
-products: [], totalsCheck, calculator }` — `edit` from `serviceEditFromOrder` (the quote's partner price `null` for viewers),
+products: [], totalsCheck, calculator }` — `edit` from `serviceEditFromOrder` (each service's partner price `null` for viewers),
 `calculator` from `serviceOrderCalculatorView`, `handling` from `movingHandlingFromOrder`. A request sent before its answers
 were stored still answers `NOT_WHITE_GOODS_WEBSITE_ORDER` (regular modal).

@@ -6,6 +6,6 @@ shape as the delivery/moving reviews so it renders through `OrderReviewBlocks`.
 
 ## Functions
 ### `buildServiceReviewBlocks(locale, input)`
-Four blocks — Service (customer type, service label, job description), Where
-(address), Timing (formatted date, window), Your details — with blank answers
-left out.
+Four blocks — Service(s) (customer type, then one row per service: its label
+with what needs doing), Where (address), Timing (formatted date, window), Your
+details (with the customer's comment) — with blank answers left out. Tested.

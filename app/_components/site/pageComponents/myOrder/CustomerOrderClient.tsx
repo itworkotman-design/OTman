@@ -350,25 +350,29 @@ export default function CustomerOrderClient({ locale, order, products, accountEm
 
           {details.kind === "service" && (
             <section className={CARD}>
-              <CardTitle icon={<BoxIcon className="h-7 w-7" />}>{t("Service", "Tjeneste")}</CardTitle>
-              <div className="mt-5 flex items-center gap-4 rounded-xl bg-slate-50 px-4 py-3">
-                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-logoblue/10 text-logoblue">
-                  <ServiceIcon
-                    iconKey={SERVICE_REQUEST_OPTIONS.find((o) => o.code === details.service.serviceCode)?.iconKey ?? "custom"}
-                    className="h-7 w-7"
-                  />
-                </span>
-                <p className="font-semibold text-gray-900">
-                  {serviceRequestLabel(details.service.serviceCode, details.service.customService, locale) ?? "—"}
-                </p>
-              </div>
-              <div className="mt-5 flex min-w-0 gap-3 text-sm">
-                <NoteIcon className="mt-0.5 h-5 w-5 shrink-0 text-gray-700" />
-                <div className="min-w-0 wrap-anywhere">
-                  <p className="font-semibold text-gray-900">{t("What needs doing", "Hva skal gjøres")}</p>
-                  <p className="mt-1 whitespace-pre-line text-gray-700">{details.service.jobDescription || "—"}</p>
-                </div>
-              </div>
+              <CardTitle icon={<BoxIcon className="h-7 w-7" />}>
+                {details.service.services.length > 1 ? t("Services", "Tjenester") : t("Service", "Tjeneste")}
+              </CardTitle>
+              {/* Each service with what needs doing for it. */}
+              <ul className="mt-5 flex flex-col gap-3">
+                {details.service.services.map((service) => (
+                  <li key={service.serviceCode} className="flex gap-4 rounded-xl bg-slate-50 px-4 py-3">
+                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-logoblue/10 text-logoblue">
+                      <ServiceIcon
+                        iconKey={SERVICE_REQUEST_OPTIONS.find((o) => o.code === service.serviceCode)?.iconKey ?? "custom"}
+                        className="h-7 w-7"
+                      />
+                    </span>
+                    <div className="min-w-0 wrap-anywhere text-sm">
+                      <p className="text-base font-semibold text-gray-900">
+                        {serviceRequestLabel(service.serviceCode, service.customService, locale) ?? "—"}
+                      </p>
+                      <p className="mt-1 font-semibold text-gray-700">{t("What needs doing", "Hva skal gjøres")}</p>
+                      <p className="whitespace-pre-line text-gray-700">{service.jobDescription || "—"}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </section>
           )}
 

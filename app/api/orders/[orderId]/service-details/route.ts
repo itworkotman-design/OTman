@@ -25,8 +25,8 @@ import { validateTextField } from "@/lib/orders/websiteOrderValidation";
 
 // The admin's edit of a homepage service request (WebsiteOrderModal,
 // websiteOrderKind SERVICE) — the same API as a move's (moving-details): the
-// request itself — service, job, address and staff's quote (`edit`, its one
-// priced line) — the customer's contact details and schedule, and the
+// request itself — the address and each service with its job and staff's
+// quote (`edit`, a priced line per quoted service) — the customer's contact details and schedule, and the
 // "Handle order" panel's fields (`handling`) with the calculator's
 // discount/extra and partner minus/plus and lines set to 0. Express and the
 // deviation become the order's own lines, priced from the moving price list's
@@ -257,8 +257,13 @@ export async function PUT(req: Request, { params }: Params) {
   // A new customer type without an edit: just its answers (and the description staff read it from).
   if (!save && storedDetails && customerType !== storedDetails.customerType) {
     data.websiteBookingDetails = buildServiceBookingDetails({ ...storedDetails, customerType });
-    const labelEn = serviceRequestLabel(storedDetails.serviceCode, storedDetails.customService, "en");
-    if (labelEn) data.description = serviceOrderDescription({ labelEn, customerType, jobDescription: storedDetails.jobDescription });
+    data.description = serviceOrderDescription({
+      customerType,
+      services: storedDetails.services.map((service) => ({
+        labelEn: serviceRequestLabel(service.serviceCode, service.customService, "en") ?? service.serviceCode,
+        jobDescription: service.jobDescription,
+      })),
+    });
   }
 
   // The order after this save, against what was paid.

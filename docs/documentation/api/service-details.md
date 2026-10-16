@@ -4,10 +4,10 @@
 `PUT` — the admin's edit of a homepage service request (WebsiteOrderModal, `websiteOrderKind: "SERVICE"`). Same API and
 access as `moving-details` (owner/admin or Website orders at ADMIN level). Tested.
 
-- `edit` (a `ServiceEdit`: `serviceCode`, `customService`, `jobDescription`, `address`, `quote: { customer, partner }` in
-  kroner ex. VAT, `null` = not priced) — validated by `parseServiceEdit`; writes the answers, `deliveryAddress`,
-  `productsSummary`, the description staff read (`serviceOrderSaveData`) and the quote as the order's one line
-  (`SERVICE_QUOTE`). Refused (409) on cancelled/completed/invoiced/paid orders.
+- `edit` (a `ServiceEdit`: `address` and `services: [{ serviceCode, customService, jobDescription, quote: { customer,
+  partner } }]`, prices in kroner ex. VAT, `null` = not priced) — validated by `parseServiceEdit`; writes the answers,
+  `deliveryAddress`, `productsSummary`, the description staff read (`serviceOrderSaveData`) and one `SERVICE_QUOTE` line
+  per quoted service (`QUOTE:<serviceCode>`). Refused (409) on cancelled/completed/invoiced/paid orders.
 - `customer`, `preferredDate`, `timeWindow`, `customerType` — as on a move (a customer type alone also rewrites the
   description's "Customer type" line).
 - `handling` — the "Handle order" panel's fields and the calculator's discount/extra and partner minus/plus. Express and the

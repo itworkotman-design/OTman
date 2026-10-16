@@ -10,7 +10,8 @@
 export type CustomerMovingDraft = { serviceCodes: string[] } & Record<string, unknown>;
 
 // A service request as "My order" edits it (lib/orders/serviceOrderEdit.ts's ServiceAnswers).
-export type CustomerServiceDraft = { serviceCode: string; customService: string; jobDescription: string; address: string };
+export type CustomerServiceItemDraft = { serviceCode: string; customService: string; jobDescription: string };
+export type CustomerServiceDraft = { address: string; services: CustomerServiceItemDraft[] };
 
 export type CustomerEditDraft = {
   customer: { name: string; phone: string; email: string; comments: string };
@@ -51,11 +52,15 @@ export function buildCustomerEditPayload(
     if (current.moving && changed(initial.moving, current.moving)) payload.moving = current.moving;
     if (current.service && changed(initial.service, current.service)) payload.service = current.service;
   } else if (initial.service && current.service) {
-    // Within 24h only the job description can change: sent on the service
-    // exactly as loaded, so the address or service can't slip through.
-    if (initial.service.jobDescription !== current.service.jobDescription) {
-      payload.service = { ...initial.service, jobDescription: current.service.jobDescription };
-    }
+    // Within 24h only the job descriptions can change: sent on the services
+    // exactly as loaded, so the address or an added/removed service can't
+    // slip through.
+    const now = current.service.services;
+    const services = initial.service.services.map((service) => ({
+      ...service,
+      jobDescription: now.find((s) => s.serviceCode === service.serviceCode)?.jobDescription ?? service.jobDescription,
+    }));
+    if (changed(initial.service.services, services)) payload.service = { ...initial.service, services };
   } else if (initial.moving && current.moving) {
     // Within 24h a move can only get more services: sent on the move exactly
     // as loaded, so nothing else about it can slip through.

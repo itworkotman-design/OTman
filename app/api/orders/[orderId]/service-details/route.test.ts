@@ -42,7 +42,7 @@ const quoteItem = {
   productCode: "SERVICE_QUOTE",
   productName: "Service",
   itemType: "product",
-  optionCode: "QUOTE",
+  optionCode: "QUOTE:option-1",
   optionLabel: "Electrician",
   quantity: 1,
   customerPriceCents: 400000,
@@ -55,7 +55,11 @@ function storedOrder(overrides: Record<string, unknown> = {}) {
     companyId: "c1",
     status: "processing",
     websiteOrderKind: "SERVICE",
-    websiteBookingDetails: { version: 1, customerType: "private", serviceCode: "option-1", customService: "", jobDescription: "Install lights." },
+    websiteBookingDetails: {
+      version: 2,
+      customerType: "private",
+      services: [{ serviceCode: "option-1", customService: "", jobDescription: "Install lights." }],
+    },
     pickupAddress: null,
     deliveryAddress: "Storgata 1, Oslo",
     extraPickupAddress: [],
@@ -93,13 +97,10 @@ function put(body: unknown) {
   });
 }
 
-const edit = {
-  serviceCode: "option-1",
-  customService: "",
-  jobDescription: "Install lights.",
-  address: "Storgata 1, Oslo",
-  quote: { customer: 4000, partner: 2500 },
-};
+const electrician = { serviceCode: "option-1", customService: "", jobDescription: "Install lights.", quote: { customer: 4000, partner: 2500 } };
+const edit = { address: "Storgata 1, Oslo", services: [electrician] };
+// The edit with the electrician quoted differently.
+const quoted = (customer: number | null, partner: number | null) => ({ ...edit, services: [{ ...electrician, quote: { customer, partner } }] });
 
 // The writes the last transaction ran, by op.
 function transactionWrites() {
@@ -152,7 +153,7 @@ describe("PUT /api/orders/[orderId]/service-details (admin edit of a homepage se
 
   it("quotes an unpriced request: its line, the total and what's stored", async () => {
     mocks.orderFindFirst.mockResolvedValue(storedOrder({ items: [], priceExVat: 0, priceSubcontractor: 0 }));
-    const res = await put({ edit: { ...edit, quote: { customer: 3200, partner: 2000 } } });
+    const res = await put({ edit: quoted(3200, 2000) });
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ ok: true, previousPriceExVat: 0, priceExVat: 3200 });
 
@@ -170,21 +171,31 @@ describe("PUT /api/orders/[orderId]/service-details (admin edit of a homepage se
     );
   });
 
-  it("changes the service: answers, line label and summary", async () => {
-    await put({ edit: { ...edit, serviceCode: "custom", customService: "Painter", jobDescription: "Paint the hall." } });
+  it("adds a service with its own quote: one line per service, both in the summary", async () => {
+    const painter = { serviceCode: "custom", customService: "Painter", jobDescription: "Paint the hall.", quote: { customer: 1500, partner: 1000 } };
+    const res = await put({ edit: { ...edit, services: [electrician, painter] } });
+    expect((await res.json()).priceExVat).toBe(5500);
     const writes = transactionWrites();
-    expect(writes["items.createMany"].data[0]).toMatchObject({ optionLabel: "Custom service — Painter" });
+    expect(writes["items.createMany"].data).toEqual([
+      expect.objectContaining({ optionCode: "QUOTE:option-1", optionLabel: "Electrician", customerPriceCents: 400000 }),
+      expect.objectContaining({ optionCode: "QUOTE:custom", optionLabel: "Custom service — Painter", customerPriceCents: 150000 }),
+    ]);
     expect(writes["order.update"].data).toMatchObject({
-      productsSummary: "Service request (Custom service — Painter)",
-      description: "Service: Custom service — Painter\n\nCustomer type: Private\n\nPaint the hall.",
-      websiteBookingDetails: expect.objectContaining({ serviceCode: "custom", customService: "Painter", jobDescription: "Paint the hall." }),
+      productsSummary: "Service request (Electrician + Custom service — Painter)",
+      description: "Customer type: Private\n\nService: Electrician\nInstall lights.\n\nService: Custom service — Painter\nPaint the hall.",
+      websiteBookingDetails: expect.objectContaining({
+        services: [
+          { serviceCode: "option-1", customService: "", jobDescription: "Install lights." },
+          { serviceCode: "custom", customService: "Painter", jobDescription: "Paint the hall." },
+        ],
+      }),
     });
   });
 
   it("keeps express/deviation lines staff already added when the quote changes", async () => {
     const express = { ...quoteItem, productCode: "MOVING_EXPRESS", productName: "Express delivery", optionCode: "EXPRESS_DELIVERY", optionLabel: "Express delivery", customerPriceCents: 150000, subcontractorPriceCents: 80000 };
     mocks.orderFindFirst.mockResolvedValue(storedOrder({ items: [quoteItem, express], expressDelivery: true, priceExVat: 5500 }));
-    const res = await put({ edit: { ...edit, quote: { customer: 5000, partner: 3000 } } });
+    const res = await put({ edit: quoted(5000, 3000) });
     expect((await res.json()).priceExVat).toBe(6500);
     expect(transactionWrites()["items.createMany"].data.map((r: { productCode: string }) => r.productCode)).toEqual(["SERVICE_QUOTE", "MOVING_EXPRESS"]);
   });
@@ -212,7 +223,7 @@ describe("PUT /api/orders/[orderId]/service-details (admin edit of a homepage se
   });
 
   it("sets the quote line to 0 from the calculator", async () => {
-    const res = await put({ nulledLines: { cards: { 0: { customer: ["SERVICE_QUOTE:QUOTE"], subcontractor: [] } }, orderExtras: { customer: [], subcontractor: [] } } });
+    const res = await put({ nulledLines: { cards: { 0: { customer: ["SERVICE_QUOTE:QUOTE:option-1"], subcontractor: [] } }, orderExtras: { customer: [], subcontractor: [] } } });
     expect((await res.json()).priceExVat).toBe(0);
   });
 
@@ -237,7 +248,7 @@ describe("PUT /api/orders/[orderId]/service-details (admin edit of a homepage se
   });
 
   it("previews without saving: the price, what was paid, and the calculator", async () => {
-    const res = await put({ edit: { ...edit, quote: { customer: 5000, partner: 3000 } }, dryRun: true });
+    const res = await put({ edit: quoted(5000, 3000), dryRun: true });
     const json = await res.json();
     expect(json).toMatchObject({ ok: true, dryRun: true, previousPriceExVat: 4000, priceExVat: 5000 });
     expect(json.calculator.products[0]).toMatchObject({ name: "Service" });
