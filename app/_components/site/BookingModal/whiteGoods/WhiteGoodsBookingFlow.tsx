@@ -1078,10 +1078,6 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
           {
             id: "more-products",
             title: t("Any other products you need added?", "Trenger du å legge til andre produkter?"),
-            description: t(
-              "Pick another category — everything ends up in the same order.",
-              "Velg en annen kategori — alt havner i samme bestilling.",
-            ),
             render: ({ onComplete, onUncomplete }) => (
               <div className="flex flex-col items-center gap-3">
                 <WebsiteListTiles

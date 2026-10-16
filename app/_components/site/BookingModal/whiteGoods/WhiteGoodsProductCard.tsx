@@ -21,7 +21,7 @@ import {
 } from "./optionGroups";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { ProductIcon } from "./productIcons";
-import { InfoHint } from "./InfoHint";
+import { HoverTip, InfoHint } from "./InfoHint";
 import { buildCardSummaryChips } from "./cardSummaryChips";
 import type { DeliveryOptionPreview } from "./deliveryPricePreview";
 import { getProductDeliveryType } from "@/lib/products/deliveryTypes";
@@ -118,13 +118,15 @@ function OptionRow({
       aria-pressed={selected}
       disabled={disabled}
       className={[
-        "flex w-full items-center justify-between gap-3 py-3 text-left transition",
+        // group/tip + relative: the description shows in a HoverTip bubble
+        // while the row is hovered/focused, instead of a line under the title.
+        "group/tip relative flex w-full items-center justify-between gap-3 py-3 text-left transition",
         nested ? "pl-11 pr-4" : "px-4",
         disabled ? "cursor-default opacity-70" : "",
         bare
-          ? selected
-            ? "bg-logoblue/5"
-            : "hover:bg-black/2"
+          ? // Rounded itself: its container can't clip it (overflow-hidden
+            // would cut off the HoverTip of its first row).
+            ["first:rounded-t-xl last:rounded-b-xl", selected ? "bg-logoblue/5" : "hover:bg-black/2"].join(" ")
           : [
               "rounded-xl border",
               selected
@@ -150,16 +152,8 @@ function OptionRow({
             <span className="text-[11px] leading-none text-white">✓</span>
           )}
         </span>
-        <span className="min-w-0">
-          <span className="block text-sm font-semibold text-black/85">
-            {title}
-          </span>
-          {description && (
-            <span className="mt-0.5 block text-xs text-black/50">
-              {description}
-            </span>
-          )}
-        </span>
+        <span className="min-w-0 text-sm font-semibold text-black/85">{title}</span>
+        {description && <HoverTip label={description} />}
       </span>
       <span className="flex shrink-0 items-center gap-2">
         {price && (
@@ -564,20 +558,22 @@ export function WhiteGoodsProductCard({
         />
       )}
       {visibleDismantlingGroups.length > 0 && furnitureAddonsVisible && (
-        <div className="overflow-hidden rounded-xl border border-black/10">
-          <div className="border-b border-black/10 bg-black/2 px-4 py-3">
+        // Not overflow-hidden (its header and rows round their own corners),
+        // so the header's HoverTip isn't cut off.
+        <div className="rounded-xl border border-black/10">
+          <div tabIndex={0} className="group/tip relative rounded-t-xl border-b border-black/10 bg-black/2 px-4 py-3 outline-none">
             <div className="text-sm font-semibold text-black/85">
               {t(
                 "Dismantle old furniture",
                 "Demontering av gamle møbler",
               )}
             </div>
-            <div className="mt-0.5 text-xs text-black/50">
-              {t(
+            <HoverTip
+              label={t(
                 "For disposal is quick removal. For reuse keeps the parts intact for reassembly.",
                 "For avhending er rask fjerning. For gjenbruk tas delene vare på for montering.",
               )}
-            </div>
+            />
           </div>
           <div className="flex flex-col divide-y divide-black/10">
             {visibleDismantlingGroups.map((group) => {
@@ -593,7 +589,7 @@ export function WhiteGoodsProductCard({
                 <div
                   key={group.key}
                   className={[
-                    "flex flex-col gap-2 px-4 py-3 transition sm:flex-row sm:items-center sm:justify-between sm:gap-4",
+                    "flex flex-col gap-2 px-4 py-3 transition last:rounded-b-xl sm:flex-row sm:items-center sm:justify-between sm:gap-4",
                     groupSelected ? "bg-logoblue/5" : "",
                   ].join(" ")}
                 >
@@ -927,7 +923,7 @@ export function WhiteGoodsProductCard({
                       return (
                         <div
                           key={group.key}
-                          className="flex flex-col divide-y divide-logoblue/15 overflow-hidden rounded-xl border border-logoblue/30 bg-logoblue/5"
+                          className="flex flex-col divide-y divide-logoblue/15 rounded-xl border border-logoblue/30 bg-logoblue/5"
                         >
                           <OptionRow
                             variant="radio"
@@ -991,7 +987,7 @@ export function WhiteGoodsProductCard({
                       return (
                         <div
                           key={option.id}
-                          className="flex flex-col divide-y divide-logoblue/15 overflow-hidden rounded-xl border border-logoblue/30 bg-logoblue/5"
+                          className="flex flex-col divide-y divide-logoblue/15 rounded-xl border border-logoblue/30 bg-logoblue/5"
                         >
                           <OptionRow
                             variant="radio"
