@@ -12,7 +12,9 @@ at ADMIN level. Tested.
 - `handling` — the "Handle order" panel's fields (drivers, driver info, plate, internal description, date, time window) and
   the calculator's discount/extra and partner minus/plus (`rabatt`, `leggTil`, `subcontractorMinus`, `subcontractorPlus`; left
   out = stored value kept). Changed amounts re-price the stored lines with them (`movingOrderAdjustedPricing`); an `edit`
-  keeps them on its re-priced lines. Express and the deviation are white-goods prices: dropped, never stored. `nulledLines`
+  keeps them on its re-priced lines. Express and the deviation (incl. a custom one's `customDeviation`) are stored and become
+  the move's own lines (`movingHandlingItemRows`, priced from the moving price list's settings), replacing the old ones in a
+  transaction (`movingOrderItemWrites`); an `edit` carries the stored ones over as priced. `nulledLines`
   (the calculator's "Set to 0") is stored on the snapshot (`movingNulledLines`) and re-prices the lines too.
 - `useCurrentPrices` — "Use new price": the move's own answers (or the `edit`) re-priced at today's catalog. An `edit` of a
   move whose stored prices are outdated (`movingPricesOutdated`) is refused with `409 PRICES_OUTDATED` without it, as on a

@@ -89,6 +89,13 @@ export const MOVING_FLOOR_SURCHARGE_OPTION: MovingSizeOptionSeed = {
 // settings (getMovingCatalog's distanceRates), priced like delivery's.
 export const MOVING_DISTANCE_ITEM_CODE = "MOVING_DISTANCE";
 
+// Express delivery and the deviation fee an admin sets on a move ("Handle
+// order"), as order-item codes. Not products either: priced from the moving
+// price list's EXPRESS_DELIVERY and deviation settings (getMovingCatalog's
+// handlingRates), like a delivery's (lib/orders/movingHandlingLines.ts).
+export const MOVING_EXPRESS_ITEM_CODE = "MOVING_EXPRESS";
+export const MOVING_DEVIATION_ITEM_CODE = "MOVING_DEVIATION";
+
 // Carrying-distance surcharge by the parking answer ("Hvor nær kan vi
 // parkere?"), charged per end of the move; right outside is free. Codes match
 // MOVING_PARKING_OPTIONS' surchargeCode (lib/orders/movingProperty.ts).

@@ -30,6 +30,7 @@ import {
   movingPriceChanges,
 } from "@/lib/orders/movingOrderCalculator";
 import { movingCurrentPriceRows } from "@/lib/orders/movingCurrentPrices";
+import { movingHandlingFromOrder } from "@/lib/orders/movingHandlingLines";
 import { getMovingCatalog, type MovingCatalogOption } from "@/lib/content/getMovingCatalog";
 
 // Read-only view of a homepage white-goods website order for the admin
@@ -190,6 +191,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       order: {
         ...base,
         kind: "moving",
+        // A custom deviation's own values live on its line (movingHandlingLines).
+        handling: movingHandlingFromOrder(order),
         moving: {
           edit: movingEdit,
           customerType: parseMovingBookingDetails(order.websiteBookingDetails)?.customerType ?? null,

@@ -114,6 +114,10 @@ describe("PUT /api/orders/[orderId]/moving-details (admin edit of a homepage mov
       floorSurcharge: null,
       carrySurcharges: [],
       distanceRates: { kmFrom21: opt("KM_FROM_21", "Per km", 2890, 1651), kmOver100: opt("KM_OVER_100", "Per km", 2890, 1651) },
+      handlingRates: {
+        expressDelivery: opt("EXPRESS_DELIVERY", "Express delivery", 150000, 80000),
+        deviations: [opt("WRONGADRESS", "Avvik, bomtur; Feil adresse", 59000, 14900), opt("CUSTOM", "Custom", 0, 0)],
+      },
     });
   });
 
@@ -166,17 +170,82 @@ describe("PUT /api/orders/[orderId]/moving-details (admin edit of a homepage mov
     expect(res.status).toBe(422);
   });
 
-  it("saves the handling panel's fields that don't change a move's price — never express or the deviation", async () => {
-    const res = await put({ handling: { driver: "Ola", licensePlate: "EL12345", expressDelivery: true, deviation: "Wrong address", deliveryDate: "2026-10-23" } });
+  it("saves the handling panel's fields that don't change a move's price, without re-pricing", async () => {
+    const res = await put({ handling: { driver: "Ola", licensePlate: "EL12345", expressDelivery: false, deviation: "", deliveryDate: "2026-10-23" } });
     expect((await res.json()).ok).toBe(true);
     const data = mocks.orderUpdate.mock.calls[0][0].data;
     expect(data).toMatchObject({ driver: "Ola", licensePlate: "EL12345", deliveryDate: "2026-10-23" });
-    expect(data).not.toHaveProperty("expressDelivery");
-    expect(data).not.toHaveProperty("deviation");
     expect(mocks.getMovingCatalog).not.toHaveBeenCalled();
     // Nothing that changes the price was sent, so it isn't re-priced.
     expect(data).not.toHaveProperty("priceExVat");
     expect(data).not.toHaveProperty("rabatt");
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  describe("express and the deviation (priced from the moving price list's settings, like a delivery's)", () => {
+    const createdRows = () => mocks.itemCreateMany.mock.calls[0][0].data as Record<string, unknown>[];
+
+    it("adds express as an order-extra line and re-prices the move", async () => {
+      const res = await put({ handling: { expressDelivery: true } });
+      const json = await res.json();
+      expect(json.ok).toBe(true);
+      expect(json.priceExVat).toBe(5000 + 1500);
+      expect(mocks.transaction).toHaveBeenCalled();
+      expect(createdRows()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ productCode: "MOVING_BY_SIZE" }),
+          expect.objectContaining({ productCode: "MOVING_EXPRESS", optionCode: "EXPRESS_DELIVERY", customerPriceCents: 150000, subcontractorPriceCents: 80000, orderId: "o1" }),
+        ]),
+      );
+      const data = mocks.orderUpdate.mock.calls[0][0].data;
+      expect(data).toMatchObject({ expressDelivery: true, priceExVat: 6500, priceSubcontractor: 3000 + 800 });
+    });
+
+    it("adds a deviation at its price list price", async () => {
+      const res = await put({ handling: { deviation: "Avvik, bomtur; Feil adresse" } });
+      expect((await res.json()).priceExVat).toBe(5000 + 590);
+      expect(createdRows()).toEqual(
+        expect.arrayContaining([expect.objectContaining({ productCode: "MOVING_DEVIATION", optionCode: "WRONGADRESS", customerPriceCents: 59000 })]),
+      );
+      expect(mocks.orderUpdate.mock.calls[0][0].data).toMatchObject({ deviation: "Avvik, bomtur; Feil adresse" });
+    });
+
+    it("prices a custom deviation with its own prices and description", async () => {
+      const res = await put({ handling: { deviation: "Custom", customDeviation: { price: 750, subcontractorPrice: 300, description: "Piano" } } });
+      expect((await res.json()).priceExVat).toBe(5000 + 750);
+      expect(createdRows()).toEqual(
+        expect.arrayContaining([expect.objectContaining({ productCode: "MOVING_DEVIATION", optionLabel: "Piano", customerPriceCents: 75000, subcontractorPriceCents: 30000 })]),
+      );
+    });
+
+    it("removes the express line when express is turned off", async () => {
+      const expressItem = { ...sizeItem, productCode: "MOVING_EXPRESS", productName: "Express delivery", optionCode: "EXPRESS_DELIVERY", optionLabel: "Express delivery", customerPriceCents: 150000, subcontractorPriceCents: 80000 };
+      mocks.orderFindFirst.mockResolvedValue(storedOrder({ expressDelivery: true, items: [sizeItem, expressItem], priceExVat: 6500 }));
+      const json = await (await put({ handling: { expressDelivery: false } })).json();
+      expect(json.priceExVat).toBe(5000);
+      expect(createdRows().some((row) => row.productCode === "MOVING_EXPRESS")).toBe(false);
+    });
+
+    it("keeps the stored express line, as priced, when an edit re-prices the move", async () => {
+      const expressItem = { ...sizeItem, productCode: "MOVING_EXPRESS", productName: "Express delivery", optionCode: "EXPRESS_DELIVERY", optionLabel: "Express delivery", customerPriceCents: 120000, subcontractorPriceCents: 60000 };
+      mocks.orderFindFirst.mockResolvedValue(storedOrder({ expressDelivery: true, items: [sizeItem, expressItem], priceExVat: 6200 }));
+      const json = await (await put({ edit: { ...edit, serviceCodes: ["SERVICE_FLYTTEVASK"] } })).json();
+      expect(json.priceExVat).toBe(5000 + 4800 + 1200);
+      expect(createdRows()).toEqual(expect.arrayContaining([expect.objectContaining({ productCode: "MOVING_EXPRESS", customerPriceCents: 120000 })]));
+    });
+
+    it("previews the change (dryRun) with the calculator showing the new line", async () => {
+      const json = await (await put({ handling: { expressDelivery: true }, dryRun: true })).json();
+      expect(json.priceExVat).toBe(6500);
+      const extras = json.calculator.products.find((product: { isOrderExtras: boolean }) => product.isOrderExtras);
+      expect(extras.lines).toEqual([expect.objectContaining({ label: "Express delivery", customer: 1500 })]);
+      expect(mocks.transaction).not.toHaveBeenCalled();
+      expect(mocks.orderUpdate).not.toHaveBeenCalled();
+    });
+
+    it("rejects an unknown deviation", async () => {
+      expect((await put({ handling: { deviation: "Wrong address" } })).status).toBe(422);
+    });
   });
 
   it("saves the contact details and schedule with an edit", async () => {

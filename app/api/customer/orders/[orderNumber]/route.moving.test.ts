@@ -225,7 +225,38 @@ describe("customer order route — a homepage move's staff pricing", () => {
   it("gives the page the discount, extra and lines set to 0, so its live price matches", async () => {
     mocks.orderFindFirst.mockResolvedValue(withStaffPricing());
     const json = await (await GET(new Request("http://localhost/api/customer/orders/583920"), params)).json();
-    expect(json.pricingContext).toEqual({ rabatt: "500", leggTil: "100", nulledLineKeys: [packingKey] });
+    expect(json.pricingContext).toEqual({ rabatt: "500", leggTil: "100", nulledLineKeys: [packingKey], staffLines: [] });
+  });
+
+  // Express or a deviation staff added (moving-details): kept as priced.
+  const expressItem = {
+    cardId: 0,
+    productCode: "MOVING_EXPRESS",
+    productName: "Express delivery",
+    itemType: "product",
+    optionCode: "EXPRESS_DELIVERY",
+    optionLabel: "Express delivery",
+    quantity: 1,
+    customerPriceCents: 150000,
+    subcontractorPriceCents: 80000,
+  };
+
+  it("gives the page the express/deviation lines staff added, so its live price matches", async () => {
+    mocks.orderFindFirst.mockResolvedValue(order({ items: [expressItem] }));
+    const json = await (await GET(new Request("http://localhost/api/customer/orders/583920"), params)).json();
+    expect(json.pricingContext.staffLines).toEqual([
+      { key: "MOVING_EXPRESS:EXPRESS_DELIVERY", label: "Express delivery", qty: 1, customerPriceCents: 150000 },
+    ]);
+  });
+
+  it("keeps an express line staff added when the customer changes the move", async () => {
+    mocks.orderFindFirst.mockResolvedValue(order({ items: [expressItem], priceExVat: 10500 }));
+    const add = { ...moving, serviceCodes: ["SERVICE_NEDPAKKING", "SERVICE_FLYTTEVASK"] };
+    const preview = await (await put({ moving: add, dryRun: true })).json();
+    expect(preview.priceExVat).toBe(5000 + 4000 + 4800 + 1500);
+    await put({ moving: add, shownTotal: preview.totalIncVat });
+    const rows = mocks.itemCreateMany.mock.calls[0][0].data as Record<string, unknown>[];
+    expect(rows).toEqual(expect.arrayContaining([expect.objectContaining({ productCode: "MOVING_EXPRESS", customerPriceCents: 150000 })]));
   });
 
   it("keeps a line staff set to 0 when the customer changes the move", async () => {

@@ -199,3 +199,16 @@ export function handlingChange(
   const changed = affectsPrice || JSON.stringify(initial) !== JSON.stringify(next);
   return { changed, affectsPrice };
 }
+
+export type PricedHandlingFields = Pick<WebsiteOrderHandling, "expressDelivery" | "deviation" | "customDeviation">;
+
+// The panel's unsaved express/deviation (null while they're as stored): sent
+// with the calculator's dry run, so their lines show in it before Save.
+export function pricedHandlingFields(initial: WebsiteOrderHandling, next: WebsiteOrderHandling): PricedHandlingFields | null {
+  const pick = (h: WebsiteOrderHandling): PricedHandlingFields => ({
+    expressDelivery: h.expressDelivery,
+    deviation: h.deviation,
+    customDeviation: h.customDeviation,
+  });
+  return JSON.stringify(pick(initial)) === JSON.stringify(pick(next)) ? null : pick(next);
+}

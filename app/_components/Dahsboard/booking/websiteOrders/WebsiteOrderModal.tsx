@@ -16,7 +16,7 @@ import WebsiteOrderAdminActions from "./WebsiteOrderAdminActions";
 import WebsiteOrderEditTab from "./WebsiteOrderEditTab";
 import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
-import type { WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
+import type { PricedHandlingFields, WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import WebsiteOrderAttachments from "./WebsiteOrderAttachments";
 import { EMPTY_ATTACHMENT_DRAFT, hasAttachmentChanges, type AttachmentDraft } from "@/lib/orders/attachmentDraft";
 import WebsiteOrderCustomerLoginButton from "./WebsiteOrderCustomerLoginButton";
@@ -143,6 +143,8 @@ export default function WebsiteOrderModal({
   const [attachmentsVersion, setAttachmentsVersion] = useState(0);
   // Above the left column's Save: where the calculator shows its price preview.
   const [priceChangeSlot, setPriceChangeSlot] = useState<HTMLDivElement | null>(null);
+  // The panel's unsaved express/deviation, shown live in the calculator.
+  const [pricedHandling, setPricedHandling] = useState<PricedHandlingFields | null>(null);
   const check = order.totalsCheck;
   const totalsWarnings = [
     check.differsFromShown !== 0 && check.shownTotal !== null
@@ -421,11 +423,10 @@ export default function WebsiteOrderModal({
                     setAttachmentsVersion((version) => version + 1);
                   }}
                   priceChangeSlotRef={setPriceChangeSlot}
+                  onPricedHandlingChange={setPricedHandling}
                   besideSave={deleteButton}
-                  // A move saves its handling through its own route, without the white-goods price fields.
-                  {...(order.kind === "moving"
-                    ? { handlingEndpoint: `/api/orders/${order.id}/moving-details`, priceFields: false }
-                    : {})}
+                  // A move saves its handling (express and the deviation too) through its own route.
+                  {...(order.kind === "moving" ? { handlingEndpoint: `/api/orders/${order.id}/moving-details` } : {})}
                 >
                   <WebsiteOrderAttachments
                     key={attachmentsVersion}
@@ -462,6 +463,7 @@ export default function WebsiteOrderModal({
                     locale={locale}
                     onDraftChange={setPricingDraft}
                     priceChangeTarget={priceChangeSlot}
+                    pricedHandling={pricedHandling}
                   />
                 ) : (
                 <div className="rounded-2xl border border-black/10 bg-white p-6">

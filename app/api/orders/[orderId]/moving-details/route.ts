@@ -16,11 +16,18 @@ import {
 } from "@/lib/orders/movingOrderCalculator";
 import { movingPricesOutdated } from "@/lib/orders/movingCurrentPrices";
 import { parseNulledLines } from "@/lib/orders/websiteOrderCalculator";
-import { movingOrderSaveWrites } from "@/lib/orders/movingOrderWrites";
+import { movingOrderItemWrites, movingOrderSaveWrites } from "@/lib/orders/movingOrderWrites";
+import {
+  isMovingHandlingItem,
+  movingHandlingFromOrder,
+  movingHandlingItemRows,
+  movingHandlingLinesChanged,
+  storedMovingHandlingRows,
+} from "@/lib/orders/movingHandlingLines";
 import { buildOrderStateSnapshot, compareOrderWithPayments } from "@/lib/orders/paidOrderSnapshot";
 import { createOrderUpdatedEvent, type OrderEventChange } from "@/lib/orders/orderEvents";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
-import { handlingFromOrder, parseWebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
+import { parseWebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import { validateTextField } from "@/lib/orders/websiteOrderValidation";
 
 // The admin's edit of a homepage move (WebsiteOrderModal, websiteOrderKind
@@ -30,7 +37,9 @@ import { validateTextField } from "@/lib/orders/websiteOrderValidation";
 // and schedule, and the "Handle order" panel's fields (`handling`: drivers,
 // plate, internal description, date) with the calculator's discount/extra and
 // partner minus/plus, which re-price the move's lines (movingOrderCalculator).
-// Express and the deviation are white-goods prices, never written here.
+// Express and the deviation become the move's own lines, priced from the
+// moving price list's settings and kept as priced by a later re-price
+// (movingHandlingLines).
 // `dryRun` previews the price against what was paid, and the calculator,
 // without saving. Status and partner save through /api/orders/bulk.
 
@@ -128,6 +137,8 @@ const LOGGED_FIELDS = [
   ["driverInfo", "Info for the driver"],
   ["licensePlate", "License plate"],
   ["description", "Description"],
+  ["expressDelivery", "Express delivery"],
+  ["deviation", "Deviation"],
   ["rabatt", "Discount"],
   ["leggTil", "Extra"],
   ["subcontractorMinus", "Partner minus"],
@@ -161,15 +172,24 @@ export async function PUT(req: Request, { params }: Params) {
   // "Use new price": the move's answers priced at today's catalog.
   const useCurrentPrices = body.useCurrentPrices === true;
 
+  // Express and the deviation as the move's own lines: the stored ones unless
+  // this save changes them (movingHandlingLines).
+  const storedHandling = movingHandlingFromOrder(order);
+  let handlingRows = storedMovingHandlingRows(order.items);
+  let handlingRowsChanged = false;
+
   // "Handle order": the panel's fields and the calculator's amounts.
   if (body.handling !== undefined) {
-    // Express and the deviation are white-goods prices — dropped before
-    // validating: never stored on a move, so they mustn't fail its save either.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { deviation, customDeviation, expressDelivery, ...sent } = record(body.handling) ?? {};
-    const parsed = parseWebsiteOrderHandling(sent, handlingFromOrder(order));
+    const parsed = parseWebsiteOrderHandling(body.handling, storedHandling);
     if (!parsed.ok) return reject(parsed.reason, 422, { errors: parsed.errors });
     const h = parsed.handling;
+    if (movingHandlingLinesChanged(storedHandling, h)) {
+      const catalog = await getMovingCatalog();
+      if (!catalog) return reject("CATALOG_UNAVAILABLE", 500);
+      handlingRows = movingHandlingItemRows(catalog.handlingRates, h);
+      handlingRowsChanged = true;
+      Object.assign(data, { expressDelivery: h.expressDelivery, deviation: h.deviation || null });
+    }
     Object.assign(data, {
       driver: h.driver || null,
       secondDriver: h.secondDriver || null,
@@ -235,6 +255,8 @@ export async function PUT(req: Request, { params }: Params) {
   // The move itself, re-priced from the catalog: an edit, or "Use new price"
   // on the move as it is.
   let save: ReturnType<typeof movingOrderSaveData> | null = null;
+  // The lines a save without an edit writes (express/deviation changed).
+  let lineRows: (typeof order.items)[number][] | null = null;
   if (body.edit !== undefined || useCurrentPrices) {
     const before = movingEditFromOrder(order);
     const parsed = parseMovingEdit(body.edit !== undefined ? body.edit : before);
@@ -269,7 +291,13 @@ export async function PUT(req: Request, { params }: Params) {
       notes,
       customerType,
       adjustments,
+      handlingRows,
     });
+  } else if (handlingRowsChanged) {
+    // Express or the deviation changed: the stored move with its new lines.
+    const itemRows = [...order.items.filter((item) => !isMovingHandlingItem(item)), ...handlingRows];
+    lineRows = itemRows;
+    Object.assign(data, movingOrderAdjustedPricing(itemRows, adjustments));
   } else if (adjustmentsChanged) {
     // Only the amounts changed: the stored lines, re-priced with them.
     Object.assign(data, movingOrderAdjustedPricing(order.items, adjustments));
@@ -290,12 +318,13 @@ export async function PUT(req: Request, { params }: Params) {
       priceExVat: after.priceExVat,
       comparison,
       // The admin calculator as it would read after this save (WebsiteOrderCalculator).
-      calculator: movingOrderCalculatorView(save?.itemRows ?? order.items, adjustments, { includePartner: true }),
+      calculator: movingOrderCalculatorView(save?.itemRows ?? lineRows ?? order.items, adjustments, { includePartner: true }),
     });
   }
 
   try {
     if (save) await prisma.$transaction(movingOrderSaveWrites(order.id, save, data));
+    else if (lineRows) await prisma.$transaction(movingOrderItemWrites(order.id, lineRows, data));
     else await prisma.order.update({ where: { id: order.id }, data });
   } catch (err) {
     console.error("[moving-details] Failed to save order:", err);

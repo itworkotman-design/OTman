@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import {
+  calculatorPreviewBody,
   nulledLinesFromView,
   partnerMinusForDiscount,
   toggleNulledLine,
@@ -15,6 +16,7 @@ import {
   type WebsiteOrderPricingDraft,
 } from "@/lib/orders/websiteOrderCalculator";
 import { parseNokAdjustment } from "@/lib/orders/orderTotals";
+import type { PricedHandlingFields } from "@/lib/orders/websiteOrderHandling";
 import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
 
 type Adjustments = {
@@ -47,6 +49,10 @@ type Props = {
   // Where its dry-run preview is priced — a move previews through
   // /api/orders/[orderId]/moving-details (same body and answer) instead.
   previewEndpoint?: string;
+  // The "Handle order" panel's unsaved express/deviation (pricedHandlingFields):
+  // priced into the preview so their lines show here before Save — the
+  // panel's Save stores them, never this calculator's draft.
+  pricedHandling?: PricedHandlingFields | null;
   // The "Edit order" tab prices products, stops and these choices together
   // and saves them in one go: then this calculator doesn't fetch or save — it
   // shows the parent's latest pricing and only reports its draft. `calculator`
@@ -117,6 +123,7 @@ export default function WebsiteOrderCalculator({
   onDraftChange,
   priceChangeTarget = null,
   previewEndpoint,
+  pricedHandling = null,
   externalPricing,
 }: Props) {
   const external = !!externalPricing;
@@ -163,13 +170,16 @@ export default function WebsiteOrderCalculator({
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ handling: storedAdj, nulledLines: nulled, dryRun: true, ...(useNewPrice ? { useCurrentPrices: true } : {}) }),
+      body: JSON.stringify(calculatorPreviewBody(storedAdj, nulled, useNewPrice, pricedHandling)),
     });
     const data = await res.json().catch(() => null);
     return { ok: res.ok && !!data?.ok, data };
   }
 
-  const previewKey = changed ? JSON.stringify(adj) + canonicalNulled(nulled) + (useNewPrice ? "|new-price" : "") : "";
+  const previewKey =
+    changed || pricedHandling
+      ? JSON.stringify(adj) + canonicalNulled(nulled) + (useNewPrice ? "|new-price" : "") + JSON.stringify(pricedHandling)
+      : "";
   useEffect(() => {
     if (external) return;
     const seq = ++previewSeq.current;

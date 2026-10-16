@@ -6,6 +6,7 @@ import {
   partnerMinusForDiscount,
   toggleNulledLine,
   websiteItemsSaveBody,
+  calculatorPreviewBody,
   websiteOrderCalculatorView,
 } from "./websiteOrderCalculator";
 
@@ -180,5 +181,24 @@ describe("websiteOrderCalculatorView — Other furniture names", () => {
   it("keeps the catalog name when it can't look the card up", () => {
     const view = websiteOrderCalculatorView(named, { includePartner: false });
     expect(view.products.map((p) => p.name)).toEqual(["Andre møbler", "Vaskemaskin"]);
+  });
+});
+
+describe("calculatorPreviewBody — the calculator's dry run", () => {
+  const adjustments = { rabatt: "500", leggTil: "", subcontractorMinus: "250", subcontractorPlus: "" };
+  const nulledLines = { cards: {}, orderExtras: { customer: [], subcontractor: [] } };
+
+  it("prices its own amounts and lines set to 0", () => {
+    expect(calculatorPreviewBody(adjustments, nulledLines, false, null)).toEqual({ handling: adjustments, nulledLines, dryRun: true });
+  });
+
+  it("adds the panel's unsaved express/deviation, so their lines show live", () => {
+    const priced = { expressDelivery: true, deviation: "Custom", customDeviation: { price: 750, subcontractorPrice: 300, description: "Piano" } };
+    expect(calculatorPreviewBody(adjustments, nulledLines, true, priced)).toEqual({
+      handling: { ...priced, ...adjustments },
+      nulledLines,
+      dryRun: true,
+      useCurrentPrices: true,
+    });
   });
 });

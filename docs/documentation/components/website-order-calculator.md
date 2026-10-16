@@ -31,3 +31,5 @@ These work like the booking app's:
 ## External pricing (Edit order tab)
 
 With `externalPricing: { view, previewing }`, the calculator doesn't run its own dry-run or save. It shows the parent's latest `view` (falling back to `calculator`, the baseline its "changed" check compares against) and only reports its draft through `onDraftChange`. The "Price after this change" box is hidden in this mode, because the parent shows the payment comparison and saves everything together. "Use new price" still shows (same red note, compared with `currentPricesTotal`), but the parent owns the choice: `externalPricing.useNewPrice` says whether it's chosen (the note then hides), and the button calls `externalPricing.onUseNewPrice`.
+
+`pricedHandling` (from the "Handle order" panel, via the modal): its unsaved express/deviation are added to the dry run (`calculatorPreviewBody`), so their lines show in the calculator before Save. They never become part of this calculator's draft; the panel's Save stores them.

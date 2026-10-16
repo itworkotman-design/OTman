@@ -31,4 +31,6 @@ Attachments: the modal passes `attachmentDraft` (picked/removed files). Save cou
 
 Layout: `children` (the modal passes `WebsiteOrderAttachments`) render between the panel card and the Save row, so Save is the last thing in the left column. `besideSave` (the modal's red "Delete order", when allowed) sits left of Save in that row, and Save fills the rest of the width. The save message shows under the button.
 
-`handlingEndpoint` (where the handling fields save/preview) and `priceFields` (express delivery + deviation; `false` for a move) let a homepage move reuse the panel.
+`handlingEndpoint` (where the handling fields save/preview) lets a homepage move reuse the panel, express delivery and deviation included (`/api/orders/[orderId]/moving-details`).
+
+Live express/deviation lines: the panel reports its unsaved express, deviation and custom-deviation values (`pricedHandlingFields`, null while unchanged) through `onPricedHandlingChange`. The modal passes them to the calculator, so the lines they add show there before Save. The panel's Save still stores them.

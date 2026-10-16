@@ -9,6 +9,6 @@ Changing a booked move — shared by the admin edit and the customer's "My order
 - `classifyMovingEdit(before, after)` — a delivery order's change kinds (`customerOrderEditPolicy.ts`): moved address →
   `addresses`, either end changed or a service removed → `reconfigure`, services only added → `addOns`. So the same 24h
   policy applies: within 24h of the job a customer may only add services.
-- `movingOrderSaveData({ quote, parsed, drivingDistance, notes, customerType, adjustments? })` — the order fields and lines a
+- `movingOrderSaveData({ quote, parsed, drivingDistance, notes, customerType, adjustments?, handlingRows? })` — the order fields and lines a
   save writes, plus the typed `pricing`. With `adjustments` (the order's discount/extra and partner minus/plus) the lines are
   priced with them (`movingOrderAdjustedPricing`), so an edit never drops what staff set.

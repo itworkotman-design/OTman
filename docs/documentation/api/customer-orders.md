@@ -67,5 +67,6 @@ until 24h before the job, then only contact details and adding services. A chang
 (`movingOrderSaveData` with `movingAdjustmentsFromOrder`, lines set to 0 included), must confirm the shown total (`shownTotal`, else
 `SHOWN_TOTAL_REQUIRED`/`PRICE_CHANGED`), never makes a paid order cheaper (`WOULD_DECREASE_PRICE`), and is followed by the same
 history event, staff notification and "order updated" email as a delivery order. `GET` skips the white-goods catalog for a move
-and returns `pricingContext: { rabatt, leggTil, nulledLineKeys }` (customer side only) for the flow's live price.
+and returns `pricingContext: { rabatt, leggTil, nulledLineKeys, staffLines }` (`staffLines`: express/deviation lines staff
+added, `movingStaffLines` — carried over as priced on a re-price) (customer side only) for the flow's live price.
 Tested in `route.moving.test.ts`.

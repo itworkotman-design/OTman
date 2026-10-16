@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { parsePriceSetting } from "@/lib/booking/pricing/orderCalculatorExtras";
 import { parsePriceListSettings, type PriceListChargeSetting } from "@/lib/products/priceListSettings";
+import { DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
+import type { MovingHandlingRates } from "@/lib/orders/movingHandlingLines";
 import {
   MOVING_CARRY_SURCHARGE_PRODUCT_CODE,
   MOVING_FLOOR_SURCHARGE_PRODUCT_CODE,
@@ -33,8 +35,13 @@ export type MovingCatalog = {
   // settings every price list has, edited in /dashboard/booking/editPrices.
   // 0 kr (no settings saved) charges nothing.
   distanceRates: { kmFrom21: MovingCatalogOption; kmOver100: MovingCatalogOption };
+  // Express delivery and each deviation fee (labelEn = its DEVIATION_FEE_OPTIONS
+  // englishLabel), from the same settings — what an admin adds to a move
+  // (movingHandlingItemRows).
+  handlingRates?: MovingHandlingRates;
 };
 
+// A price list charge setting (a km rate, express, a deviation) as a priced option.
 function distanceRate(setting: PriceListChargeSetting, labelNo: string): MovingCatalogOption {
   return {
     code: setting.code,
@@ -103,6 +110,15 @@ export async function getMovingCatalog(): Promise<MovingCatalog | null> {
     distanceRates: {
       kmFrom21: distanceRate(settings.kmFrom21, "Per km, 21–100 km"),
       kmOver100: distanceRate(settings.kmOver100, "Per km, over 100 km"),
+    },
+    handlingRates: {
+      expressDelivery: distanceRate(settings.expressDelivery, "Ekspresslevering"),
+      // Every deviation has a setting (normalizePriceListSettings defaults
+      // each to its built-in fee); a custom one is priced by the admin.
+      deviations: DEVIATION_FEE_OPTIONS.flatMap((option) => {
+        const setting = settings.deviations[option.code];
+        return setting ? [{ ...distanceRate(setting, option.norwegianLabel), code: option.code, labelEn: option.englishLabel }] : [];
+      }),
     },
   };
 }

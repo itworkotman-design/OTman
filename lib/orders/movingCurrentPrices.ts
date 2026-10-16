@@ -1,6 +1,7 @@
 import type { MovingCatalog } from "@/lib/content/getMovingCatalog";
 import { movingPriceChanges } from "./movingOrderCalculator";
 import { movingEditFromOrder, parseMovingEdit } from "./movingOrderEdit";
+import { storedMovingHandlingRows } from "./movingHandlingLines";
 import { movingOrderItemRows, priceMovingOrder } from "./movingOrderQuote";
 import type { MovingOrderItem } from "./movingOrderView";
 
@@ -26,7 +27,8 @@ export function movingCurrentPriceRows(catalog: MovingCatalog, order: StoredMove
     serviceCodes: parsed.edit.serviceCodes,
     drivingDistance: order.drivingDistance ?? "",
   });
-  return quote.ok ? movingOrderItemRows(quote) : null;
+  // Express and the deviation keep the price staff set them at (movingHandlingLines).
+  return quote.ok ? [...movingOrderItemRows(quote), ...storedMovingHandlingRows(order.items)] : null;
 }
 
 // Whether any line (customer or partner) is priced differently today.

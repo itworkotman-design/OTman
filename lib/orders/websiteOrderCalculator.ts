@@ -181,6 +181,23 @@ export function websiteItemsSaveBody(
   };
 }
 
+// The calculator's dry run (WebsiteOrderCalculator): its amounts and lines
+// set to 0, plus the "Handle order" panel's unsaved express/deviation
+// (pricedHandlingFields), so the lines they add show before Save.
+export function calculatorPreviewBody(
+  adjustments: Record<string, unknown>,
+  nulledLines: WebsiteOrderNulledLines,
+  useCurrentPrices: boolean,
+  pricedHandling: Record<string, unknown> | null,
+) {
+  return {
+    handling: { ...(pricedHandling ?? {}), ...adjustments },
+    nulledLines,
+    dryRun: true,
+    ...(useCurrentPrices ? { useCurrentPrices: true } : {}),
+  };
+}
+
 // One checkbox click, with the booking app's rules (BookingEditor's
 // toggleLineNulledFor…): the customer box drives the partner box for the same
 // line (on and off), while the partner box only changes itself.

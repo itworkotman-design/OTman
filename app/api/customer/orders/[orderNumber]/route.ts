@@ -26,6 +26,7 @@ import { classifyMovingEdit, movingOrderSaveData, parseMovingEdit } from "@/lib/
 import { priceMovingOrder } from "@/lib/orders/movingOrderQuote";
 import { movingAdjustmentsFromOrder } from "@/lib/orders/movingOrderCalculator";
 import { movingOrderSaveWrites } from "@/lib/orders/movingOrderWrites";
+import { movingStaffLines, storedMovingHandlingRows } from "@/lib/orders/movingHandlingLines";
 import { buildDetailsUpdate, parseAdminOrderDetails, type AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
 import { validateWebsiteOrderCards } from "@/lib/orders/validateWebsiteOrderCards";
 import { findCardsWithoutPickup, findPickupsWithoutProducts } from "@/lib/orders/pickupAssignment";
@@ -99,7 +100,13 @@ export async function GET(req: Request, { params }: Params): Promise<NextRespons
     return NextResponse.json({
       ok: true,
       ...view,
-      pricingContext: { rabatt: order.rabatt ?? "", leggTil: order.leggTil ?? "", nulledLineKeys: staff.nulledLines.customer },
+      pricingContext: {
+        rabatt: order.rabatt ?? "",
+        leggTil: order.leggTil ?? "",
+        nulledLineKeys: staff.nulledLines.customer,
+        // Express and the deviation staff added, kept as priced.
+        staffLines: movingStaffLines(order.items),
+      },
     });
   }
   if (!view.permissions.canEditItems || view.details.kind !== "catalog") return NextResponse.json({ ok: true, ...view });
@@ -414,6 +421,8 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
       customerType: details.customerType,
       // Discount/extra, partner minus/plus and lines set to 0, as staff left them.
       adjustments: movingAdjustmentsFromOrder(order),
+      // Express and the deviation staff added, kept as priced.
+      handlingRows: storedMovingHandlingRows(order.items),
     });
     const priceExVat = save.pricing.priceExVat;
 

@@ -82,6 +82,7 @@ export const CUSTOMER_ORDER_SELECT = {
       productCode: true,
       productName: true,
       deliveryType: true,
+      optionCode: true,
       optionLabel: true,
       quantity: true,
       rawData: true,

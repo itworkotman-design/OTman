@@ -5,7 +5,12 @@ import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 import { shouldPromptForPartner } from "@/lib/orders/partnerRequirement";
 import { WEBSITE_ORDER_STATUS_OPTIONS, normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { buildWebsiteOrderAdminUpdate } from "@/lib/orders/websiteOrderAdminUpdate";
-import { handlingChange, type WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
+import {
+  handlingChange,
+  pricedHandlingFields,
+  type PricedHandlingFields,
+  type WebsiteOrderHandling,
+} from "@/lib/orders/websiteOrderHandling";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import { websiteItemsSaveBody, type WebsiteOrderPricingDraft } from "@/lib/orders/websiteOrderCalculator";
 import { CUSTOM_DEVIATION_CODE, DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
@@ -51,9 +56,8 @@ type Props = {
   // Where the handling fields save (and preview) — a move saves through
   // /api/orders/[orderId]/moving-details instead of website-items.
   handlingEndpoint?: string;
-  // Express delivery and the deviation fee: white-goods prices, not shown
-  // for a move (its route never stores them).
-  priceFields?: boolean;
+  // Its unsaved express/deviation (null when unchanged), for the calculator's live lines.
+  onPricedHandlingChange?: (fields: PricedHandlingFields | null) => void;
 };
 
 const CUSTOM_DEVIATION_LABEL = DEVIATION_FEE_OPTIONS.find((o) => o.code === CUSTOM_DEVIATION_CODE)?.englishLabel ?? "Custom";
@@ -77,7 +81,7 @@ export default function WebsiteOrderAdminActions({
   attachmentDraft = EMPTY_ATTACHMENT_DRAFT,
   onAttachmentsApplied,
   handlingEndpoint,
-  priceFields = true,
+  onPricedHandlingChange,
 }: Props) {
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
   const initial = {
@@ -99,6 +103,12 @@ export default function WebsiteOrderAdminActions({
   const previewSeq = useRef(0);
 
   const change = handlingChange(order.handling, handling);
+  const pricedHandling = pricedHandlingFields(order.handling, handling);
+  const pricedHandlingKey = JSON.stringify(pricedHandling);
+  useEffect(() => {
+    onPricedHandlingChange?.(pricedHandling);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pricedHandlingKey]);
   const setField = <K extends keyof WebsiteOrderHandling>(key: K, value: WebsiteOrderHandling[K]) =>
     setHandling((current) => ({ ...current, [key]: value }));
 
@@ -292,12 +302,10 @@ export default function WebsiteOrderAdminActions({
             </div>
           </div>
 
-          {priceFields && (
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={handling.expressDelivery} onChange={(e) => setField("expressDelivery", e.target.checked)} />
             <span className="font-medium text-black/70">{t("Express delivery", "Ekspresslevering")}</span>
           </label>
-          )}
 
           <label className="flex flex-col gap-1">
             <span className={labelClass}>{t("Partner", "Partner")}</span>
@@ -335,7 +343,6 @@ export default function WebsiteOrderAdminActions({
             <input value={handling.licensePlate} onChange={(e) => setField("licensePlate", e.target.value)} className={fieldClass} />
           </label>
 
-          {priceFields && (
           <label className="flex flex-col gap-1">
             <span className={labelClass}>{t("Deviation", "Avvik")}</span>
             <select value={handling.deviation} onChange={(e) => setField("deviation", e.target.value)} className={fieldClass}>
@@ -347,8 +354,7 @@ export default function WebsiteOrderAdminActions({
               ))}
             </select>
           </label>
-          )}
-          {priceFields && isCustomDeviation && (
+          {isCustomDeviation && (
             <div className="flex flex-col gap-2 rounded-lg bg-black/3 p-3">
               <input
                 value={handling.customDeviation.description ?? ""}

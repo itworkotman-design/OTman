@@ -186,9 +186,16 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
   // The order as loaded — what the edit bar compares the flow with.
   const [customerInitialDraft, setCustomerInitialDraft] = useState<CustomerEditDraft | null>(null);
   const [customerSummaryOpen, setCustomerSummaryOpen] = useState(false);
-  // What staff set on the move's price (discount, extra, lines set to 0), from
-  // the order — applied to the live price below.
-  const [staffPricing, setStaffPricing] = useState<{ rabatt: string; leggTil: string; nulledLineKeys: string[] } | null>(null);
+  // What staff set on the move's price (discount, extra, lines set to 0, and
+  // the express/deviation lines they added), from the order — applied to the
+  // live price below.
+  const [staffPricing, setStaffPricing] = useState<{
+    rabatt: string;
+    leggTil: string;
+    nulledLineKeys: string[];
+    staffLines?: { key: string; label: string; qty: number; customerPriceCents: number }[];
+  } | null>(null);
+  const staffLines = staffPricing?.staffLines ?? [];
   useEffect(() => {
     if (!customer) return;
     let cancelled = false;
@@ -288,6 +295,7 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
         ...floorLines.map((l) => ({ key: movingLineKeyFor(MOVING_FLOOR_SURCHARGE_PRODUCT_CODE, l.code, l.endKey), customerPriceCents: l.customerPriceCents })),
         ...carryLines.map((l) => ({ key: movingLineKeyFor(MOVING_CARRY_SURCHARGE_PRODUCT_CODE, l.code, l.endKey), customerPriceCents: l.customerPriceCents })),
         ...distanceLines.map((l) => ({ key: movingLineKeyFor(MOVING_DISTANCE_ITEM_CODE, l.code), customerPriceCents: l.customerPriceCents })),
+        ...staffLines.map((l) => ({ key: l.key, customerPriceCents: l.customerPriceCents })),
       ]
     : [];
   const totals = movingCustomerLiveTotals(keyedLines, staffPricing);
@@ -313,8 +321,13 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
     carryLines: carryLines.map((l) => zeroed(l, movingLineKeyFor(MOVING_CARRY_SURCHARGE_PRODUCT_CODE, l.code, l.endKey))),
     distanceLines: distanceLines.map((l) => zeroed(l, movingLineKeyFor(MOVING_DISTANCE_ITEM_CODE, l.code))),
   });
-  // A staff discount / extra as rows, so the lines add up to the total (as the delivery flow).
-  const summaryOrderExtras = [...summary.orderExtras, ...buildOrderAdjustmentLines(totals, locale)];
+  // Express/deviation staff added, then a staff discount / extra as rows, so
+  // the lines add up to the total (as the delivery flow).
+  const summaryOrderExtras = [
+    ...summary.orderExtras,
+    ...(selectedOption ? staffLines : []).map((l) => ({ label: l.label, qty: l.qty, price: Math.round(zeroed(l, l.key).customerPriceCents / 100) })),
+    ...buildOrderAdjustmentLines(totals, locale),
+  ];
   const calculator = (
     <WhiteGoodsOrderSummary
       locale={locale}

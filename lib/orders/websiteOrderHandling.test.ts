@@ -3,6 +3,7 @@ import {
   handlingChange,
   handlingFromOrder,
   handlingOrderData,
+  pricedHandlingFields,
   parseWebsiteOrderHandling,
   scheduleBookingDetails,
   type WebsiteOrderHandling,
@@ -185,5 +186,21 @@ describe("handlingChange", () => {
     ]) {
       expect(handlingChange(handling, next)).toEqual({ changed: true, affectsPrice: true });
     }
+  });
+});
+
+describe("pricedHandlingFields — the panel's unsaved express/deviation, for the calculator's live preview", () => {
+  it("is null while express and the deviation are as stored", () => {
+    expect(pricedHandlingFields(handling, { ...handling, driver: "Ola", rabatt: "200" })).toBeNull();
+  });
+
+  it("gives express, the deviation and a custom deviation's values once one of them changed", () => {
+    const next = { ...handling, deviation: "Custom", customDeviation: { price: 750, subcontractorPrice: 300, description: "Piano" } };
+    expect(pricedHandlingFields(handling, next)).toEqual({
+      expressDelivery: true,
+      deviation: "Custom",
+      customDeviation: { price: 750, subcontractorPrice: 300, description: "Piano" },
+    });
+    expect(pricedHandlingFields(handling, { ...handling, expressDelivery: false })).toMatchObject({ expressDelivery: false });
   });
 });

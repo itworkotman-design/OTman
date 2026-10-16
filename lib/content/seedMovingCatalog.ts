@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { parsePriceSetting } from "@/lib/booking/pricing/orderCalculatorExtras";
-import { WHITE_GOODS_ORDER_LEVEL_EXTRAS } from "@/lib/content/whiteGoodsElectronics";
+import { roundToNearest5, WHITE_GOODS_ORDER_LEVEL_EXTRAS } from "@/lib/content/whiteGoodsElectronics";
 import { parsePriceListSettings, serializePriceListSettings } from "@/lib/products/priceListSettings";
 import {
   MOVING_CARRY_SURCHARGE_OPTIONS,
@@ -38,7 +38,7 @@ export async function seedMovingCatalog() {
     update: {},
     create: { name: "Website — Moving", code: MOVING_PRICE_LIST_CODE },
   });
-  await seedDistanceRates(priceList);
+  await seedPriceListSettings(priceList);
 
   const sizes = await seedFlatProduct(priceList.id, {
     code: MOVING_PRODUCT_CODE,
@@ -81,24 +81,39 @@ export async function seedMovingCatalog() {
   };
 }
 
-// The per-km rates (KM_FROM_21/KM_OVER_100) live in the price list's own
-// settings, like every price list's. They start at the delivery (white goods)
-// rate; staff can change them for moving in /dashboard/booking/editPrices.
-// Like the item prices above, only a rate still at 0 kr is filled in — one
-// staff have set is never overwritten.
-async function seedDistanceRates(priceList: { id: string; description?: string | null }) {
+// The per-km rates (KM_FROM_21/KM_OVER_100), express delivery and the
+// deviation fees live in the price list's own settings, like every price
+// list's, copied from the website white-goods list: the km rates and express
+// from its order-level extras (express rounded to 5 kr, as seedWebsiteCatalog
+// stores it), each deviation fee from DEVIATION_FEE_OPTIONS (what
+// parsePriceListSettings defaults a list without them to — stored here so the
+// moving list holds them like the others). Staff change them for moving in
+// /dashboard/booking/editPrices. Like the item prices above, only a rate
+// still at 0 kr is filled in and a missing fee added — a price staff have set
+// is never overwritten.
+async function seedPriceListSettings(priceList: { id: string; description?: string | null }) {
   const settings = parsePriceListSettings(priceList.description);
-  let changed = false;
   for (const key of ["kmFrom21", "kmOver100"] as const) {
     if (parsePriceSetting(settings[key].price) !== 0) continue;
     const seed = WHITE_GOODS_ORDER_LEVEL_EXTRAS[key];
     settings[key] = { ...settings[key], price: String(seed.customerPrice), subcontractorPrice: String(seed.subcontractorPrice) };
-    changed = true;
   }
-  if (changed) {
+  if (parsePriceSetting(settings.expressDelivery.price) === 0) {
+    const seed = WHITE_GOODS_ORDER_LEVEL_EXTRAS.expressDelivery;
+    settings.expressDelivery = {
+      code: seed.code,
+      description: "Express delivery under 24h",
+      price: String(roundToNearest5(seed.customerPrice)),
+      subcontractorPrice: String(roundToNearest5(seed.subcontractorPrice)),
+    };
+  }
+  // Written whenever it differs from what's stored — a filled-in rate, or
+  // settings stored before the deviation fees (parsing adds them).
+  const description = serializePriceListSettings(settings);
+  if (description !== priceList.description) {
     await prisma.priceList.update({
       where: { id: priceList.id },
-      data: { description: serializePriceListSettings(settings) },
+      data: { description },
     });
   }
 }

@@ -31,7 +31,8 @@ import {
   MOVING_SERVICE_OPTIONS,
   MOVING_SIZE_OPTIONS,
 } from "./movingCatalog";
-import { WHITE_GOODS_ORDER_LEVEL_EXTRAS } from "./whiteGoodsElectronics";
+import { roundToNearest5, WHITE_GOODS_ORDER_LEVEL_EXTRAS } from "./whiteGoodsElectronics";
+import { DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
 import { createDefaultPriceListSettings, parsePriceListSettings, serializePriceListSettings } from "@/lib/products/priceListSettings";
 
 describe("seedMovingCatalog", () => {
@@ -297,14 +298,62 @@ describe("seedMovingCatalog — per-km rates", () => {
     expect(Number(settings.kmOver100.price)).toBeCloseTo(WHITE_GOODS_ORDER_LEVEL_EXTRAS.kmOver100.customerPrice);
   });
 
-  it("never overwrites km rates staff have set", async () => {
+  it("never overwrites km rates, express or deviation fees staff have set", async () => {
     const settings = createDefaultPriceListSettings();
     settings.kmFrom21 = { ...settings.kmFrom21, price: "35", subcontractorPrice: "20" };
     settings.kmOver100 = { ...settings.kmOver100, price: "30", subcontractorPrice: "18" };
+    settings.expressDelivery = { ...settings.expressDelivery, price: "900", subcontractorPrice: "400" };
+    settings.deviations.WRONGADRESS = { ...settings.deviations.WRONGADRESS, price: "700" };
     mocks.priceListUpsert.mockResolvedValue({ id: "pl-moving", description: serializePriceListSettings(settings) });
 
     await seedMovingCatalog();
 
     expect(mocks.priceListUpdate).not.toHaveBeenCalled();
+  });
+
+  // Copied from the website white-goods list: express from its order-level
+  // extras (rounded to 5 kr like seedWebsiteCatalog), each deviation fee from
+  // DEVIATION_FEE_OPTIONS.
+  it("starts express at the white-goods express price", async () => {
+    mocks.priceListUpsert.mockResolvedValue({ id: "pl-moving", description: null });
+
+    await seedMovingCatalog();
+
+    const settings = parsePriceListSettings(mocks.priceListUpdate.mock.calls[0][0].data.description);
+    expect(settings.expressDelivery).toMatchObject({
+      code: WHITE_GOODS_ORDER_LEVEL_EXTRAS.expressDelivery.code,
+      price: String(roundToNearest5(WHITE_GOODS_ORDER_LEVEL_EXTRAS.expressDelivery.customerPrice)),
+      subcontractorPrice: String(roundToNearest5(WHITE_GOODS_ORDER_LEVEL_EXTRAS.expressDelivery.subcontractorPrice)),
+    });
+  });
+
+  it("stores every deviation fee in the price list's settings", async () => {
+    mocks.priceListUpsert.mockResolvedValue({ id: "pl-moving", description: null });
+
+    await seedMovingCatalog();
+
+    const raw = String(mocks.priceListUpdate.mock.calls[0][0].data.description);
+    const stored = JSON.parse(raw.slice(raw.indexOf(":") + 1)) as { deviations: Record<string, { price: string; subcontractorPrice: string }> };
+    for (const option of DEVIATION_FEE_OPTIONS) {
+      expect(stored.deviations[option.code]).toMatchObject({ price: String(option.price), subcontractorPrice: String(option.subcontractorPrice) });
+    }
+  });
+
+  it("adds the deviation fees to stored settings that predate them, keeping the rest", async () => {
+    const settings = createDefaultPriceListSettings();
+    settings.kmFrom21 = { ...settings.kmFrom21, price: "35", subcontractorPrice: "20" };
+    settings.kmOver100 = { ...settings.kmOver100, price: "30", subcontractorPrice: "18" };
+    settings.expressDelivery = { ...settings.expressDelivery, price: "900", subcontractorPrice: "400" };
+    const { deviations: _omit, ...withoutDeviations } = settings;
+    void _omit;
+    mocks.priceListUpsert.mockResolvedValue({ id: "pl-moving", description: `__PRICE_LIST_SETTINGS__:${JSON.stringify(withoutDeviations)}` });
+
+    await seedMovingCatalog();
+
+    const raw = String(mocks.priceListUpdate.mock.calls[0][0].data.description);
+    expect(raw).toContain('"deviations"');
+    const saved = parsePriceListSettings(raw);
+    expect(saved.kmFrom21.price).toBe("35");
+    expect(saved.expressDelivery.price).toBe("900");
   });
 });

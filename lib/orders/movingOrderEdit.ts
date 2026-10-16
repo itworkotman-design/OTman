@@ -3,7 +3,10 @@ import type { CustomerEditKind } from "./customerOrderEditPolicy";
 import { buildMovingBookingDetails, parseMovingBookingDetails } from "./movingBookingDetails";
 import { movingOrderDescription } from "./movingOrderDescription";
 import { movingOrderAdjustedPricing, type MovingAdjustments } from "./movingOrderCalculator";
+import type { movingHandlingItemRows } from "./movingHandlingLines";
 import { movingOrderItemRows, type MovingQuote } from "./movingOrderQuote";
+
+const NO_ADJUSTMENTS: MovingAdjustments = { rabatt: null, leggTil: null, subcontractorMinus: null, subcontractorPlus: null };
 import { parseMovingProperty, type MovingProperty, type MovingPropertyDraft } from "./movingProperty";
 import type { BookingCustomerType } from "./websiteBookingDetails";
 import { validateTextField } from "./websiteOrderValidation";
@@ -111,10 +114,16 @@ export function movingOrderSaveData(params: {
   // The order's discount/extra and partner minus/plus (the admin calculator),
   // kept on the re-priced lines. None: priced as booked.
   adjustments?: MovingAdjustments;
+  // Express and the deviation staff added (movingHandlingItemRows), kept as
+  // they are — the catalog re-prices only the move's own answers.
+  handlingRows?: ReturnType<typeof movingHandlingItemRows>;
 }) {
   const { quote, parsed } = params;
-  const itemRows = movingOrderItemRows(quote);
-  const pricing = params.adjustments ? movingOrderAdjustedPricing(itemRows, params.adjustments) : quote.pricing;
+  const itemRows = [...movingOrderItemRows(quote), ...(params.handlingRows ?? [])];
+  const pricing =
+    params.adjustments || params.handlingRows?.length
+      ? movingOrderAdjustedPricing(itemRows, params.adjustments ?? NO_ADJUSTMENTS)
+      : quote.pricing;
   const bookingDetails = buildMovingBookingDetails({
     customerType: params.customerType,
     origin: parsed.origin,

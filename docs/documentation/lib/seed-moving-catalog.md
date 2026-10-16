@@ -19,6 +19,6 @@ reseed (e.g. a fresh dev DB setup) must never silently reset them back to 0.
 ## Functions
 - Options no longer in the code are set `isActive: false` (not deleted) on reseed, and listed ones back to `isActive: true` — so dropping one from `MOVING_SIZE_OPTIONS`/`MOVING_SERVICE_OPTIONS` and reseeding takes it off the site.
 - Also seeds the per-floor surcharge product (`MOVING_FLOOR_SURCHARGE`, one option) and the carrying-distance product (`MOVING_CARRY_SURCHARGE`, two options).
-- Starts the moving price list's per-km rates (`kmFrom21`/`kmOver100` in its settings) at the delivery rate (`WHITE_GOODS_ORDER_LEVEL_EXTRAS`) — only a rate still at 0 kr; one staff have set is never overwritten.
+- Fills in the moving price list's settings, copied from the white-goods list (`seedPriceListSettings`): the per-km rates (`kmFrom21`/`kmOver100`) at the delivery rate and express delivery at its express price (`WHITE_GOODS_ORDER_LEVEL_EXTRAS`, express rounded to 5 kr), each only while still at 0 kr. It also stores every deviation fee (`DEVIATION_FEE_OPTIONS`), which settings saved before them lack. A price staff have set is never overwritten. Express and the deviations price what an admin adds to a move (`lib/orders/movingHandlingLines.ts`).
 - After each price row's upsert, fills in the starting price where `customerPriceCents` is still 0 (the old placeholder) — a staff-set price is never overwritten.
 - `seedMovingCatalog()` — `{ priceListId, productId, optionsUpserted, servicesProductId, servicesUpserted }`.
