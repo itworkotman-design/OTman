@@ -4,6 +4,7 @@ import { Fragment, type ReactNode } from "react";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import type { WhiteGoodsLineCategory } from "@/lib/content/whiteGoodsLineCategory";
 import { ProductIcon } from "./productIcons";
+import { InfoHint } from "./InfoHint";
 import { websiteCustomerPrice, websiteCustomerTotalDisplay, type CustomerType } from "@/lib/booking/pricing/websiteVat";
 
 export type OrderSummaryLine = {
@@ -181,7 +182,17 @@ export function WhiteGoodsOrderSummary({
         <>
           <div className="mt-4 border-t border-black/10 pt-3">
             <div className="flex items-center justify-between">
-              <span className="text-base font-semibold text-logoblue">{t("Total", "Totalt")}</span>
+              <span className="flex items-center gap-1.5 text-base font-semibold text-logoblue">
+                {t("Total", "Totalt")}
+                {!hideProductHints && (
+                  <InfoHint
+                    label={t(
+                      "The final price may vary based on your address and any additional items.",
+                      "Den endelige prisen kan variere basert på adressen din og eventuelle tilleggsvalg.",
+                    )}
+                  />
+                )}
+              </span>
               <span className="text-lg font-semibold text-logoblue">{formatKr(vatDisplay.primaryAmount)}</span>
             </div>
             <div className="mt-0.5 flex items-center justify-end">
@@ -190,15 +201,6 @@ export function WhiteGoodsOrderSummary({
               </span>
             </div>
           </div>
-
-          {!hideProductHints && (
-            <p className="mt-3 rounded-lg bg-logoblue/5 p-3 text-sm text-black/60">
-              {t(
-                "The final price may vary based on your address and any additional items.",
-                "Den endelige prisen kan variere basert på adressen din og eventuelle tilleggsvalg.",
-              )}
-            </p>
-          )}
         </>
       )}
     </div>

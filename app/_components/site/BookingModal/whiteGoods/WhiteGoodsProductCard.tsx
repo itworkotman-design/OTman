@@ -21,6 +21,7 @@ import {
 } from "./optionGroups";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { ProductIcon } from "./productIcons";
+import { InfoHint } from "./InfoHint";
 import { buildCardSummaryChips } from "./cardSummaryChips";
 import type { DeliveryOptionPreview } from "./deliveryPricePreview";
 import { getProductDeliveryType } from "@/lib/products/deliveryTypes";
@@ -184,6 +185,7 @@ export function SectionHeader({
 }: {
   step: number;
   title: string;
+  // Extra context, shown on hover of a "?" next to the title.
   subtitle: string;
 }) {
   return (
@@ -191,9 +193,9 @@ export function SectionHeader({
       <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-logoblue text-sm font-semibold text-white">
         {step}
       </span>
-      <div>
+      <div className="flex items-center gap-1.5">
         <div className="text-sm font-semibold text-black/85">{title}</div>
-        <div className="text-xs text-black/50">{subtitle}</div>
+        <InfoHint label={subtitle} placement="below" />
       </div>
     </div>
   );

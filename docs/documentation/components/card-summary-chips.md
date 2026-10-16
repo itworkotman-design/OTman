@@ -12,4 +12,4 @@ Builds the short recap chips shown under a product card's title ("Levering: Ytte
 ### `formatSizeInfoChip(locale, sizeInfo)`
 Formats a `{ maxWeightKg, dimensionsCm? }` spec into one string ("Opptil 100 kg" without dimensions, "Opptil 15 kg · 20×30×40 cm" with). Returns `null` for `sizeInfo: null`.
 
-Also reused (independently of `buildCardSummaryChips`) by `WhiteGoodsProductGrid.tsx`'s local `SizeInfoBadge` — the small "i" badge next to a product tile's name in the "Choose products" step, which reveals this same spec text in a hover/focus tooltip bubble.
+Also reused (independently of `buildCardSummaryChips`) by `WhiteGoodsProductGrid.tsx` via the shared `InfoHint` — the small "?" badge next to a product tile's name in the "Choose products" step, which reveals this same spec text in a hover/focus tooltip bubble.

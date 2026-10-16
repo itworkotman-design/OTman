@@ -231,10 +231,6 @@ export function ServiceRequestFlow({ locale, onClose }: Props) {
     {
       id: "timing",
       title: t("When?", "Når?"),
-      description: t(
-        "Pick a preferred date and window — we'll confirm the exact time with your quote.",
-        "Velg en foretrukket dato og et tidsvindu — vi bekrefter eksakt tidspunkt sammen med tilbudet.",
-      ),
       render: ({ onComplete, onUncomplete }) => (
         // Same card, date picker and time windows as the delivery and moving
         // modals — fields only turn red once focus has left the card with
