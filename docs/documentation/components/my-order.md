@@ -49,3 +49,6 @@ What **Endre bestilling** opens depends on the order:
 Homepage moves: `CustomerOrderClient` opens `MovingRequestFlow` in its `customer` mode for `details.kind === "moving"`
 (like `WhiteGoodsBookingFlow` for a delivery order). `customerEditPayload.ts` sends a move (`moving`) only when it changed,
 and within 24h only its services, on the move exactly as loaded.
+
+## Service requests
+`kind: "service"` orders (`websiteOrderKind: "SERVICE"`) show a Service card (icon, service name, "What needs doing") and the job address as "Address". "Change order" opens `ServiceRequestFlow` in customer mode (`customer` prop, like `MovingRequestFlow`): every section but the customer type ("What needs doing" under the service, the comment under "Your details"); within 24h only the service step (tiles locked, description editable) and "Your details". Saved through `CustomerOrderEditFooter` (`service` in the payload). "Good to know" uses the service wording (`orderRules` with `kind: "service"`).

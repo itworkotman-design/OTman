@@ -27,6 +27,16 @@ import { priceMovingOrder } from "@/lib/orders/movingOrderQuote";
 import { movingAdjustmentsFromOrder } from "@/lib/orders/movingOrderCalculator";
 import { movingOrderSaveWrites } from "@/lib/orders/movingOrderWrites";
 import { movingStaffLines, storedMovingHandlingRows } from "@/lib/orders/movingHandlingLines";
+import {
+  classifyServiceEdit,
+  parseServiceEdit,
+  serviceAnswersOf,
+  serviceEditFromOrder,
+  serviceOrderSaveData,
+  type ServiceAnswers,
+} from "@/lib/orders/serviceOrderEdit";
+import { serviceOrderItemWrites } from "@/lib/orders/serviceOrderWrites";
+import { serviceRequestLabel } from "@/lib/content/serviceRequestCatalog";
 import { buildDetailsUpdate, parseAdminOrderDetails, type AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
 import { validateWebsiteOrderCards } from "@/lib/orders/validateWebsiteOrderCards";
 import { findCardsWithoutPickup, findPickupsWithoutProducts } from "@/lib/orders/pickupAssignment";
@@ -57,7 +67,7 @@ import { normalizeSavedProductCard, type SavedProductCard } from "@/app/_compone
 //
 // PUT body (every part optional — what's left out stays as it is):
 //   { customer: { name, phone, email, comments }, preferredDate, timeWindow,
-//     pickups, delivery, productCards, shownTotal, dryRun }
+//     pickups, delivery, productCards, moving, service, shownTotal, dryRun }
 // A change that moves the price needs `shownTotal` = the price the page
 // showed (from a dryRun); anything else is refused with the real price, same
 // contract as the order POST. Payment (Stripe) is not part of this yet — the
@@ -189,6 +199,19 @@ function describeChanges(
   ];
 }
 
+// A service request's service and job description in words (the address is
+// already among the order's detail changes).
+function describeServiceChanges(before: ServiceAnswers, after: ServiceAnswers, locale: ChangeLocale): string[] {
+  const lines: string[] = [];
+  const label = (answers: ServiceAnswers) =>
+    serviceRequestLabel(answers.serviceCode, answers.customService, locale) ?? answers.serviceCode;
+  if (label(before) !== label(after)) lines.push(`${locale === "no" ? "Tjeneste" : "Service"}: ${label(before)} → ${label(after)}`);
+  if (before.jobDescription.trim() !== after.jobDescription.trim()) {
+    lines.push(`${locale === "no" ? "Hva skal gjøres" : "What needs doing"}: ${before.jobDescription || "–"} → ${after.jobDescription || "–"}`);
+  }
+  return lines;
+}
+
 const LOGGED_FIELDS = [
   ["customerName", "Customer name"],
   ["phone", "Phone"],
@@ -296,7 +319,29 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
     if (movingKinds.length > 0) movingEdit = parsed;
   }
 
-  const kinds = [...classifyCustomerOrderEdit(beforeState, afterState), ...movingKinds];
+  // A service request: the service, the job and the address as edited
+  // (classifyServiceEdit), saved with staff's quote and lines untouched.
+  let serviceSave: ReturnType<typeof serviceOrderSaveData> | null = null;
+  let serviceAfter: ServiceAnswers | null = null;
+  const serviceKinds: CustomerEditKind[] = [];
+  if (details.kind === "service" && body.service !== undefined) {
+    const stored = serviceEditFromOrder(order);
+    const parsed = stored ? parseServiceEdit({ ...record(body.service), quote: stored.quote }) : null;
+    if (!parsed?.ok) return reject("INVALID_DETAILS", 422, { errors: parsed && !parsed.ok ? parsed.errors : {} });
+    serviceAfter = serviceAnswersOf(parsed.edit);
+    serviceKinds.push(...classifyServiceEdit(details.service, serviceAfter));
+    if (serviceKinds.length > 0) {
+      serviceSave = serviceOrderSaveData({
+        parsed,
+        customerType: details.customerType,
+        // Discount/extra, partner minus/plus, lines set to 0 and express/deviation, as staff left them.
+        adjustments: movingAdjustmentsFromOrder(order),
+        handlingRows: storedMovingHandlingRows(order.items),
+      });
+    }
+  }
+
+  const kinds = [...classifyCustomerOrderEdit(beforeState, afterState), ...movingKinds, ...serviceKinds];
   if (kinds.length === 0) return NextResponse.json({ ok: true, changed: false, priceExVat: order.priceExVat });
 
   const forbidden = findForbiddenChanges(kinds, permissions);
@@ -456,6 +501,36 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
       return reject("UPDATE_FAILED", 500);
     }
     afterOrder = { ...order, ...contactAndSchedule, ...save.orderData };
+  } else if (serviceSave) {
+    // Staff's quote is kept, so the price stays what it was.
+    const previousTotalIncVat = customerOrderTotalIncVatNok(order);
+    const pricedAfter = { ...order, ...serviceSave.orderData, priceExVat: serviceSave.pricing.priceExVat };
+    const totalIncVat = customerOrderTotalIncVatNok(pricedAfter);
+    if (dryRun) {
+      return NextResponse.json({
+        ok: true,
+        dryRun: true,
+        previousPriceExVat: order.priceExVat,
+        priceExVat: serviceSave.pricing.priceExVat,
+        previousTotalIncVat,
+        totalIncVat,
+      });
+    }
+    const contactAndSchedule = {
+      customerName: customer.name,
+      phone: customer.phone,
+      email: customer.email,
+      customerComments: customer.comments || null,
+      deliveryDate: preferredDate || null,
+      timeWindow: timeWindow || null,
+    };
+    try {
+      await prisma.$transaction(serviceOrderItemWrites(order.id, serviceSave.itemRows, { ...serviceSave.orderData, ...contactAndSchedule, ...reopen }));
+    } catch (err) {
+      console.error("[customer order] Failed to save the service request:", err);
+      return reject("UPDATE_FAILED", 500);
+    }
+    afterOrder = { ...order, ...contactAndSchedule, ...serviceSave.orderData };
   } else {
     if (dryRun) {
       const totalIncVat = customerOrderTotalIncVatNok(order);
@@ -490,8 +565,10 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
     before: { state: beforeState, snapshot: before },
     after: { state: afterState, snapshot: afterOrder },
   };
-  const staffLines = describeChanges(states.before, states.after, "en");
-  const customerLines = describeChanges(states.before, states.after, "no");
+  const serviceLines = (locale: ChangeLocale) =>
+    details.kind === "service" && serviceAfter ? describeServiceChanges(details.service, serviceAfter, locale) : [];
+  const staffLines = [...describeChanges(states.before, states.after, "en"), ...serviceLines("en")];
+  const customerLines = [...describeChanges(states.before, states.after, "no"), ...serviceLines("no")];
   const deltaExVat = afterOrder.priceExVat - order.priceExVat;
   const reference = order.orderNumber ?? String(order.displayId);
 

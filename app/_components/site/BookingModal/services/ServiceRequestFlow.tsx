@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import CustomerOrderEditFooter from "@/app/_components/site/pageComponents/myOrder/CustomerOrderEditFooter";
+import type { CustomerEditDraft, CustomerServiceDraft } from "@/app/_components/site/pageComponents/myOrder/customerEditPayload";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
 import { SteppedModal, type FinalStep, type StepSection } from "../SteppedModal";
 import { CustomerTypeStep } from "../whiteGoods/CustomerTypeStep";
@@ -28,16 +30,30 @@ import { buildServiceReviewBlocks } from "./serviceReview";
 // The homepage "Services" card's modal — the same stepped flow as delivery
 // (WhiteGoodsBookingFlow) and moving (MovingRequestFlow): private or business
 // first, then which service (the /tjenester page's list, as icon tiles —
-// lib/content/serviceRequestCatalog.ts), the address, when, and the contact
-// details with a description of the job. Not priced: it lands as an unpriced
+// lib/content/serviceRequestCatalog.ts) with what needs doing right under
+// it, the address, when, and the contact details with an optional comment
+// (its own thing, Order.customerComments). Not priced: it lands as an unpriced
 // website order that staff quote (/api/site/service-request).
+
+// The same flow, opened by the customer on their own request in "My order"
+// (like MovingCustomerEdit): loaded from /api/customer/orders/[orderNumber]
+// with every section open, saved through its PUT from the edit bar
+// (CustomerOrderEditFooter). Within 24h of the job only the contact details
+// and the job description are left. The quote is staff's — never shown here.
+
+export type ServiceCustomerEdit = {
+  orderNumber: string;
+  beforeCutoff: boolean;
+  onSaved: (message: string) => void;
+};
 
 type Props = {
   locale: Locale;
   onClose: () => void;
+  customer?: ServiceCustomerEdit;
 };
 
-export function ServiceRequestFlow({ locale, onClose }: Props) {
+export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
 
   const [customerType, setCustomerType] = useState<CustomerType | null>(null);
@@ -67,7 +83,66 @@ export function ServiceRequestFlow({ locale, onClose }: Props) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  // What needs doing — asked with the service (part of the request), not
+  // with the contact details. The next step opens as soon as there's text.
   const [jobDescription, setJobDescription] = useState("");
+  const serviceStepReady = serviceReady && !!jobDescription.trim();
+  // The customer's own comment, with their details — its own thing.
+  const [notes, setNotes] = useState("");
+
+  // "My order": the customer's own request, loaded into the flow's state.
+  const customerLocked = !!customer && !customer.beforeCutoff;
+  const [customerLoaded, setCustomerLoaded] = useState(!customer);
+  const [customerLoadError, setCustomerLoadError] = useState(false);
+  // The order as loaded — what the edit bar compares the flow with.
+  const [customerInitialDraft, setCustomerInitialDraft] = useState<CustomerEditDraft | null>(null);
+  const [customerSummaryOpen, setCustomerSummaryOpen] = useState(false);
+  useEffect(() => {
+    if (!customer) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/customer/orders/${encodeURIComponent(customer.orderNumber)}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const data = await res.json().catch(() => null);
+        const details = data?.details;
+        if (cancelled) return;
+        if (!res.ok || !data?.ok || details?.kind !== "service") {
+          setCustomerLoadError(true);
+          return;
+        }
+        const service = details.service as CustomerServiceDraft;
+        setServiceCode(service.serviceCode);
+        setCustomService(service.customService);
+        setCustomServiceCommitted(!!service.customService.trim());
+        setAddress(service.address);
+        setAddressSelected(true);
+        setJobDescription(service.jobDescription);
+        setPreferredDate(details.preferredDate);
+        setTimeWindow(details.timeWindow);
+        setName(details.customer.name);
+        setPhone(details.customer.phone);
+        setEmail(details.customer.email);
+        setNotes(details.customer.comments);
+        setCustomerType(details.customerType ?? "private");
+        setCustomerInitialDraft({
+          customer: details.customer,
+          preferredDate: details.preferredDate,
+          timeWindow: details.timeWindow,
+          service,
+        });
+        setCustomerLoaded(true);
+      } catch {
+        if (!cancelled) setCustomerLoadError(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customer?.orderNumber]);
 
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -102,6 +177,7 @@ export function ServiceRequestFlow({ locale, onClose }: Props) {
           name,
           phone,
           email,
+          notes,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -155,9 +231,11 @@ export function ServiceRequestFlow({ locale, onClose }: Props) {
                   key={option.code}
                   type="button"
                   aria-pressed={selected}
+                  // Within 24h of the job the service is locked (only the description can change).
+                  disabled={customerLocked && !selected}
                   onClick={() => setServiceCode(option.code)}
                   className={[
-                    "flex w-36 flex-col items-center gap-2 rounded-2xl border px-4 py-4 text-center transition",
+                    "flex w-36 flex-col items-center gap-2 rounded-2xl border px-4 py-4 text-center transition disabled:opacity-40",
                     selected
                       ? "border-logoblue bg-logoblue/5"
                       : "border-black/10 hover:-translate-y-0.5 hover:border-logoblue/40 hover:shadow-md",
@@ -182,7 +260,8 @@ export function ServiceRequestFlow({ locale, onClose }: Props) {
             <input
               value={customService}
               maxLength={200}
-              autoFocus
+              autoFocus={!customer}
+              disabled={customerLocked}
               onChange={(e) => {
                 const next = sanitizeTextInput(e.target.value);
                 setCustomService(next);
@@ -196,7 +275,24 @@ export function ServiceRequestFlow({ locale, onClose }: Props) {
               className="h-11 w-full max-w-md rounded-lg border border-black/15 px-3 text-sm"
             />
           )}
-          <AutoAdvance ready={serviceReady} hold={isCustom && !!customService.trim()} onReady={onComplete} onRetract={onUncomplete} />
+          {/* What needs doing — saved with the service, right under it. */}
+          <textarea
+            value={jobDescription}
+            onChange={(e) => setJobDescription(sanitizeTextInput(e.target.value))}
+            rows={4}
+            maxLength={1000}
+            placeholder={t(
+              "What do you need done? The more detail, the more accurate the quote.",
+              "Hva skal gjøres? Jo flere detaljer, jo mer presist tilbud.",
+            )}
+            className="w-full max-w-xl rounded-lg border border-black/15 px-3 py-2 text-sm"
+          />
+          <AutoAdvance
+            ready={serviceStepReady}
+            hold={isCustom && !!customService.trim()}
+            onReady={onComplete}
+            onRetract={onUncomplete}
+          />
         </div>
       ),
     },
@@ -281,27 +377,27 @@ export function ServiceRequestFlow({ locale, onClose }: Props) {
             />
           </div>
           <textarea
-            value={jobDescription}
-            onChange={(e) => setJobDescription(sanitizeTextInput(e.target.value))}
-            rows={4}
-            maxLength={1000}
-            placeholder={t(
-              "What do you need done? The more detail, the more accurate the quote.",
-              "Hva skal gjøres? Jo flere detaljer, jo mer presist tilbud.",
-            )}
+            value={notes}
+            onChange={(e) => setNotes(sanitizeTextInput(e.target.value))}
+            rows={3}
+            maxLength={2000}
+            placeholder={t("Comment (optional)", "Kommentar (valgfritt)")}
             className="rounded-lg border border-black/15 px-2 py-1.5 text-sm"
           />
           {/* The one explicit button, as in the delivery and moving modals:
               moving on swaps the modal to the summary, so it mustn't fire
-              while the email or description is still being typed. */}
-          <button
-            type="button"
-            disabled={!canSubmit}
-            onClick={onComplete}
-            className="self-center inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:pointer-events-none disabled:opacity-40"
-          >
-            {t("Go to summary", "Gå til oppsummering")}
-          </button>
+              while the email or comment is still being typed. "My order"
+              saves from its edit bar instead. */}
+          {!customer && (
+            <button
+              type="button"
+              disabled={!canSubmit}
+              onClick={onComplete}
+              className="self-center inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:pointer-events-none disabled:opacity-40"
+            >
+              {t("Go to summary", "Gå til oppsummering")}
+            </button>
+          )}
         </div>
       ),
     },
@@ -315,7 +411,7 @@ export function ServiceRequestFlow({ locale, onClose }: Props) {
     jobDescription,
     preferredDate,
     timeWindow,
-    contact: { name, phone, email, notes: "" },
+    contact: { name, phone, email, notes },
   });
 
   const finalStep: FinalStep = {
@@ -352,6 +448,8 @@ export function ServiceRequestFlow({ locale, onClose }: Props) {
               <OrderReviewBlocks blocks={reviewBlocks} />
             </div>
 
+            {/* "My order" saves from its edit bar (CustomerOrderEditFooter). */}
+            {!customer && (
             <div className="flex flex-col gap-4 lg:self-start">
               <div className="rounded-2xl border border-black/10 bg-white p-6">
                 <h3 className="text-base font-semibold text-logoblue">{t("Price", "Pris")}</h3>
@@ -374,10 +472,72 @@ export function ServiceRequestFlow({ locale, onClose }: Props) {
                 {submitLoading ? t("Sending…", "Sender…") : t("Send request", "Send forespørsel")}
               </button>
             </div>
+            )}
           </div>
         </div>
       ),
   };
+
+  if (customer) {
+    // Everything but the customer type (answered at booking); within 24h of
+    // the job only the job description (under its locked service) and the
+    // details (contact, comment).
+    const customerSections = customerLocked
+      ? sections.filter((section) => section.id === "service" || section.id === "your-details")
+      : sections.filter((section) => section.id !== "customer-type");
+    const loadingSections: StepSection[] = [
+      {
+        id: "customer-loading",
+        title: customerLoadError ? t("Couldn't load the order", "Kunne ikke laste bestillingen") : t("Loading order…", "Laster bestilling…"),
+        render: () => null,
+      },
+    ];
+    const customerDraft: CustomerEditDraft = {
+      customer: { name, phone, email, comments: notes },
+      preferredDate,
+      timeWindow,
+      service: { serviceCode: serviceCode ?? "", customService: isCustom ? customService : "", jobDescription, address },
+    };
+    // A typed address must be picked from the suggestions before saving, as when booking.
+    const blockedMessage = !jobDescription.trim()
+      ? t("Describe what needs doing.", "Beskriv hva som skal gjøres.")
+      : !customerLocked && !isServiceChoiceReady(serviceCode, customService)
+        ? t("Choose a service.", "Velg en tjeneste.")
+        : !customerLocked && !addressReady
+          ? t("Please choose an address from the suggestions.", "Velg en adresse fra forslagene.")
+          : null;
+    return (
+      <SteppedModal
+        showAll
+        sections={customerLoaded ? customerSections : loadingSections}
+        finalStep={finalStep}
+        finalStepOpen={!customerLocked && customerSummaryOpen}
+        onFinalStepBack={() => setCustomerSummaryOpen(false)}
+        onClose={onClose}
+        title={
+          <span className="truncate text-base font-semibold text-logoblue">
+            {t("Change order", "Endre bestilling")} #{customer.orderNumber}
+          </span>
+        }
+        footer={
+          customerLoaded && customerInitialDraft ? (
+            <CustomerOrderEditFooter
+              orderNumber={customer.orderNumber}
+              initial={customerInitialDraft}
+              current={customerDraft}
+              beforeCutoff={customer.beforeCutoff}
+              locale={locale}
+              onCancel={onClose}
+              onSaved={customer.onSaved}
+              blockedMessage={blockedMessage}
+              summaryOpen={customerSummaryOpen}
+              onOpenSummary={() => setCustomerSummaryOpen(true)}
+            />
+          ) : null
+        }
+      />
+    );
+  }
 
   return <SteppedModal sections={sections} finalStep={finalStep} onClose={onClose} dimCompleted scrollToNewSections />;
 }

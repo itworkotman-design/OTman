@@ -28,3 +28,5 @@ The cutoff is 24 hours before the time window starts, in **Oslo time**. The star
 | `findForbiddenChanges` | Returns the kinds of change the permissions don't allow. After the 24h cutoff only `contact`, `notes` and `addOns` are allowed, so removing or downgrading a service is refused (`EDIT_NOT_ALLOWED`). |
 
 `canEditItems` is true for `WHITE_GOODS` and `MOVING` orders (a move's addresses, ends and services are edited through `movingOrderEdit.ts`, classified into the same change kinds).
+
+A service request (`SERVICE`) also gets `canEditItems`, so its address and service can change until the cutoff (`classifyServiceEdit` in `lib/orders/serviceOrderEdit.ts`).

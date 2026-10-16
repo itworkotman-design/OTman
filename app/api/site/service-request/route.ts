@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
@@ -5,7 +6,9 @@ import { createOrderCreatedEvent, buildOrderEventSnapshot } from "@/lib/orders/o
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import { reservePublicOrderNumber } from "@/lib/orders/publicOrderNumber";
 import { welcomeWebsiteOrderCustomer } from "@/lib/customerAccounts/welcomeWebsiteOrderCustomer";
-import { parseServiceChoice } from "@/lib/content/serviceRequestCatalog";
+import { parseServiceChoice, type ParsedServiceChoice } from "@/lib/content/serviceRequestCatalog";
+import { buildServiceBookingDetails, SERVICE_ORDER_KIND } from "@/lib/orders/serviceBookingDetails";
+import { serviceOrderDescription, serviceOrderSummary } from "@/lib/orders/serviceOrderEdit";
 import {
   validateEmailField,
   validatePhoneField,
@@ -17,7 +20,9 @@ import {
 // lib/content/serviceRequestCatalog.ts) at one address. Lands unpriced, like
 // the special-goods quote flow: staff review it and quote manually via the
 // same approve/reject/Stripe pipeline every other website order uses. The
-// job's address is stored as the order's delivery address (where we go).
+// job's address is stored as the order's delivery address (where we go); the
+// answers are kept (serviceBookingDetails) so the admin WebsiteOrderModal
+// shows and edits them, with staff's quote as the order's line.
 // The older /tjenester page form still posts to /api/public/manpower.
 
 const _rl = { lastAt: 0, dayStr: "", dayCount: 0 };
@@ -46,7 +51,7 @@ function str(v: unknown): string | null {
 
 async function createServiceRequest(
   body: RequestBody,
-  serviceLabel: string,
+  service: Extract<ParsedServiceChoice, { ok: true }>,
 ): Promise<{ orderId: string; displayId: number; orderNumber: string | null }> {
   const membershipId = process.env.WEBSITE_MEMBERSHIP_ID;
   if (!membershipId) throw new Error("WEBSITE_MEMBERSHIP_ID not configured");
@@ -64,15 +69,16 @@ async function createServiceRequest(
   // The random number customers see; displayId stays internal/sequential.
   const orderNumber = await reservePublicOrderNumber(prisma, membership.companyId);
 
-  const customerType = body.customerType === "business" ? "Business" : body.customerType === "private" ? "Private" : null;
-  const description = [
-    `Service: ${serviceLabel}`,
-    customerType ? `Customer type: ${customerType}` : null,
-    str(body.jobDescription),
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-  const summary = `Service request (${serviceLabel})`;
+  const customerType = body.customerType === "business" || body.customerType === "private" ? body.customerType : null;
+  const jobDescription = str(body.jobDescription) ?? "";
+  const description = serviceOrderDescription({ labelEn: service.labelEn, customerType, jobDescription });
+  const summary = serviceOrderSummary(service.labelEn);
+  const bookingDetails = buildServiceBookingDetails({
+    customerType,
+    serviceCode: service.code,
+    customService: service.customService,
+    jobDescription,
+  });
 
   const order = await prisma.order.create({
     data: {
@@ -83,6 +89,9 @@ async function createServiceRequest(
       orderNumber,
       status: "processing",
       isWebsiteOrder: true,
+      // Opens in the admin WebsiteOrderModal, with the answers as cards.
+      websiteOrderKind: SERVICE_ORDER_KIND,
+      websiteBookingDetails: bookingDetails as unknown as Prisma.InputJsonValue,
       deliveryAddress: str(body.address),
       customerName: str(body.name),
       phone: str(body.phone),
@@ -189,7 +198,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = await createServiceRequest(body, service.labelEn);
+    const result = await createServiceRequest(body, service);
     return NextResponse.json({ ok: true, ...result }, { status: 200 });
   } catch (err) {
     console.error("[service-request] Order creation failed:", err);

@@ -70,3 +70,6 @@ history event, staff notification and "order updated" email as a delivery order.
 and returns `pricingContext: { rabatt, leggTil, nulledLineKeys, staffLines }` (`staffLines`: express/deviation lines staff
 added, `movingStaffLines` — carried over as priced on a re-price) (customer side only) for the flow's live price.
 Tested in `route.moving.test.ts`.
+
+## Service requests
+`details.kind === "service"` carries `service: { serviceCode, customService, jobDescription, address }` (never the quote). A PUT with `service` is validated with `parseServiceEdit` (the stored quote kept) and classified by `classifyServiceEdit`: a new address is `addresses`, another service `reconfigure` (both locked within 24h), the job description `notes` (always allowed). Saved with `serviceOrderSaveData` + `serviceOrderItemWrites` at the same price (staff's quote, express/deviation and adjustments kept); the staff notification and customer email list the service / job description changes.

@@ -11,6 +11,9 @@ import type { MovingEdit } from "@/lib/orders/movingOrderEdit";
 import { buildMovingReviewBlocks } from "@/app/_components/site/BookingModal/moving/movingReview";
 import { OrderReviewBlocks } from "@/app/_components/site/BookingModal/whiteGoods/OrderReviewParts";
 import MovingOrderEditTab from "./MovingOrderEditTab";
+import type { ServiceEdit } from "@/lib/orders/serviceOrderEdit";
+import { buildServiceReviewBlocks } from "@/app/_components/site/BookingModal/services/serviceReview";
+import ServiceOrderEditTab from "./ServiceOrderEditTab";
 import type { ProductGroup } from "@/lib/orders/websiteOrderProducts";
 import WebsiteOrderAdminActions from "./WebsiteOrderAdminActions";
 import WebsiteOrderEditTab from "./WebsiteOrderEditTab";
@@ -78,7 +81,21 @@ export type MovingWebsiteOrderView = WebsiteOrderBase & {
   priceChanges?: PriceChangeRow[];
 };
 
-export type WebsiteOrderView = MovingWebsiteOrderView | WhiteGoodsWebsiteOrderView;
+// …or, for a homepage service request, its answers and staff's quote (edited
+// in ServiceOrderEditTab), with the same calculator as a move.
+export type ServiceWebsiteOrderView = WebsiteOrderBase & {
+  kind: "service";
+  service: {
+    // The partner price is null for who may not see it.
+    edit: ServiceEdit;
+    customerType: BookingCustomerType | null;
+    preferredDate: string;
+    timeWindow: string;
+  };
+  calculator: WebsiteOrderCalculatorView;
+};
+
+export type WebsiteOrderView = MovingWebsiteOrderView | ServiceWebsiteOrderView | WhiteGoodsWebsiteOrderView;
 
 // …or, for a white-goods (delivery) order, its stops and the calculator.
 export type WhiteGoodsWebsiteOrderView = WebsiteOrderBase & {
@@ -114,10 +131,12 @@ function formatKr(n: number) {
 
 
 // Admin view of a homepage website order — a white-goods delivery (every
-// pickup stop, the delivery, the calculator) or a move (both ends, timing,
-// its priced lines and the partner's side) — with the customer, laid out like
-// the customer's own summary page, and an "Edit order" tab for each kind
-// (WebsiteOrderEditTab / MovingOrderEditTab). Opened by DashboardOrderModal.
+// pickup stop, the delivery, the calculator), a move (both ends, timing,
+// its priced lines and the partner's side) or a service request (the job,
+// where, timing, staff's quote) — with the customer, laid out like the
+// customer's own summary page, and an "Edit order" tab for each kind
+// (WebsiteOrderEditTab / MovingOrderEditTab / ServiceOrderEditTab). Opened by
+// DashboardOrderModal.
 export default function WebsiteOrderModal({
   order,
   onClose,
@@ -169,9 +188,20 @@ export default function WebsiteOrderModal({
     notes: order.customerComments ?? "",
   };
   const siteLocale = locale === "nb" ? "no" : "en";
-  // The answers as cards — a move's two ends and timing, or a delivery's stops.
+  // The answers as cards — a move's two ends and timing, a service's job, or a delivery's stops.
   const reviewBlocks =
-    order.kind === "moving"
+    order.kind === "service"
+      ? buildServiceReviewBlocks(siteLocale, {
+          customerType: order.service.customerType,
+          serviceCode: order.service.edit.serviceCode,
+          customService: order.service.edit.customService,
+          address: order.service.edit.address,
+          jobDescription: order.service.edit.jobDescription,
+          preferredDate: order.service.preferredDate,
+          timeWindow: order.service.timeWindow,
+          contact,
+        })
+      : order.kind === "moving"
       ? buildMovingReviewBlocks(siteLocale, {
           pickupAddress: order.moving.edit.pickupAddress,
           deliveryAddress: order.moving.edit.deliveryAddress,
@@ -191,8 +221,16 @@ export default function WebsiteOrderModal({
           drivingDistance: order.details.drivingDistance,
           contact,
         });
-  const orderExtras = order.kind === "moving" ? order.orderExtras : order.details.orderExtras;
-  const customerType = order.kind === "moving" ? order.moving.customerType : order.details.customerType;
+  const orderExtras = order.kind === "service" ? [] : order.kind === "moving" ? order.orderExtras : order.details.orderExtras;
+  const customerType =
+    order.kind === "service" ? order.service.customerType : order.kind === "moving" ? order.moving.customerType : order.details.customerType;
+  // A move and a service request save (and preview) through their own routes.
+  const detailsEndpoint =
+    order.kind === "moving"
+      ? `/api/orders/${order.id}/moving-details`
+      : order.kind === "service"
+        ? `/api/orders/${order.id}/service-details`
+        : null;
   // Stored ex. VAT; what the customer pays (incl. VAT, summed per line) is the
   // payment comparison's current total.
   const vat = {
@@ -349,6 +387,13 @@ export default function WebsiteOrderModal({
                 </ul>
               </div>
             )}
+            {tab === "overview" && order.kind === "service" && order.service.edit.quote.customer === null && (
+              <p className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+                {canEditOrder
+                  ? t("Not quoted yet — add the price under \"Edit order\" → Quote.", "Ikke priset ennå — legg inn prisen under «Endre bestilling» → Tilbud.")
+                  : t("This request was never quoted.", "Denne forespørselen ble aldri priset.")}
+              </p>
+            )}
             {editNotice && (
               <p className="mb-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-800">{editNotice}</p>
             )}
@@ -380,7 +425,30 @@ export default function WebsiteOrderModal({
                   onChanged();
                 }}
               />
-            ) : tab === "edit" && order.kind !== "moving" ? (
+            ) : tab === "edit" && order.kind === "service" ? (
+              <ServiceOrderEditTab
+                orderId={order.id}
+                locale={locale}
+                initial={{
+                  edit: order.service.edit,
+                  customer: { name: contact.name, phone: contact.phone, email: contact.email, comments: contact.notes },
+                  customerType: order.service.customerType,
+                  schedule: { preferredDate: order.service.preferredDate, timeWindow: order.service.timeWindow },
+                }}
+                calculator={order.calculator}
+                adjustments={calculatorAdjustments}
+                storedTotal={order.priceExVat}
+                onDirtyChange={handleEditDirtyChange}
+                onCancel={() => switchTab("overview")}
+                besideSave={deleteButton}
+                onSaved={(message) => {
+                  setEditDirty(false);
+                  setTab("overview");
+                  setEditNotice(message);
+                  onChanged();
+                }}
+              />
+            ) : tab === "edit" && order.kind === undefined ? (
               <WebsiteOrderEditTab
                 orderId={order.id}
                 locale={locale}
@@ -425,8 +493,8 @@ export default function WebsiteOrderModal({
                   priceChangeSlotRef={setPriceChangeSlot}
                   onPricedHandlingChange={setPricedHandling}
                   besideSave={deleteButton}
-                  // A move saves its handling (express and the deviation too) through its own route.
-                  {...(order.kind === "moving" ? { handlingEndpoint: `/api/orders/${order.id}/moving-details` } : {})}
+                  // A move or service request saves its handling (express and the deviation too) through its own route.
+                  {...(detailsEndpoint ? { handlingEndpoint: detailsEndpoint } : {})}
                 >
                   <WebsiteOrderAttachments
                     key={attachmentsVersion}
@@ -455,11 +523,12 @@ export default function WebsiteOrderModal({
                     adjustments={calculatorAdjustments}
                     missingFromLines={order.totalsCheck.missingFromLines}
                     storedTotal={order.priceExVat}
-                    currentPricesTotal={order.currentPricesTotal ?? null}
-                    priceChanges={order.priceChanges ?? []}
-                    {...(order.kind === "moving"
-                      ? { previewEndpoint: `/api/orders/${order.id}/moving-details` }
-                      : { savedPricesIncomplete: order.savedPricesIncomplete ?? [] })}
+                    // A service request has no catalog, so no "Use new price".
+                    currentPricesTotal={order.kind === "service" ? null : (order.currentPricesTotal ?? null)}
+                    priceChanges={order.kind === "service" ? [] : (order.priceChanges ?? [])}
+                    {...(order.kind === undefined
+                      ? { savedPricesIncomplete: order.savedPricesIncomplete ?? [] }
+                      : { previewEndpoint: detailsEndpoint ?? undefined })}
                     locale={locale}
                     onDraftChange={setPricingDraft}
                     priceChangeTarget={priceChangeSlot}

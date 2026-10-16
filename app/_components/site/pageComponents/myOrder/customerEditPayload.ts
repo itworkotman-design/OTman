@@ -3,10 +3,14 @@
 // untouched section is never mistaken for a change. The date, the stops, the
 // delivery and a move's addresses/ends are left out after the 24h cutoff —
 // the page locks them then, and the server would refuse them anyway
-// (lib/orders/customerOrderEditPolicy.ts); a move can still get services.
+// (lib/orders/customerOrderEditPolicy.ts); a move can still get services, a
+// service request a new job description.
 
 // A move as "My order" edits it (lib/orders/movingOrderEdit.ts's MovingEdit).
 export type CustomerMovingDraft = { serviceCodes: string[] } & Record<string, unknown>;
+
+// A service request as "My order" edits it (lib/orders/serviceOrderEdit.ts's ServiceAnswers).
+export type CustomerServiceDraft = { serviceCode: string; customService: string; jobDescription: string; address: string };
 
 export type CustomerEditDraft = {
   customer: { name: string; phone: string; email: string; comments: string };
@@ -16,13 +20,15 @@ export type CustomerEditDraft = {
   delivery?: unknown;
   productCards?: unknown[];
   moving?: CustomerMovingDraft;
+  service?: CustomerServiceDraft;
 };
 
-export type CustomerEditPayload = Partial<Omit<CustomerEditDraft, "pickups" | "delivery" | "productCards" | "moving">> & {
+export type CustomerEditPayload = Partial<Omit<CustomerEditDraft, "pickups" | "delivery" | "productCards" | "moving" | "service">> & {
   pickups?: unknown[];
   delivery?: unknown;
   productCards?: unknown[];
   moving?: CustomerMovingDraft;
+  service?: CustomerServiceDraft;
 };
 
 const changed = (a: unknown, b: unknown) => JSON.stringify(a) !== JSON.stringify(b);
@@ -43,6 +49,13 @@ export function buildCustomerEditPayload(
     if (current.pickups && changed(initial.pickups, current.pickups)) payload.pickups = current.pickups;
     if (current.delivery !== undefined && changed(initial.delivery, current.delivery)) payload.delivery = current.delivery;
     if (current.moving && changed(initial.moving, current.moving)) payload.moving = current.moving;
+    if (current.service && changed(initial.service, current.service)) payload.service = current.service;
+  } else if (initial.service && current.service) {
+    // Within 24h only the job description can change: sent on the service
+    // exactly as loaded, so the address or service can't slip through.
+    if (initial.service.jobDescription !== current.service.jobDescription) {
+      payload.service = { ...initial.service, jobDescription: current.service.jobDescription };
+    }
   } else if (initial.moving && current.moving) {
     // Within 24h a move can only get more services: sent on the move exactly
     // as loaded, so nothing else about it can slip through.

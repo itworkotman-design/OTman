@@ -10,6 +10,8 @@ type Permissions = {
   canEditItems: boolean;
   // The cutoff, already formatted; null = the order has no date yet.
   cutoffText: string | null;
+  // A service request: its address and service, then the job description.
+  kind?: "service";
 };
 
 export function orderRules(permissions: Permissions, locale: "no" | "en"): string[] {
@@ -23,12 +25,17 @@ export function orderRules(permissions: Permissions, locale: "no" | "en"): strin
     ];
   }
 
-  const whatChanges = permissions.canEditItems
-    ? t("the date, addresses and products", "dato, adresser og varer")
-    : t("the date and time", "dato og tidspunkt");
-  const addOns = permissions.canEditItems
-    ? t("add services such as unpacking and change your contact details", "legge til tjenester som utpakking og endre kontaktinformasjonen din")
-    : t("change your contact details", "endre kontaktinformasjonen din");
+  const service = permissions.kind === "service" && permissions.canEditItems;
+  const whatChanges = service
+    ? t("the date, address and service", "dato, adresse og tjeneste")
+    : permissions.canEditItems
+      ? t("the date, addresses and products", "dato, adresser og varer")
+      : t("the date and time", "dato og tidspunkt");
+  const addOns = service
+    ? t("change the job description and your contact details", "endre beskrivelsen av jobben og kontaktinformasjonen din")
+    : permissions.canEditItems
+      ? t("add services such as unpacking and change your contact details", "legge til tjenester som utpakking og endre kontaktinformasjonen din")
+      : t("change your contact details", "endre kontaktinformasjonen din");
 
   if (permissions.beforeCutoff) {
     return [

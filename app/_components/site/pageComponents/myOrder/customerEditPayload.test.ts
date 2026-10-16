@@ -82,6 +82,27 @@ describe("customerEditPrimaryAction", () => {
   });
 });
 
+describe("buildCustomerEditPayload — a service request", () => {
+  const service = { serviceCode: "option-1", customService: "", jobDescription: "Install lights.", address: "Storgata 1, Oslo" };
+  const request: CustomerEditDraft = {
+    customer: { name: "Kari", phone: "87654321", email: "kari@example.no", comments: "" },
+    preferredDate: "2026-10-10",
+    timeWindow: "10:00-16:00",
+    service,
+  };
+
+  it("sends the service only when it changed", () => {
+    expect(buildCustomerEditPayload(request, structuredClone(request), true)).toEqual({});
+    const current = { ...structuredClone(request), service: { ...service, address: "Kirkegata 5, Oslo" } };
+    expect(buildCustomerEditPayload(request, current, true)).toEqual({ service: current.service });
+  });
+
+  it("within 24h sends only the job description, on the service exactly as loaded", () => {
+    const current = { ...structuredClone(request), service: { ...service, address: "Kirkegata 5, Oslo", jobDescription: "Install four lights." } };
+    expect(buildCustomerEditPayload(request, current, false)).toEqual({ service: { ...service, jobDescription: "Install four lights." } });
+  });
+});
+
 describe("buildCustomerEditPayload — a move", () => {
   const moving = {
     pickupAddress: "Karl Johans gate 1, Oslo",

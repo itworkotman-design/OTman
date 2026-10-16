@@ -32,8 +32,12 @@ import {
 import { movingCurrentPriceRows } from "@/lib/orders/movingCurrentPrices";
 import { movingHandlingFromOrder } from "@/lib/orders/movingHandlingLines";
 import { getMovingCatalog, type MovingCatalogOption } from "@/lib/content/getMovingCatalog";
+import { parseServiceBookingDetails, SERVICE_ORDER_KIND } from "@/lib/orders/serviceBookingDetails";
+import { serviceEditFromOrder } from "@/lib/orders/serviceOrderEdit";
+import { serviceOrderCalculatorView } from "@/lib/orders/serviceOrderCalculator";
 
-// Read-only view of a homepage white-goods website order for the admin
+// Read-only view of a homepage website order (a white-goods delivery, a move
+// or a service request) for the admin
 // WebsiteOrderModal. Kept separate from GET /api/orders/[orderId] (which backs
 // the regular BookingEditor) so that route stays untouched. Any non-ok answer
 // tells DashboardOrderModal to fall back to the regular OrderModal.
@@ -216,6 +220,41 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
         calculator,
         currentPricesTotal,
         priceChanges,
+      },
+    });
+  }
+
+  // A homepage service request: its answers and staff's quote (one line),
+  // with express/deviation, in the same calculator as a move.
+  const serviceEdit = order.websiteOrderKind === SERVICE_ORDER_KIND ? serviceEditFromOrder(order) : null;
+  if (serviceEdit) {
+    const calculator = serviceOrderCalculatorView(order.items, movingAdjustmentsFromOrder(order), { includePartner: canSeePartnerPrices });
+    return NextResponse.json({
+      ok: true,
+      order: {
+        ...base,
+        kind: "service",
+        // A custom deviation's own values live on its line (movingHandlingLines).
+        handling: movingHandlingFromOrder(order),
+        service: {
+          // The partner price only for who may see it.
+          edit: canSeePartnerPrices ? serviceEdit : { ...serviceEdit, quote: { ...serviceEdit.quote, partner: null } },
+          customerType: parseServiceBookingDetails(order.websiteBookingDetails)?.customerType ?? null,
+          preferredDate: order.deliveryDate ?? "",
+          timeWindow: order.timeWindow ?? "",
+        },
+        products: [],
+        // Checked against the calculator's lines, so a line set to 0 counts at 0.
+        totalsCheck: checkWebsiteOrderTotals({
+          total: order.priceExVat,
+          chargedIncVat: getOrderChargeAmountIncVatNok(order),
+          products: [],
+          orderExtras: calculator.products.flatMap((product) => product.lines.map((line) => ({ price: line.customer }))),
+          rabatt: order.rabatt,
+          leggTil: order.leggTil,
+          shownTotal: null,
+        }),
+        calculator,
       },
     });
   }

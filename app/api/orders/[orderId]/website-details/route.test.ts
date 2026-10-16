@@ -580,3 +580,74 @@ describe("GET /api/orders/[orderId]/website-details — a homepage move", () => 
     expect((await (await call()).json()).reason).toBe("NOT_WHITE_GOODS_WEBSITE_ORDER");
   });
 });
+
+describe("GET /api/orders/[orderId]/website-details — a homepage service request", () => {
+  const quoteItem = {
+    productCode: "SERVICE_QUOTE",
+    optionCode: "QUOTE",
+    optionLabel: "Electrician",
+    quantity: 1,
+    customerPriceCents: 400000,
+    subcontractorPriceCents: 250000,
+    optionId: null,
+  };
+  const serviceOrder = {
+    ...whiteGoodsOrder,
+    websiteOrderKind: "SERVICE",
+    websiteBookingDetails: { version: 1, customerType: "business", serviceCode: "option-1", customService: "", jobDescription: "Install lights." },
+    pickupAddress: null,
+    deliveryAddress: "Storgata 1, Oslo",
+    deliveryDate: "2026-10-22",
+    timeWindow: "08:00-16:00",
+    priceExVat: 4000,
+    pricingSnapshot: { customer: { totalExVat: 4000, totalIncVat: 5000 }, lines: [] },
+    items: [quoteItem],
+    payments: [],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "u1", activeCompanyId: "c1" });
+    mocks.membershipFindFirstMock.mockResolvedValue({ role: "ADMIN", appAccess: [] });
+    mocks.orderFindFirstMock.mockResolvedValue(serviceOrder);
+  });
+
+  it("opens in the website order modal as a service: its answers, the quote and the calculator", async () => {
+    const res = await call();
+    expect(res.status).toBe(200);
+    const { order } = await res.json();
+    expect(order.kind).toBe("service");
+    expect(order.service).toEqual({
+      edit: {
+        serviceCode: "option-1",
+        customService: "",
+        jobDescription: "Install lights.",
+        address: "Storgata 1, Oslo",
+        quote: { customer: 4000, partner: 2500 },
+      },
+      customerType: "business",
+      preferredDate: "2026-10-22",
+      timeWindow: "08:00-16:00",
+    });
+    expect(order.calculator.products.map((p: { name: string }) => p.name)).toEqual(["Service"]);
+    expect(order.calculator.customer.total).toBe(4000);
+    expect(order.calculator.partner.total).toBe(2500);
+    expect(order.totalsCheck.missingFromLines).toBe(0);
+    expect(mocks.recomputeMock).not.toHaveBeenCalled();
+  });
+
+  it("opens an unquoted request with an empty calculator", async () => {
+    mocks.orderFindFirstMock.mockResolvedValue({ ...serviceOrder, items: [], priceExVat: 0 });
+    const { order } = await (await call()).json();
+    expect(order.service.edit.quote).toEqual({ customer: null, partner: null });
+    expect(order.calculator.products).toEqual([]);
+    expect(order.totalsCheck.missingFromLines).toBe(0);
+  });
+
+  it("hides the partner's side from someone who can only view website orders", async () => {
+    mocks.membershipFindFirstMock.mockResolvedValue({ role: "USER", appAccess: [{ module: "WEBSITE_ORDERS", enabled: true, level: "VIEWER" }] });
+    const { order } = await (await call()).json();
+    expect(order.calculator.partner).toBeNull();
+    expect(order.service.edit.quote.partner).toBeNull();
+  });
+});

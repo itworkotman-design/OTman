@@ -6,7 +6,9 @@
 `status: "processing"`, MANUAL_REVIEW notification) for staff to quote, like
 `special-goods-quote`. The job address is stored as `deliveryAddress`;
 `productsSummary` is `Service request (<label>)`; the description holds the
-service, customer type and job description. Calls
+service, customer type and job description (`serviceOrderDescription`). Tagged
+`websiteOrderKind: "SERVICE"` with the answers in `websiteBookingDetails` (`buildServiceBookingDetails`), so it opens in
+the admin `WebsiteOrderModal` where staff quote it (`service-details`). Calls
 `welcomeWebsiteOrderCustomer` ("My order" login + order-received email).
 
 Body: `customerType`, `serviceCode`, `customService`, `address`,

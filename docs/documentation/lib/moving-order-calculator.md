@@ -26,3 +26,6 @@ price. Kroner, ex. VAT; incl. VAT per line, the discount and extra rounded the s
 
 ## Types
 - `MovingAdjustments` — `{ rabatt, leggTil, subcontractorMinus, subcontractorPlus, nulledLines? }`.
+
+`movingOrderCalculatorView` and `movingOrderAdjustedPricing` take an optional `mainGroup` (`CalculatorMainGroup`: which lines
+are the order's own product and its name; default the move) — how `serviceOrderCalculator.ts` prices a service request's quote.

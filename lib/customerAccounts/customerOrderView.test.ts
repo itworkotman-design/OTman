@@ -105,3 +105,35 @@ describe("customerOrderDetails — a homepage move", () => {
     expect(customerOrderDetails({ ...move, websiteBookingDetails: null } as unknown as CustomerOrder).kind).toBe("basic");
   });
 });
+
+describe("customerOrderDetails — a homepage service request", () => {
+  const request = {
+    websiteOrderKind: "SERVICE",
+    websiteBookingDetails: { version: 1, customerType: "business", serviceCode: "option-1", customService: "", jobDescription: "Install lights." },
+    deliveryAddress: "Storgata 1, Oslo",
+    customerName: "Kari",
+    phone: "+47 12345678",
+    email: "kari@example.com",
+    customerComments: "test",
+    deliveryDate: "2026-10-22",
+    timeWindow: "08:00-16:00",
+    status: "processing",
+    // Staff's quote — never part of what the customer edits.
+    items: [{ productCode: "SERVICE_QUOTE", optionCode: "QUOTE", optionLabel: "Electrician", quantity: 1, customerPriceCents: 400000, subcontractorPriceCents: 250000 }],
+  } as unknown as CustomerOrder;
+
+  it("gives the customer the service, the job and the address to edit — without the quote", () => {
+    expect(customerOrderDetails(request)).toEqual({
+      kind: "service",
+      customer: { name: "Kari", phone: "+47 12345678", email: "kari@example.com", comments: "test" },
+      preferredDate: "2026-10-22",
+      timeWindow: "08:00-16:00",
+      customerType: "business",
+      service: { serviceCode: "option-1", customService: "", jobDescription: "Install lights.", address: "Storgata 1, Oslo" },
+    });
+  });
+
+  it("falls back to contact + date for a request sent before its answers were stored", () => {
+    expect(customerOrderDetails({ ...request, websiteBookingDetails: null } as unknown as CustomerOrder).kind).toBe("basic");
+  });
+});

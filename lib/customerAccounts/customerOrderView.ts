@@ -4,6 +4,8 @@ import { getCustomerEditPermissions, type CustomerEditPermissions } from "@/lib/
 import { editableDetailsFromOrder, type AdminOrderDetails } from "@/lib/orders/websiteOrderDetailsEdit";
 import { MOVING_ORDER_KIND, parseMovingBookingDetails } from "@/lib/orders/movingBookingDetails";
 import { movingEditFromOrder, type MovingEdit } from "@/lib/orders/movingOrderEdit";
+import { parseServiceBookingDetails, SERVICE_ORDER_KIND } from "@/lib/orders/serviceBookingDetails";
+import { serviceAnswersOf, serviceEditFromOrder, type ServiceAnswers } from "@/lib/orders/serviceOrderEdit";
 import type { BookingCustomerType } from "@/lib/orders/websiteBookingDetails";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { buildOrderProgress } from "./orderProgress";
@@ -104,7 +106,8 @@ type CustomerContact = { name: string; phone: string; email: string; comments: s
 
 // What the customer edits: the full details (stops, delivery) on a homepage
 // catalog order, the whole move (both ends, services) on a homepage move,
-// just contact + date on the others (quotes, moves booked before their
+// the service, job and address on a service request, just contact + date on
+// the others (quotes, moves booked before their
 // answers were stored).
 export type CustomerOrderDetails =
   | (AdminOrderDetails & { kind: "catalog" })
@@ -115,6 +118,15 @@ export type CustomerOrderDetails =
       timeWindow: string;
       customerType: BookingCustomerType | null;
       moving: MovingEdit;
+    }
+  | {
+      kind: "service";
+      customer: CustomerContact;
+      preferredDate: string;
+      timeWindow: string;
+      customerType: BookingCustomerType | null;
+      // The service, the job and the address — never staff's quote.
+      service: ServiceAnswers;
     }
   | {
       kind: "basic";
@@ -143,6 +155,15 @@ export function customerOrderDetails(order: CustomerOrder): CustomerOrderDetails
       ...basics,
       customerType: parseMovingBookingDetails(order.websiteBookingDetails)?.customerType ?? null,
       moving,
+    };
+  }
+  const service = order.websiteOrderKind === SERVICE_ORDER_KIND ? serviceEditFromOrder(order) : null;
+  if (service) {
+    return {
+      kind: "service",
+      ...basics,
+      customerType: parseServiceBookingDetails(order.websiteBookingDetails)?.customerType ?? null,
+      service: serviceAnswersOf(service),
     };
   }
   return { kind: "basic", ...basics };
@@ -188,7 +209,7 @@ export function customerOrderView(order: CustomerOrder, now: Date = new Date()) 
       // reason, which the customer needs to know what to change.
       rejectionNote: normalizeOrderStatus(order.status) === "rejected" ? order.statusNotes?.trim() || null : null,
     },
-    permissions: { ...permissions, canEditItems: permissions.canEditItems && (details.kind === "catalog" || details.kind === "moving") },
+    permissions: { ...permissions, canEditItems: permissions.canEditItems && (details.kind === "catalog" || details.kind === "moving" || details.kind === "service") },
     details,
   };
 }

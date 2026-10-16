@@ -144,6 +144,15 @@ describe("POST /api/site/service-request", () => {
       productsSummary: "Service request (Electrician)",
       priceExVat: 0,
       priceSubcontractor: 0,
+      // Opens in the admin WebsiteOrderModal, with the answers as cards.
+      websiteOrderKind: "SERVICE",
+      websiteBookingDetails: {
+        version: 1,
+        customerType: "business",
+        serviceCode: "option-1",
+        customService: "",
+        jobDescription: "Install three ceiling lights in the living room.",
+      },
     });
     expect(data.description).toContain("Service: Electrician");
     expect(data.description).toContain("Customer type: Business");
@@ -161,7 +170,9 @@ describe("POST /api/site/service-request", () => {
     const res = await post({ ...validBody, serviceCode: "custom", customService: "Painter" });
 
     expect(res.status).toBe(200);
-    expect(mocks.orderCreate.mock.calls[0][0].data.productsSummary).toBe("Service request (Custom service — Painter)");
+    const data = mocks.orderCreate.mock.calls[0][0].data;
+    expect(data.productsSummary).toBe("Service request (Custom service — Painter)");
+    expect(data.websiteBookingDetails).toMatchObject({ serviceCode: "custom", customService: "Painter" });
   });
 
   it("returns 500 when the website membership isn't configured", async () => {

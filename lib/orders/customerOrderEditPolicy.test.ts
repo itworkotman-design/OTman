@@ -78,6 +78,10 @@ describe("getCustomerEditPermissions", () => {
     expect(getCustomerEditPermissions({ ...base, websiteOrderKind: null }, new Date("2026-09-01T00:00:00Z")).canEditItems).toBe(false);
     expect(getCustomerEditPermissions({ ...base, websiteOrderKind: "MOVING" }, new Date("2026-09-01T00:00:00Z")).canEditItems).toBe(true);
   });
+
+  it("lets a service request change its service and address too", () => {
+    expect(getCustomerEditPermissions({ ...base, websiteOrderKind: "SERVICE" }, new Date("2026-09-01T00:00:00Z")).canEditItems).toBe(true);
+  });
 });
 
 function state(overrides: Partial<CustomerEditState> = {}): CustomerEditState {

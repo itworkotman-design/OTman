@@ -35,6 +35,13 @@ type SnapshotLine = Parameters<typeof buildOrderPricingSnapshot>[0]["lines"][num
 const isMove = (item: Pick<MovingOrderItem, "productCode">) =>
   item.productCode === MOVING_PRODUCT_CODE || item.productCode === MOVING_SERVICES_PRODUCT_CODE;
 
+// Which lines are the order's own product (the rest are order extras) and
+// what it's called — the move itself here; a service request's quote
+// (serviceOrderCalculator) is priced the same way under its own name.
+export type CalculatorMainGroup = { name: string; isMain: (item: Pick<MovingOrderItem, "productCode">) => boolean };
+
+const MOVING_GROUP: CalculatorMainGroup = { name: "Moving", isMain: isMove };
+
 // Which line of a move this is, the same however it's re-priced: its product
 // and option code, plus the end of the move for a per-end surcharge (read
 // from the label movingFloorSurchargeLines / movingCarrySurchargeLines write).
@@ -55,7 +62,7 @@ const kr = (cents: number | null, qty: number) => Math.round(((cents ?? 0) * qty
 export function movingOrderCalculatorView(
   items: MovingOrderItem[],
   adjustments: MovingAdjustments,
-  { includePartner }: { includePartner: boolean },
+  { includePartner, mainGroup = MOVING_GROUP }: { includePartner: boolean; mainGroup?: CalculatorMainGroup },
 ): WebsiteOrderCalculatorView {
   const nulled = adjustments.nulledLines ?? NO_NULLED;
   // A line set to 0 shows 0 kr and is left out of the totals (as the delivery engine does).
@@ -74,8 +81,8 @@ export function movingOrderCalculatorView(
       nulledPartner: includePartner && nulledPartner,
     };
   };
-  const moveLines = items.filter(isMove).map(line);
-  const extraLines = items.filter((item) => !isMove(item)).map(line);
+  const moveLines = items.filter(mainGroup.isMain).map(line);
+  const extraLines = items.filter((item) => !mainGroup.isMain(item)).map(line);
   const allLines = [...moveLines, ...extraLines];
 
   const subtotal = allLines.reduce((sum, l) => sum + l.customer, 0);
@@ -90,7 +97,7 @@ export function movingOrderCalculatorView(
 
   return {
     products: [
-      ...(moveLines.length > 0 ? [{ name: "Moving", isOrderExtras: false, cardId: 0, lines: moveLines }] : []),
+      ...(moveLines.length > 0 ? [{ name: mainGroup.name, isOrderExtras: false, cardId: 0, lines: moveLines }] : []),
       ...(extraLines.length > 0 ? [{ name: "Order extras", isOrderExtras: true, cardId: null, lines: extraLines }] : []),
     ],
     customer: {
@@ -107,8 +114,12 @@ export function movingOrderCalculatorView(
 // What a move stores (Order.priceExVat, priceSubcontractor, pricingSnapshot)
 // for its lines and adjustments. Without adjustments this is what booking it
 // stores (movingOrderPricing).
-export function movingOrderAdjustedPricing(rows: (MovingOrderItem & SnapshotLine)[], adjustments: MovingAdjustments) {
-  const view = movingOrderCalculatorView(rows, adjustments, { includePartner: true });
+export function movingOrderAdjustedPricing(
+  rows: (MovingOrderItem & SnapshotLine)[],
+  adjustments: MovingAdjustments,
+  mainGroup: CalculatorMainGroup = MOVING_GROUP,
+) {
+  const view = movingOrderCalculatorView(rows, adjustments, { includePartner: true, mainGroup });
   const partner = view.partner!;
   const nulled = adjustments.nulledLines ?? NO_NULLED;
   const snapshot = buildOrderPricingSnapshot({

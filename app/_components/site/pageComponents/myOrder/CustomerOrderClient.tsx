@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { WhiteGoodsBookingFlow } from "@/app/_components/site/BookingModal/whiteGoods/WhiteGoodsBookingFlow";
 import { MovingRequestFlow } from "@/app/_components/site/BookingModal/moving/MovingRequestFlow";
+import { ServiceRequestFlow } from "@/app/_components/site/BookingModal/services/ServiceRequestFlow";
+import { ServiceIcon } from "@/app/_components/site/BookingModal/services/serviceIcons";
+import { SERVICE_REQUEST_OPTIONS, serviceRequestLabel } from "@/lib/content/serviceRequestCatalog";
 import { ProductIcon } from "@/app/_components/site/BookingModal/whiteGoods/productIcons";
 import type { CustomerOrderDetails } from "@/lib/customerAccounts/customerOrderView";
 import type { CustomerOrderProduct } from "@/lib/customerAccounts/customerOrderProducts";
@@ -160,7 +163,7 @@ export default function CustomerOrderClient({ locale, order, products, accountEm
   }
 
   const badge = progressBadge(order.progress, locale);
-  const rules = orderRules({ ...permissions, cutoffText }, locale);
+  const rules = orderRules({ ...permissions, cutoffText, ...(details.kind === "service" ? { kind: "service" as const } : {}) }, locale);
 
   // The stops as booked (catalog orders), or the plain addresses.
   const pickups =
@@ -335,7 +338,7 @@ export default function CustomerOrderClient({ locale, order, products, accountEm
                 <div className="grid gap-2 pt-4 sm:grid-cols-[200px_minmax(0,1fr)]">
                   <dt className="flex items-center gap-3 self-start pt-3 font-semibold text-gray-900">
                     <FlagIcon className="h-5 w-5 text-logoblue" />
-                    {t("Delivery address", "Leveringsadresse")}
+                    {details.kind === "service" ? t("Address", "Adresse") : t("Delivery address", "Leveringsadresse")}
                   </dt>
                   <dd>
                     <AddressBox address={order.deliveryAddress} details={[deliveryDetail]} />
@@ -344,6 +347,30 @@ export default function CustomerOrderClient({ locale, order, products, accountEm
               )}
             </dl>
           </section>
+
+          {details.kind === "service" && (
+            <section className={CARD}>
+              <CardTitle icon={<BoxIcon className="h-7 w-7" />}>{t("Service", "Tjeneste")}</CardTitle>
+              <div className="mt-5 flex items-center gap-4 rounded-xl bg-slate-50 px-4 py-3">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-logoblue/10 text-logoblue">
+                  <ServiceIcon
+                    iconKey={SERVICE_REQUEST_OPTIONS.find((o) => o.code === details.service.serviceCode)?.iconKey ?? "custom"}
+                    className="h-7 w-7"
+                  />
+                </span>
+                <p className="font-semibold text-gray-900">
+                  {serviceRequestLabel(details.service.serviceCode, details.service.customService, locale) ?? "—"}
+                </p>
+              </div>
+              <div className="mt-5 flex min-w-0 gap-3 text-sm">
+                <NoteIcon className="mt-0.5 h-5 w-5 shrink-0 text-gray-700" />
+                <div className="min-w-0 wrap-anywhere">
+                  <p className="font-semibold text-gray-900">{t("What needs doing", "Hva skal gjøres")}</p>
+                  <p className="mt-1 whitespace-pre-line text-gray-700">{details.service.jobDescription || "—"}</p>
+                </div>
+              </div>
+            </section>
+          )}
 
           {products.length > 0 && (
             <section className={CARD}>
@@ -440,6 +467,14 @@ export default function CustomerOrderClient({ locale, order, products, accountEm
 
       {editing && details.kind === "catalog" && (
         <WhiteGoodsBookingFlow
+          locale={locale}
+          onClose={() => setEditing(false)}
+          customer={{ orderNumber, beforeCutoff: permissions.beforeCutoff, onSaved: saved }}
+        />
+      )}
+
+      {editing && details.kind === "service" && (
+        <ServiceRequestFlow
           locale={locale}
           onClose={() => setEditing(false)}
           customer={{ orderNumber, beforeCutoff: permissions.beforeCutoff, onSaved: saved }}

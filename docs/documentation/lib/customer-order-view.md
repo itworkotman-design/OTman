@@ -22,3 +22,5 @@ Builds a customer's own order as "My order" reads it.
 | `customerOrderView` | Combines the order summary, the edit permissions (`getCustomerEditPermissions`) and the details. `order.rejectionNote` is the status notes only while the order is `rejected` (the reason the customer needs); otherwise it is `null`, because status notes are internal. |
 
 `customerOrderDetails`: a `MOVING` order with stored answers is `{ kind: "moving", customer, preferredDate, timeWindow, customerType, moving: MovingEdit }`; a move without them stays `basic`.
+
+A homepage service request (`SERVICE` with stored answers) is `kind: "service"` with `customerType` and `service` (`serviceAnswersOf(serviceEditFromOrder(order))` — the quote left out).
