@@ -10,16 +10,19 @@ import { getOrderChargeAmountIncVatNok } from "@/lib/orders/orderTotals";
 import {
   partnerPricesFromCalculator,
   partnerPricesFromMovingItems,
+  partnerPricesFromServiceItems,
   partnerViewerRole,
   type PartnerPriceView,
 } from "@/lib/orders/partnerOrderView";
+import { parseServiceBookingDetails, SERVICE_ORDER_KIND } from "@/lib/orders/serviceBookingDetails";
+import { serviceEditFromOrder } from "@/lib/orders/serviceOrderEdit";
 import { parseWhiteGoodsBookingDetails, withLiveOrderFields } from "@/lib/orders/websiteBookingDetails";
 import { websiteOrderCalculatorView } from "@/lib/orders/websiteOrderCalculator";
 import { recomputeWebsiteOrderPricing, resolveSavedCatalogPricing } from "@/lib/orders/websiteOrderRepricing";
 import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 
-// The booking app's read-only view of a homepage website order (delivery or
-// move) — what ReadOnlyOrderModal shows the assigned partner (and an order
+// The booking app's read-only view of a homepage website order (delivery,
+// move or service request) — what ReadOnlyOrderModal shows the assigned partner (and an order
 // creator) instead of re-pricing the order with the dashboard engine: the job
 // as booked and the partner's price, line by line, from what's stored on the
 // order (a delivery's through the same calculator as the admin modal, a
@@ -141,6 +144,28 @@ export async function GET(req: Request, { params }: Params) {
         },
         sizeOptions,
         partner: partnerPricesFromMovingItems(order.items, order.priceSubcontractor, movingAdjustmentsFromOrder(order)),
+      },
+    });
+  }
+
+  // A service request: each service with what needs doing, where and when, and
+  // the partner's side of staff's quotes (as the admin calculator) — the
+  // services without their quotes, so the customer's price never goes along.
+  const serviceEdit = order.websiteOrderKind === SERVICE_ORDER_KIND ? serviceEditFromOrder(order) : null;
+  if (serviceEdit) {
+    return NextResponse.json({
+      ok: true,
+      view: {
+        ...common,
+        kind: "service",
+        service: {
+          customerType: parseServiceBookingDetails(order.websiteBookingDetails)?.customerType ?? null,
+          services: serviceEdit.services.map(({ serviceCode, customService, jobDescription }) => ({ serviceCode, customService, jobDescription })),
+          address: serviceEdit.address,
+          preferredDate: order.deliveryDate ?? "",
+          timeWindow: order.timeWindow ?? "",
+        },
+        partner: partnerPricesFromServiceItems(order.items, order.priceSubcontractor, movingAdjustmentsFromOrder(order)),
       },
     });
   }

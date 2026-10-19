@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { partnerPricesFromCalculator, partnerPricesFromMovingItems, partnerViewerRole } from "./partnerOrderView";
+import { partnerPricesFromCalculator, partnerPricesFromMovingItems, partnerPricesFromServiceItems, partnerViewerRole } from "./partnerOrderView";
 
 describe("partnerViewerRole (who opens a website order read-only, and as what)", () => {
   const order = { subcontractorMembershipId: "m-partner", createdByMembershipId: "m-website", customerMembershipId: "m-website" };
@@ -105,6 +105,38 @@ describe("partnerPricesFromMovingItems (a move)", () => {
         { label: "Partner plus", qty: 1, price: 100 },
       ],
     });
+    expect(view.mismatch).toBe(0);
+  });
+});
+
+describe("partnerPricesFromServiceItems (a service request)", () => {
+  it("lists each quoted service's partner price and express as an extra, as the admin calculator does", () => {
+    const items = [
+      { productCode: "SERVICE_QUOTE", optionCode: "QUOTE:option-1", optionLabel: "Electrician", quantity: 1, customerPriceCents: 250000, subcontractorPriceCents: 180000 },
+      { productCode: "MOVING_EXPRESS", optionCode: "EXPRESS", optionLabel: "Express", quantity: 1, customerPriceCents: 50000, subcontractorPriceCents: 20000 },
+    ];
+    expect(partnerPricesFromServiceItems(items, 2000)).toEqual({
+      groups: [
+        { name: "Service", lines: [{ label: "Electrician", qty: 1, price: 1800 }] },
+        { name: "Order extras", lines: [{ label: "Express", qty: 1, price: 200 }] },
+      ],
+      total: 2000,
+      mismatch: 0,
+    });
+  });
+
+  it("shows a service set to 0 for the partner at 0", () => {
+    const items = [
+      { productCode: "SERVICE_QUOTE", optionCode: "QUOTE:option-1", optionLabel: "Electrician", quantity: 1, customerPriceCents: 250000, subcontractorPriceCents: 180000 },
+    ];
+    const view = partnerPricesFromServiceItems(items, 0, {
+      rabatt: null,
+      leggTil: null,
+      subcontractorMinus: null,
+      subcontractorPlus: null,
+      nulledLines: { customer: [], subcontractor: ["SERVICE_QUOTE:QUOTE:option-1"] },
+    });
+    expect(view.groups[0].lines[0].price).toBe(0);
     expect(view.mismatch).toBe(0);
   });
 });

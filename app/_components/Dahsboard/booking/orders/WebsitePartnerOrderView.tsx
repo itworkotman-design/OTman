@@ -5,8 +5,10 @@ import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import type { MovingCatalogOption } from "@/lib/content/getMovingCatalog";
 import type { MovingEdit } from "@/lib/orders/movingOrderEdit";
 import type { PartnerPriceView, PartnerViewerRole } from "@/lib/orders/partnerOrderView";
-import type { WhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetails";
+import type { ServiceRequestItem } from "@/lib/orders/serviceBookingDetails";
+import type { BookingCustomerType, WhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetails";
 import { buildMovingReviewBlocks } from "@/app/_components/site/BookingModal/moving/movingReview";
+import { buildServiceReviewBlocks } from "@/app/_components/site/BookingModal/services/serviceReview";
 import { buildOrderReviewBlocks, type ReviewBlock } from "@/app/_components/site/BookingModal/whiteGoods/orderReview";
 import { OrderReviewBlocks } from "@/app/_components/site/BookingModal/whiteGoods/OrderReviewParts";
 
@@ -28,6 +30,17 @@ export type WebsitePartnerView =
       kind: "moving";
       moving: { edit: MovingEdit; preferredDate: string; timeWindow: string; drivingDistance: string };
       sizeOptions: MovingCatalogOption[];
+    })
+  | (ViewBase & {
+      kind: "service";
+      // The services without staff's quotes — the partner's side is in `partner`.
+      service: {
+        customerType: BookingCustomerType | null;
+        services: ServiceRequestItem[];
+        address: string;
+        preferredDate: string;
+        timeWindow: string;
+      };
     });
 
 // The partner view for an order: "loading", the website view, or "other"
@@ -64,6 +77,7 @@ function kr(n: number) {
 export function websitePartnerReviewBlocks(view: WebsitePartnerView, locale: BookingUiLocale): ReviewBlock[] {
   const siteLocale = locale === "nb" ? "no" : "en";
   // The partner sees the customer's contact (they meet them on the job).
+  if (view.kind === "service") return buildServiceReviewBlocks(siteLocale, { ...view.service, contact: view.contact });
   return view.kind === "moving"
     ? buildMovingReviewBlocks(siteLocale, {
         pickupAddress: view.moving.edit.pickupAddress,
@@ -98,10 +112,11 @@ export default function WebsitePartnerOrderView({ view, locale }: { view: Websit
 
   return (
     <div className="grid max-h-[72vh] gap-4 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="flex flex-col gap-4">
-        <OrderReviewBlocks blocks={blocks} />
+      {/* All the order's details in one card, sections split by a line (as in the admin modal). */}
+      <div className="divide-y divide-black/10 self-start rounded-2xl border border-black/10 bg-white">
+        <OrderReviewBlocks blocks={blocks} bare />
         {notes.length > 0 && (
-          <div className="rounded-2xl border border-black/10 bg-white p-6">
+          <div className="p-6">
             <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
               {notes.map(([label, value]) => (
                 <Fragment key={label}>

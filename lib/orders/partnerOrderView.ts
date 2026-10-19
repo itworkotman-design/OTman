@@ -2,10 +2,11 @@ import { hasFullAccess, hasPermission } from "@/lib/users/access";
 import type { AppPermission, Role } from "@/lib/users/types";
 import { movingOrderCalculatorView, type MovingAdjustments } from "./movingOrderCalculator";
 import type { MovingOrderItem } from "./movingOrderView";
+import { serviceOrderCalculatorView } from "./serviceOrderCalculator";
 import { roundNok } from "./orderTotals";
 import type { WebsiteOrderCalculatorView } from "./websiteOrderCalculator";
 
-// The booking app's read-only view of a homepage website order (delivery or
+// The booking app's read-only view of a homepage website order (delivery, service or
 // move) for whoever isn't an admin there — the assigned partner above all:
 // the job as booked and the partner's own price, read from what's stored on
 // the order instead of re-pricing it with the dashboard engine (which doesn't
@@ -68,4 +69,15 @@ export function partnerPricesFromMovingItems(
   adjustments: MovingAdjustments = { rabatt: null, leggTil: null, subcontractorMinus: null, subcontractorPlus: null },
 ): PartnerPriceView {
   return partnerPricesFromCalculator(movingOrderCalculatorView(items, adjustments, { includePartner: true }), storedTotal);
+}
+
+// A service request: staff's quotes (a line per service) and express/deviation,
+// priced like a move — the admin calculator's partner side
+// (serviceOrderCalculatorView), so it matches the stored partner price.
+export function partnerPricesFromServiceItems(
+  items: MovingOrderItem[],
+  storedTotal: number,
+  adjustments: MovingAdjustments = { rabatt: null, leggTil: null, subcontractorMinus: null, subcontractorPlus: null },
+): PartnerPriceView {
+  return partnerPricesFromCalculator(serviceOrderCalculatorView(items, adjustments, { includePartner: true }), storedTotal);
 }

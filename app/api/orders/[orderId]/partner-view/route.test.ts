@@ -165,6 +165,48 @@ describe("GET /api/orders/[orderId]/partner-view", () => {
     expect(mocks.recompute).not.toHaveBeenCalled();
   });
 
+  const serviceOrder = {
+    ...whiteGoods,
+    websiteOrderKind: "SERVICE",
+    priceExVat: 2500,
+    priceSubcontractor: 1800,
+    deliveryAddress: "Storgata 1",
+    websiteBookingDetails: {
+      version: 2,
+      customerType: "business",
+      services: [{ serviceCode: "option-1", customService: "", jobDescription: "Bytte stikkontakter" }],
+    },
+    pricingSnapshot: { customer: { totalExVat: 2500, totalIncVat: 3125 }, lines: [] },
+    items: [
+      { productCode: "SERVICE_QUOTE", optionCode: "QUOTE:option-1", optionLabel: "Electrician", quantity: 1, customerPriceCents: 250000, subcontractorPriceCents: 180000 },
+    ],
+  };
+
+  it("serves a service request: the job as booked and the partner's quoted price, never the customer's quote", async () => {
+    mocks.orderFindFirst.mockResolvedValue(serviceOrder);
+    const json = await (await call()).json();
+    expect(json.ok).toBe(true);
+    expect(json.view.kind).toBe("service");
+    expect(json.view.service).toEqual({
+      customerType: "business",
+      services: [{ serviceCode: "option-1", customService: "", jobDescription: "Bytte stikkontakter" }],
+      address: "Storgata 1",
+      preferredDate: "2026-10-10",
+      timeWindow: "08:00-16:00",
+    });
+    expect(json.view.partner).toEqual({ groups: [{ name: "Service", lines: [{ label: "Electrician", qty: 1, price: 1800 }] }], total: 1800, mismatch: 0 });
+    expect(json.view.customer).toBeNull();
+    expect(JSON.stringify(json.view)).not.toContain("2500");
+    expect(mocks.recompute).not.toHaveBeenCalled();
+  });
+
+  it("serves a service request staff haven't quoted yet, with no lines", async () => {
+    mocks.orderFindFirst.mockResolvedValue({ ...serviceOrder, priceExVat: 0, priceSubcontractor: 0, items: [] });
+    const json = await (await call()).json();
+    expect(json.view.kind).toBe("service");
+    expect(json.view.partner).toEqual({ groups: [], total: 0, mismatch: 0 });
+  });
+
   it("isn't for orders that aren't homepage website orders (the old view stays)", async () => {
     mocks.orderFindFirst.mockResolvedValue({ ...whiteGoods, websiteOrderKind: null });
     expect((await (await call()).json()).reason).toBe("NOT_WEBSITE_ORDER");
