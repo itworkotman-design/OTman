@@ -32,14 +32,19 @@ describe("orderRules", () => {
     expect(rules.join(" ")).not.toContain("utpakking");
   });
 
-  it("a service request: date, address and service until the cutoff, then the job description and contact details", () => {
+  it("a service request: everything until the cutoff, then nothing can be changed", () => {
     const before = orderRules({ open: true, beforeCutoff: true, canEditItems: true, cutoffText: cutoff, kind: "service" }, "no");
-    expect(before[0]).toBe(`Du kan endre dato, adresse og tjeneste frem til ${cutoff}.`);
-    expect(before[2]).toBe("Etter det kan du fortsatt endre beskrivelsen av jobben og kontaktinformasjonen din.");
+    expect(before).toEqual([
+      `Du kan endre bestillingen frem til ${cutoff}.`,
+      `Du kan avbestille bestillingen selv frem til ${cutoff}.`,
+      "Etter det kan bestillingen ikke endres. Vil du avbestille, sender du oss en forespørsel, så tar vi kontakt.",
+    ]);
 
     const after = orderRules({ open: true, beforeCutoff: false, canEditItems: true, cutoffText: cutoff, kind: "service" }, "no");
-    expect(after[0]).toBe(`Fristen for å endre dato, adresse og tjeneste var ${cutoff}.`);
-    expect(after.join(" ")).not.toContain("utpakking");
+    expect(after).toEqual([
+      `Fristen for å endre bestillingen var ${cutoff}, så den kan ikke endres lenger.`,
+      "Vil du avbestille, sender du oss en forespørsel, så tar vi kontakt.",
+    ]);
   });
 
   it("an order with no date yet: 24h before the delivery", () => {

@@ -201,6 +201,7 @@ describe("customer order route", () => {
         beforeCutoff: true,
         cutoffAt: "2026-10-09T06:00:00.000Z",
         canEditItems: true,
+        editableAfterCutoff: true,
       });
       expect(json.details.customer).toMatchObject({ name: "Kari", phone: "87654321", email: "kari@example.no" });
       expect(json.productCards).toEqual([normalizeSavedProductCard(washerCard as never, 0)]);

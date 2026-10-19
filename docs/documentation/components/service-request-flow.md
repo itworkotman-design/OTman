@@ -18,10 +18,13 @@ website order for staff to quote.
 Holds the flow's state and renders the `SteppedModal`. The service step is
 complete as soon as every picked service is described (and a custom one named),
 opening the address step right away; it's held while any service is picked, so
-adding another doesn't fold the steps already opened.
+adding another doesn't fold the steps already opened. The per-service
+description boxes sit in an `AnimatedStack`, so they slide open/closed; once a
+just-picked service's box has opened, the modal smoothly scrolls to it and
+focuses its first field.
 
 With `customer` (`ServiceCustomerEdit`: "My order") it loads the customer's
 own request from `/api/customer/orders/[orderNumber]`, shows every section but
-the customer type, and saves through `CustomerOrderEditFooter`. Within 24h of
-the job only the service step (its tiles locked, the descriptions editable) and
-"Your details" are shown.
+the customer type, and saves through `CustomerOrderEditFooter`. It is only
+opened before the 24h cutoff — after that a service request can't be changed
+at all, and "My order" hides "Change order".

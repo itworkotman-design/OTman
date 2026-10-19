@@ -21,12 +21,12 @@ The cutoff is 24 hours before the time window starts, in **Oslo time**. The star
 | Function | Purpose |
 |---|---|
 | `getEditCutoff` | Returns the cutoff time, or `null`. |
-| `getCustomerEditPermissions` | Returns `{ open, beforeCutoff, cutoffAt, canEditItems }`. |
+| `getCustomerEditPermissions` | Returns `{ open, beforeCutoff, cutoffAt, canEditItems, editableAfterCutoff }`. `editableAfterCutoff` is false only for `SERVICE` orders. |
 | `isBookableDeliveryDate` | The booking calendar's day rule on its own: from tomorrow (Oslo), not a Sunday or a Norwegian public holiday. New homepage orders are held to it on the server. |
 | `isAllowedNewSchedule` | Checks a new date and time window. The date must follow the booking calendar's rules: from tomorrow, and not a Sunday or a Norwegian public holiday. The new slot's own cutoff must still be in the future. |
 | `classifyCustomerOrderEdit` | Lists which kinds of change a request makes: `contact`, `notes`, `schedule`, `addresses`, `addOns` (a product only gets services added: lists grow, a return or dismantling is switched on, doorstep → carry-in), `reconfigure` (any other change to a product's setup), `addProduct`, `removeProduct`, `quantity`. A pickup stop's contact person counts as contact, and product names on stops are ignored. Parts the request leaves out aren't compared. |
-| `findForbiddenChanges` | Returns the kinds of change the permissions don't allow. After the 24h cutoff only `contact`, `notes` and `addOns` are allowed, so removing or downgrading a service is refused (`EDIT_NOT_ALLOWED`). |
+| `findForbiddenChanges` | Returns the kinds of change the permissions don't allow. After the 24h cutoff only `contact`, `notes` and `addOns` are allowed (nothing at all when `editableAfterCutoff` is false), so removing or downgrading a service is refused (`EDIT_NOT_ALLOWED`). |
 
 `canEditItems` is true for `WHITE_GOODS` and `MOVING` orders (a move's addresses, ends and services are edited through `movingOrderEdit.ts`, classified into the same change kinds).
 
-A service request (`SERVICE`) also gets `canEditItems`, so its address and service can change until the cutoff (`classifyServiceEdit` in `lib/orders/serviceOrderEdit.ts`).
+A service request (`SERVICE`) also gets `canEditItems`, so its address and service can change until the cutoff (`classifyServiceEdit` in `lib/orders/serviceOrderEdit.ts`). After the cutoff nothing on it can change — not the job descriptions or contact details either.

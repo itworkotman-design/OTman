@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import CustomerOrderEditFooter from "@/app/_components/site/pageComponents/myOrder/CustomerOrderEditFooter";
 import type {
   CustomerEditDraft,
@@ -8,7 +8,7 @@ import type {
   CustomerServiceItemDraft,
 } from "@/app/_components/site/pageComponents/myOrder/customerEditPayload";
 import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create/AddressAutocompleteInput";
-import { SteppedModal, type FinalStep, type StepSection } from "../SteppedModal";
+import { AnimatedStack, SteppedModal, TRANSITION_MS, type FinalStep, type StepSection } from "../SteppedModal";
 import { CustomerTypeStep } from "../whiteGoods/CustomerTypeStep";
 import { AutoAdvance } from "../AutoAdvance";
 import { DateTimeWindowFields } from "../whiteGoods/DateTimeWindowFields";
@@ -42,9 +42,9 @@ import { buildServiceReviewBlocks } from "./serviceReview";
 // The same flow, opened by the customer on their own request in "My order"
 // (like MovingCustomerEdit): loaded from /api/customer/orders/[orderNumber]
 // with every section open, saved through its PUT from the edit bar
-// (CustomerOrderEditFooter). Within 24h of the job only the contact details
-// and the job descriptions are left (no services added or removed). The
-// quotes are staff's — never shown here.
+// (CustomerOrderEditFooter). Only offered until 24h before the job — after
+// that a service request can't be changed at all (customerOrderEditPolicy).
+// The quotes are staff's — never shown here.
 
 export type ServiceCustomerEdit = {
   orderNumber: string;
@@ -73,12 +73,32 @@ export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
     services.every((service) => isServiceChoiceReady(service.serviceCode, service.customService) && !!service.jobDescription.trim());
   const updateService = (serviceCode: string, patch: Partial<CustomerServiceItemDraft>) =>
     setServices((list) => list.map((service) => (service.serviceCode === serviceCode ? { ...service, ...patch } : service)));
-  const toggleService = (serviceCode: string) =>
+  // A just-picked service's description box animates open (AnimatedStack),
+  // then the modal body smoothly scrolls down to it and focuses its first
+  // field — not before, or the focus would jump the scroll mid-animation.
+  const justAddedServiceRef = useRef<string | null>(null);
+  const toggleService = (serviceCode: string) => {
+    const adding = !services.some((service) => service.serviceCode === serviceCode);
+    justAddedServiceRef.current = adding ? serviceCode : null;
     setServices((list) =>
       list.some((service) => service.serviceCode === serviceCode)
         ? list.filter((service) => service.serviceCode !== serviceCode)
         : [...list, { serviceCode, customService: "", jobDescription: "" }],
     );
+  };
+  useEffect(() => {
+    const serviceCode = justAddedServiceRef.current;
+    if (!serviceCode) return;
+    justAddedServiceRef.current = null;
+    const timer = window.setTimeout(() => {
+      const box = document.querySelector<HTMLElement>(`[data-service-description="${CSS.escape(serviceCode)}"]`);
+      if (!box) return;
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      box.scrollIntoView({ block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
+      box.querySelector<HTMLElement>("input, textarea")?.focus({ preventScroll: true });
+    }, TRANSITION_MS + 50);
+    return () => window.clearTimeout(timer);
+  }, [services]);
 
   const [address, setAddress] = useState("");
   // Picked from the autocomplete suggestions (not free-typed) — required to
@@ -100,7 +120,6 @@ export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
   const [notes, setNotes] = useState("");
 
   // "My order": the customer's own request, loaded into the flow's state.
-  const customerLocked = !!customer && !customer.beforeCutoff;
   const [customerLoaded, setCustomerLoaded] = useState(!customer);
   const [customerLoadError, setCustomerLoadError] = useState(false);
   // The order as loaded — what the edit bar compares the flow with.
@@ -236,15 +255,12 @@ export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
                   key={option.code}
                   type="button"
                   aria-pressed={selected}
-                  // Within 24h of the job the services are locked (only their descriptions can change).
-                  disabled={customerLocked}
                   onClick={() => toggleService(option.code)}
                   className={[
                     "relative flex w-36 flex-col items-center gap-2 rounded-2xl border px-4 py-4 text-center transition",
-                    customerLocked && !selected ? "opacity-40" : "",
                     selected
                       ? "border-logoblue bg-logoblue/5"
-                      : "border-black/10 hover:-translate-y-0.5 hover:border-logoblue/40 hover:shadow-md disabled:hover:translate-y-0 disabled:hover:shadow-none",
+                      : "border-black/10 hover:-translate-y-0.5 hover:border-logoblue/40 hover:shadow-md",
                   ].join(" ")}
                 >
                   {selected && (
@@ -270,40 +286,45 @@ export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
 
           {/* What needs doing — one box per picked service, right under the
               tiles, saved with that service. */}
-          {services.map((service) => {
-            const option = SERVICE_REQUEST_OPTIONS.find((o) => o.code === service.serviceCode);
-            const isCustom = service.serviceCode === SERVICE_REQUEST_CUSTOM_CODE;
-            return (
-              <div key={service.serviceCode} className="flex w-full max-w-xl flex-col gap-2 rounded-2xl border border-black/10 bg-white p-4">
-                <div className="flex items-center gap-2 text-sm font-semibold text-logoblue">
-                  <ServiceIcon iconKey={option?.iconKey ?? "custom"} className="h-5 w-5" />
-                  {option ? (locale === "no" ? option.labelNo : option.labelEn) : service.serviceCode}
-                </div>
-                {isCustom && (
-                  <input
-                    value={service.customService}
-                    maxLength={200}
-                    autoFocus={!customer}
-                    disabled={customerLocked}
-                    onChange={(e) => updateService(service.serviceCode, { customService: sanitizeTextInput(e.target.value) })}
-                    placeholder={t("Which service do you need?", "Hvilken tjeneste trenger du?")}
-                    className="h-11 w-full rounded-lg border border-black/15 px-3 text-sm"
-                  />
-                )}
-                <textarea
-                  value={service.jobDescription}
-                  onChange={(e) => updateService(service.serviceCode, { jobDescription: sanitizeTextInput(e.target.value) })}
-                  rows={3}
-                  maxLength={1000}
-                  placeholder={t(
-                    "What do you need done? The more detail, the more accurate the quote.",
-                    "Hva skal gjøres? Jo flere detaljer, jo mer presist tilbud.",
-                  )}
-                  className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm"
-                />
-              </div>
-            );
-          })}
+          <AnimatedStack
+            gap={16}
+            className="w-full max-w-xl"
+            items={services.map((service) => {
+              const option = SERVICE_REQUEST_OPTIONS.find((o) => o.code === service.serviceCode);
+              const isCustom = service.serviceCode === SERVICE_REQUEST_CUSTOM_CODE;
+              return {
+                key: service.serviceCode,
+                node: (
+                  <div data-service-description={service.serviceCode} className="flex w-full flex-col gap-2 rounded-2xl border border-black/10 bg-white p-4">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-logoblue">
+                      <ServiceIcon iconKey={option?.iconKey ?? "custom"} className="h-5 w-5" />
+                      {option ? (locale === "no" ? option.labelNo : option.labelEn) : service.serviceCode}
+                    </div>
+                    {isCustom && (
+                      <input
+                        value={service.customService}
+                        maxLength={200}
+                        onChange={(e) => updateService(service.serviceCode, { customService: sanitizeTextInput(e.target.value) })}
+                        placeholder={t("Which service do you need?", "Hvilken tjeneste trenger du?")}
+                        className="h-11 w-full rounded-lg border border-black/15 px-3 text-sm"
+                      />
+                    )}
+                    <textarea
+                      value={service.jobDescription}
+                      onChange={(e) => updateService(service.serviceCode, { jobDescription: sanitizeTextInput(e.target.value) })}
+                      rows={3}
+                      maxLength={1000}
+                      placeholder={t(
+                        "What do you need done? The more detail, the more accurate the quote.",
+                        "Hva skal gjøres? Jo flere detaljer, jo mer presist tilbud.",
+                      )}
+                      className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm"
+                    />
+                  </div>
+                ),
+              };
+            })}
+          />
           {/* Held while any service is picked, so adding another (not yet
               described) doesn't fold the steps already opened below. */}
           <AutoAdvance ready={servicesReady} hold={services.length > 0} onReady={onComplete} onRetract={onUncomplete} />
@@ -491,12 +512,8 @@ export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
   };
 
   if (customer) {
-    // Everything but the customer type (answered at booking); within 24h of
-    // the job only the job description (under its locked service) and the
-    // details (contact, comment).
-    const customerSections = customerLocked
-      ? sections.filter((section) => section.id === "service" || section.id === "your-details")
-      : sections.filter((section) => section.id !== "customer-type");
+    // Everything but the customer type (answered at booking).
+    const customerSections = sections.filter((section) => section.id !== "customer-type");
     const loadingSections: StepSection[] = [
       {
         id: "customer-loading",
@@ -516,7 +533,7 @@ export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
         ? t("Choose at least one service.", "Velg minst én tjeneste.")
         : !servicesReady
           ? t("Describe what needs doing for every service.", "Beskriv hva som skal gjøres for hver tjeneste.")
-          : !customerLocked && !addressReady
+          : !addressReady
           ? t("Please choose an address from the suggestions.", "Velg en adresse fra forslagene.")
           : null;
     return (
@@ -524,7 +541,7 @@ export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
         showAll
         sections={customerLoaded ? customerSections : loadingSections}
         finalStep={finalStep}
-        finalStepOpen={!customerLocked && customerSummaryOpen}
+        finalStepOpen={customerSummaryOpen}
         onFinalStepBack={() => setCustomerSummaryOpen(false)}
         onClose={onClose}
         title={

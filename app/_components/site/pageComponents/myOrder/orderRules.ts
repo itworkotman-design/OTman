@@ -10,7 +10,7 @@ type Permissions = {
   canEditItems: boolean;
   // The cutoff, already formatted; null = the order has no date yet.
   cutoffText: string | null;
-  // A service request: its address and service, then the job description.
+  // A service request: everything until the cutoff, nothing after.
   kind?: "service";
 };
 
@@ -25,15 +25,26 @@ export function orderRules(permissions: Permissions, locale: "no" | "en"): strin
     ];
   }
 
-  const service = permissions.kind === "service" && permissions.canEditItems;
-  const whatChanges = service
-    ? t("the date, address and service", "dato, adresse og tjeneste")
-    : permissions.canEditItems
-      ? t("the date, addresses and products", "dato, adresser og varer")
-      : t("the date and time", "dato og tidspunkt");
-  const addOns = service
-    ? t("change the job description and your contact details", "endre beskrivelsen av jobben og kontaktinformasjonen din")
-    : permissions.canEditItems
+  // A service request is frozen completely at the cutoff.
+  if (permissions.kind === "service") {
+    const cancelLater = t("To cancel, send us a request and we will contact you.", "Vil du avbestille, sender du oss en forespørsel, så tar vi kontakt.");
+    if (permissions.beforeCutoff) {
+      return [
+        t(`You can change the order until ${until}.`, `Du kan endre bestillingen frem til ${until}.`),
+        t(`You can cancel the order yourself until ${until}.`, `Du kan avbestille bestillingen selv frem til ${until}.`),
+        `${t("After that the order can't be changed.", "Etter det kan bestillingen ikke endres.")} ${cancelLater}`,
+      ];
+    }
+    return [
+      t(`The deadline for changing the order was ${until}, so it can no longer be changed.`, `Fristen for å endre bestillingen var ${until}, så den kan ikke endres lenger.`),
+      cancelLater,
+    ];
+  }
+
+  const whatChanges = permissions.canEditItems
+    ? t("the date, addresses and products", "dato, adresser og varer")
+    : t("the date and time", "dato og tidspunkt");
+  const addOns = permissions.canEditItems
       ? t("add services such as unpacking and change your contact details", "legge til tjenester som utpakking og endre kontaktinformasjonen din")
       : t("change your contact details", "endre kontaktinformasjonen din");
 

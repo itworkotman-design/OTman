@@ -64,7 +64,7 @@ type Props = {
   // The logged-in account, for the profile menu.
   accountEmail: string;
   details: CustomerOrderDetails;
-  permissions: { open: boolean; beforeCutoff: boolean; cutoffAt: string | null; canEditItems: boolean };
+  permissions: { open: boolean; beforeCutoff: boolean; cutoffAt: string | null; canEditItems: boolean; editableAfterCutoff: boolean };
 };
 
 const SOURCE_LABEL = {
@@ -164,6 +164,8 @@ export default function CustomerOrderClient({ locale, order, products, accountEm
 
   const badge = progressBadge(order.progress, locale);
   const rules = orderRules({ ...permissions, cutoffText, ...(details.kind === "service" ? { kind: "service" as const } : {}) }, locale);
+  // A service request can't be changed at all after the cutoff, so no "Change order".
+  const canChange = permissions.open && (permissions.beforeCutoff || permissions.editableAfterCutoff);
 
   // The stops as booked (catalog orders), or the plain addresses.
   const pickups =
@@ -223,18 +225,20 @@ export default function CustomerOrderClient({ locale, order, products, accountEm
         </div>
         {permissions.open && (
           <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setNotice("");
-                setCancelOpen(false);
-                setEditing(true);
-              }}
-              className="inline-flex h-11 items-center gap-2 rounded-xl border border-gray-300 bg-white px-5 text-sm font-semibold text-logoblue transition hover:border-logoblue"
-            >
-              <CalendarIcon className="h-5 w-5" />
-              {t("Change order", "Endre bestilling")}
-            </button>
+            {canChange && (
+              <button
+                type="button"
+                onClick={() => {
+                  setNotice("");
+                  setCancelOpen(false);
+                  setEditing(true);
+                }}
+                className="inline-flex h-11 items-center gap-2 rounded-xl border border-gray-300 bg-white px-5 text-sm font-semibold text-logoblue transition hover:border-logoblue"
+              >
+                <CalendarIcon className="h-5 w-5" />
+                {t("Change order", "Endre bestilling")}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setCancelOpen((open) => !open)}

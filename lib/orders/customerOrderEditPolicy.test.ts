@@ -57,6 +57,7 @@ describe("getCustomerEditPermissions", () => {
       beforeCutoff: true,
       cutoffAt: new Date("2026-10-05T08:00:00Z"),
       canEditItems: true,
+      editableAfterCutoff: true,
     });
   });
 
@@ -81,6 +82,13 @@ describe("getCustomerEditPermissions", () => {
 
   it("lets a service request change its service and address too", () => {
     expect(getCustomerEditPermissions({ ...base, websiteOrderKind: "SERVICE" }, new Date("2026-09-01T00:00:00Z")).canEditItems).toBe(true);
+  });
+
+  it("freezes a service request completely after the cutoff, unlike other orders", () => {
+    const at = new Date("2026-09-01T00:00:00Z");
+    expect(getCustomerEditPermissions({ ...base, websiteOrderKind: "SERVICE" }, at).editableAfterCutoff).toBe(false);
+    expect(getCustomerEditPermissions({ ...base, websiteOrderKind: "MOVING" }, at).editableAfterCutoff).toBe(true);
+    expect(getCustomerEditPermissions({ ...base, websiteOrderKind: null }, at).editableAfterCutoff).toBe(true);
   });
 });
 
@@ -183,7 +191,7 @@ describe("classifyCustomerOrderEdit", () => {
 });
 
 describe("findForbiddenChanges", () => {
-  const before = { open: true, beforeCutoff: true, cutoffAt: null, canEditItems: true };
+  const before = { open: true, beforeCutoff: true, cutoffAt: null, canEditItems: true, editableAfterCutoff: true };
   const after = { ...before, beforeCutoff: false };
 
   it("allows everything before the cutoff", () => {
@@ -202,6 +210,11 @@ describe("findForbiddenChanges", () => {
       "removeProduct",
       "quantity",
     ]);
+  });
+
+  it("forbids everything after the cutoff on an order frozen then (a service request)", () => {
+    expect(findForbiddenChanges(["contact", "notes", "addOns"], { ...after, editableAfterCutoff: false })).toEqual(["contact", "notes", "addOns"]);
+    expect(findForbiddenChanges(["contact", "notes"], { ...before, editableAfterCutoff: false })).toEqual([]);
   });
 
   it("forbids everything on a closed order", () => {

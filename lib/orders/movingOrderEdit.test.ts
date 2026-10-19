@@ -80,7 +80,7 @@ describe("classifyMovingEdit — the same change kinds as a delivery order", () 
   });
 
   it("so within 24h of the job a customer may only add services", () => {
-    const late = { open: true, beforeCutoff: false, cutoffAt: new Date(), canEditItems: true };
+    const late = { open: true, beforeCutoff: false, cutoffAt: new Date(), canEditItems: true, editableAfterCutoff: true };
     const added = classifyMovingEdit(edit, { ...edit, serviceCodes: ["SERVICE_NEDPAKKING", "SERVICE_FLYTTEVASK"] });
     expect(findForbiddenChanges(added, late)).toEqual([]);
     const moved = classifyMovingEdit(edit, { ...edit, pickupAddress: "Storgata 1, Oslo", serviceCodes: [] });

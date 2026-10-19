@@ -9,7 +9,8 @@ import type { AdminPickupStop } from "./websiteOrderDetailsEdit";
 // delivery type on products already in the order can be changed whenever the
 // order is open — e.g. adding unpacking while the crew is at the door. The
 // date, addresses and which products (and how many) only until 24h before
-// the time window starts. The server checks every request against this; the
+// the time window starts. A service request can't be changed at all after
+// that cutoff. The server checks every request against this; the
 // page's locked sections are only a convenience.
 
 const OSLO = "Europe/Oslo";
@@ -75,6 +76,9 @@ export type CustomerEditPermissions = {
   // request's service and address (its quote stays as staff set it).
   // Special-goods quotes can't.
   canEditItems: boolean;
+  // Whether contact info, notes and add-ons stay editable after the cutoff.
+  // A service request is frozen completely 24h before the job.
+  editableAfterCutoff: boolean;
 };
 
 export function getCustomerEditPermissions(
@@ -88,6 +92,7 @@ export function getCustomerEditPermissions(
     beforeCutoff: open && (cutoffAt === null || now.getTime() < cutoffAt.getTime()),
     cutoffAt,
     canEditItems: order.websiteOrderKind === "WHITE_GOODS" || order.websiteOrderKind === "MOVING" || order.websiteOrderKind === "SERVICE",
+    editableAfterCutoff: order.websiteOrderKind !== "SERVICE",
   };
 }
 
@@ -255,6 +260,7 @@ export function findForbiddenChanges(kinds: CustomerEditKind[], permissions: Cus
   return kinds.filter((kind) => {
     if (!permissions.open) return true;
     if (!permissions.canEditItems && ITEM_KINDS.has(kind)) return true;
-    return !permissions.beforeCutoff && !ALWAYS_ALLOWED.has(kind);
+    if (permissions.beforeCutoff) return false;
+    return !permissions.editableAfterCutoff || !ALWAYS_ALLOWED.has(kind);
   });
 }

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // "My order" for a homepage service request: the customer sees and changes
-// the service, the job and the address under the same 24h policy as the
-// other orders — the job description stays open like a note. Staff's quote
+// the service, the job and the address until 24h before the job; after that
+// nothing (not even the job or contact details) can be changed. Staff's quote
 // (the price) is never the customer's to change.
 
 const mocks = vi.hoisted(() => ({
@@ -205,17 +205,15 @@ describe("customer order route — a homepage service request", () => {
     expect((await res.json()).reason).toBe("INVALID_DETAILS");
   });
 
-  it("within 24h still lets the customer change a job description", async () => {
-    mocks.orderFindFirst.mockResolvedValue(order(afterCutoff));
-    const json = await (await put({ service: { ...service, services: [{ ...electrician, jobDescription: "Install four lights." }] } })).json();
-    expect(json.ok).toBe(true);
-  });
-
-  it("within 24h refuses another address or another service", async () => {
+  it("within 24h refuses every change — address, service, job description, contact details", async () => {
     mocks.orderFindFirst.mockResolvedValue(order(afterCutoff));
     expect((await put({ service: { ...service, address: "Kirkegata 5, Oslo" } })).status).toBe(403);
     expect((await put({ service: { ...service, services: [electrician, carpenter] } })).status).toBe(403);
+    expect((await put({ service: { ...service, services: [{ ...electrician, jobDescription: "Install four lights." }] } })).status).toBe(403);
+    expect((await put({ customer: { name: "Kari", phone: "+47 12345678", email: "kari@example.no", comments: "new note" } })).status).toBe(403);
+    expect((await put({ customer: { name: "Kari Nordmann", phone: "+47 12345678", email: "kari@example.no", comments: "test" } })).status).toBe(403);
     expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.orderUpdate).not.toHaveBeenCalled();
   });
 
   it("has nothing to save when the service comes back unchanged", async () => {

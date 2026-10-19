@@ -84,7 +84,7 @@ type SteppedModalProps = {
   scrollToNewSections?: boolean;
 };
 
-const TRANSITION_MS = 300;
+export const TRANSITION_MS = 300;
 
 // Animates a section in and out: on mount its height grows from 0 and the
 // content fades from 0% to 100% opacity instead of snapping into place, and
