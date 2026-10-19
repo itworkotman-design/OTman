@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
+import { OTMAN_PHONE } from "@/lib/content/companyContact";
 import { buildCustomerEditPayload, customerEditPrimaryAction, type CustomerEditDraft } from "./customerEditPayload";
 
 type Props = {
@@ -30,7 +31,10 @@ function kr(n: number) {
 
 // The save bar when a customer changes their own order in "My order": every
 // change is priced by the server (dryRun), and that price is what the save
-// confirms (shownTotal) — the order is only changed at the price shown.
+// confirms (shownTotal) — the order is only changed at the price shown. On a
+// paid order a dearer change is paid first: the save sends the customer to
+// Stripe for the difference and the change is made once paid; a cheaper one
+// is reviewed by staff, who refund the difference.
 export default function CustomerOrderEditFooter({
   orderNumber,
   initial,
@@ -45,7 +49,8 @@ export default function CustomerOrderEditFooter({
 }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   // The totals the customer sees and confirms: incl. VAT (prices are stored ex. VAT).
-  const [preview, setPreview] = useState<{ previousTotal: number; total: number } | null>(null);
+  // payNow: paid before the change is made. refundOnReview: refunded once staff have reviewed it.
+  const [preview, setPreview] = useState<{ previousTotal: number; total: number; payNow?: number; refundOnReview?: number } | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -67,9 +72,10 @@ export default function CustomerOrderEditFooter({
     ),
     INVALID_DETAILS: t("Check your name, phone and email.", "Sjekk navn, telefon og e-post."),
     WOULD_DECREASE_PRICE: t(
-      "This change would lower the price of a paid order. Contact us and we'll sort it out.",
-      "Endringen ville senket prisen på en betalt bestilling. Ta kontakt, så ordner vi det.",
+      `This close to the job you can only add to your order. To remove something, call us on ${OTMAN_PHONE}.`,
+      `Så nær oppdraget kan du bare legge til i bestillingen. Vil du fjerne noe, ring oss på ${OTMAN_PHONE}.`,
     ),
+    PAYMENT_START_FAILED: t("We couldn't start the payment. Try again.", "Vi fikk ikke startet betalingen. Prøv igjen."),
     SIZE_BRACKETS_REQUIRED: t("Choose a size and weight for every item.", "Velg størrelse og vekt for alle varer."),
     ITEM_NAME_REQUIRED: t("Say what each item is.", "Skriv hva hver vare er."),
     INSTALL_OPTION_REQUIRED: t("Choose an installation option.", "Velg et monteringsvalg."),
@@ -112,7 +118,12 @@ export default function CustomerOrderEditFooter({
         const { ok, json } = await send({ dryRun: true });
         if (seq !== previewSeq.current) return;
         if (ok) {
-          setPreview({ previousTotal: json.previousTotalIncVat, total: json.totalIncVat });
+          setPreview({
+            previousTotal: json.previousTotalIncVat,
+            total: json.totalIncVat,
+            payNow: typeof json.payNowIncVat === "number" ? json.payNowIncVat : undefined,
+            refundOnReview: typeof json.refundOnReviewIncVat === "number" ? json.refundOnReviewIncVat : undefined,
+          });
           setError("");
         } else {
           setPreview(null);
@@ -141,6 +152,20 @@ export default function CustomerOrderEditFooter({
           return;
         }
         setError(errorMessage(json?.reason));
+        return;
+      }
+      // Paid first: the change is made once the payment goes through.
+      if (json.paymentRequired && typeof json.checkoutUrl === "string") {
+        window.location.assign(json.checkoutUrl);
+        return;
+      }
+      if (typeof json.refundOnReviewIncVat === "number" && json.refundOnReviewIncVat > 0) {
+        onSaved(
+          t(
+            `Your order is updated. We'll review the change and refund ${kr(json.refundOnReviewIncVat)} to your card.`,
+            `Bestillingen er oppdatert. Vi går gjennom endringen og tilbakebetaler ${kr(json.refundOnReviewIncVat)} til kortet ditt.`,
+          ),
+        );
         return;
       }
       onSaved(
@@ -183,6 +208,20 @@ export default function CustomerOrderEditFooter({
               <span>{t("New total (incl. VAT)", "Ny totalpris (inkl. MVA)")}</span>
               <span className="tabular-nums">{kr(preview.total)}</span>
             </div>
+            {preview.payNow !== undefined && (
+              <div className="flex justify-between gap-4 font-semibold text-black/80">
+                <span>{t("To pay now", "Å betale nå")}</span>
+                <span className="tabular-nums">{kr(preview.payNow)}</span>
+              </div>
+            )}
+            {preview.refundOnReview !== undefined && (
+              <p className="text-xs text-black/60">
+                {t(
+                  `We'll review the change and refund ${kr(preview.refundOnReview)} to your card.`,
+                  `Vi går gjennom endringen og tilbakebetaler ${kr(preview.refundOnReview)} til kortet ditt.`,
+                )}
+              </p>
+            )}
             {delta !== 0 && (
               <p className="text-xs text-black/60">
                 {delta > 0
@@ -206,7 +245,9 @@ export default function CustomerOrderEditFooter({
             ? t("Go to summary", "Gå til oppsummering")
             : saving
               ? t("Saving…", "Lagrer…")
-              : t("Save changes", "Lagre endringer")}
+              : preview?.payNow !== undefined
+                ? t(`Pay ${kr(preview.payNow)} and save`, `Betal ${kr(preview.payNow)} og lagre`)
+                : t("Save changes", "Lagre endringer")}
         </button>
         <button
           type="button"

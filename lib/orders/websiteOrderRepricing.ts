@@ -28,8 +28,8 @@ import type { SavedProductCard } from "@/app/_components/Dahsboard/booking/creat
 import { findMissingSnapshotPrices } from "@/lib/orders/websitePriceChanges";
 
 // Re-prices an existing website order from a new set of product cards —
-// shared by the customer's "Forgot something?" edit link
-// (app/api/public/orders/[token]/edit-items) and the admin product editor in
+// shared by the customer's "My order" edit
+// (app/api/customer/orders/[orderNumber]) and the admin product editor in
 // WebsiteOrderModal (app/api/orders/[orderId]/website-items). Runs the EXACT
 // SAME pipeline app/api/site/white-goods-order/route.ts uses to create an
 // order, just with the submitted cards, so the recomputed total is consistent

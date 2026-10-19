@@ -42,12 +42,8 @@ export async function getOrderByActionToken(token: string | null | undefined) {
       pricingSnapshot: true,
       productCardsSnapshot: true,
       priceListId: true,
-      // Order-level pricing context — needed to re-run the exact same
-      // pricing pipeline the order was originally priced with (see
-      // app/api/public/orders/[token]/edit-items/route.ts), so a "Forgot
-      // something?" edit changes only what the customer actually touched
-      // (delivery type/addons per product), not e.g. re-deriving express
-      // delivery from whatever "now" happens to be at edit time.
+      // Order-level pricing context — the same pipeline the order was
+      // originally priced with (websiteOrderRepricing).
       drivingDistance: true,
       // Orders made before FULL_DISTANCE_KM_PRICING_FROM keep the old km rule.
       createdAt: true,

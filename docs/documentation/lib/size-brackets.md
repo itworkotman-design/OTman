@@ -26,7 +26,7 @@ existing `modelNumber` — already carried into order items, summaries and the
 dashboard, so no schema change. Enforced server-side
 (`findSizePricedCardsMissingName` + the shared `validateTextField` character
 rules; stored trimmed): `app/api/site/white-goods-order` → 422 "Say what the item
-is…", `.../edit-items` → 422 `ITEM_NAME_REQUIRED`. `buildOrderSummaries` shows it as
+is…", the "My order" edit → 422 `ITEM_NAME_REQUIRED`. `buildOrderSummaries` shows it as
 `Other furniture (Grandfather clock)` in the products summary. The tile has a
 "What is it?" input, and the products step / list gate need the name too. In the
 order calculator (sidebar + final summary) the product is titled with that name
@@ -51,7 +51,7 @@ not translated; another size-priced product would use its own label as the prefi
 - `orders/buildOrderSummaries.ts` — the chosen brackets are always listed.
 - Enforcement: `app/api/site/white-goods-order` (422 if a brackets is missing /
   duplicated — else the surcharge could be dodged by not choosing) and
-  `app/api/public/orders/[token]/edit-items` (422 `SIZE_BRACKETS_REQUIRED`).
+  `app/api/customer/orders/[orderNumber]` (422 `SIZE_BRACKETS_REQUIRED`).
 - UI: the "Choose products" grid is just tiles with a quantity stepper. The
   name, size and weight are the **last section of the product's options card**
   (`WhiteGoodsProductCard`'s `belowOptions`), after Delivery / Installation /

@@ -65,6 +65,8 @@ type Props = {
   accountEmail: string;
   details: CustomerOrderDetails;
   permissions: { open: boolean; beforeCutoff: boolean; cutoffAt: string | null; canEditItems: boolean; editableAfterCutoff: boolean };
+  // Back from Stripe after paying for a change (?endring=betalt / avbrutt).
+  changePayment?: "paid" | "cancelled" | null;
 };
 
 const SOURCE_LABEL = {
@@ -106,12 +108,23 @@ function AddressBox({ address, details = [] }: { address: string; details?: (str
 // time window, then only contact details and add-ons (e.g. unpacking while
 // the crew is there). Every change goes straight onto the order and staff
 // are told.
-export default function CustomerOrderClient({ locale, order, products, accountEmail, details, permissions }: Props) {
+export default function CustomerOrderClient({ locale, order, products, accountEmail, details, permissions, changePayment = null }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const [notice, setNotice] = useState("");
-  const [error, setError] = useState("");
+  const [notice, setNotice] = useState(() =>
+    changePayment === "paid"
+      ? t(
+          "Thanks — your payment went through and your change is being made. It shows here in a moment.",
+          "Takk — betalingen gikk gjennom, og endringen blir lagt inn. Den vises her om et øyeblikk.",
+        )
+      : "",
+  );
+  const [error, setError] = useState(() =>
+    changePayment === "cancelled"
+      ? t("The payment was cancelled, so your order wasn't changed.", "Betalingen ble avbrutt, så bestillingen er ikke endret.")
+      : "",
+  );
   const orderNumber = order.orderNumber ?? "";
   const tag = locale === "no" ? "nb-NO" : "en-GB";
 

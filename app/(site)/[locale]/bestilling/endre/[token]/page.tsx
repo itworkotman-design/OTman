@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getOrderByActionToken } from "@/lib/orders/publicOrderAccess";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import OrderRequestChangeClient from "@/app/_components/site/pageComponents/OrderRequestChangeClient";
-import OrderItemEditorClient from "@/app/_components/site/pageComponents/OrderItemEditorClient";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Be om endring | Otman AS",
@@ -15,12 +15,16 @@ const TEXT = {
     notFound: "Fant ikke bestillingen. Sjekk lenken, eller ta kontakt med oss.",
     notEligible: "Denne bestillingen kan ikke endres akkurat nå. Ta kontakt med oss om du tror dette er feil.",
     order: "Bestilling",
+    myOrder: "Vil du legge til noe, eller endre dato, adresser eller varer? Det gjør du selv i",
+    myOrderLink: "Min bestilling",
   },
   en: {
     heading: "Request a change to your order",
     notFound: "We couldn't find that order. Check the link, or contact us.",
     notEligible: "This order can't be changed right now. Contact us if you think this is a mistake.",
     order: "Order",
+    myOrder: "Want to add something, or change the date, addresses or products? Do it yourself in",
+    myOrderLink: "My order",
   },
 } as const;
 
@@ -62,11 +66,21 @@ export default async function OrderRequestChangePage({
           <p className="mt-4 text-sm text-textColorThird">{t.notEligible}</p>
         ) : (
           <>
-            {/* Self-service reconfiguration of already-ordered items (delivery
-                type/addons only, auto-priced) — only offered once an order is
-                actually paid; before that, staff still handle changes via the
-                free-text request below. */}
-            {normalizedStatus === "confirmed" && <OrderItemEditorClient token={token} locale={locale} />}
+            {/* Changes to products, services, date and addresses are made in
+                "My order", where a change that costs more is paid for first.
+                This page keeps the free-text request. */}
+            {order.orderNumber ? (
+              <p className="mt-4 text-sm text-textColorThird">
+                {t.myOrder}{" "}
+                <Link
+                  href={`/${locale}/min-bestilling/${encodeURIComponent(order.orderNumber)}`}
+                  className="font-semibold text-logoblue underline"
+                >
+                  {t.myOrderLink}
+                </Link>
+                .
+              </p>
+            ) : null}
             <OrderRequestChangeClient token={token} locale={locale} />
           </>
         )}

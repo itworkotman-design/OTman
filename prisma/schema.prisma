@@ -571,6 +571,7 @@ model Order {
   notifications                      OrderNotification[]
   payments                           OrderPayment[]
   refunds                            OrderRefund[]
+  pendingChanges                     OrderPendingChange[]
   recurringOrderOccurrence           RecurringOrderOccurrence?
   legacyWordpressOrderId             Int?                      @unique
   legacyWordpressAuthorId            Int?
@@ -1686,4 +1687,29 @@ model ArchiveSharedRecentOpen {
 
   @@unique([userId, entityKind, entityId])
   @@index([companyId, tenantId, userId, openedAt])
+}
+
+// A customer's "My order" change that makes a paid order dearer: it's paid
+// first, so it waits here (the PUT body as sent) until Stripe confirms the
+// payment, then it's applied — or, if it can't be any more, the payment is
+// refunded. See lib/customerAccounts/customerOrderPaidChange.ts.
+model OrderPendingChange {
+  id                      String    @id @default(cuid())
+  orderId                 String
+  companyId               String
+  // Not a relation: the temporary account may be cleaned up meanwhile.
+  customerAccountId       String
+  body                    Json
+  // What the customer is charged, and the order total it was priced at.
+  amountDueCents          Int
+  expectedTotalIncVat     Float
+  // PENDING → APPLYING → APPLIED | FAILED
+  status                  String    @default("PENDING")
+  stripeCheckoutSessionId String?   @unique
+  failureReason           String?
+  createdAt               DateTime  @default(now())
+  resolvedAt              DateTime?
+  order                   Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
 }

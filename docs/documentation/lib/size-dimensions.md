@@ -23,7 +23,7 @@ a bracket id.
   the one implied by `card.sizeDimensionsCm` (none if dimensions are
   missing / not a preset / too big). **Never trust a client-sent volume bracket**
   — a small bracket with big dimensions would dodge the charge. Used by
-  `app/api/site/white-goods-order` and `app/api/public/orders/[token]/edit-items`,
+  `app/api/site/white-goods-order` and the "My order" edit (`app/api/customer/orders/[orderNumber]`),
   which then require a volume + weight bracket (422 otherwise).
 
 The chosen dimensions are stored on the card (`sizeDimensionsCm`, possibly

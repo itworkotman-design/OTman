@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   createOrderStatusChangedEvent: vi.fn(),
   createOrderNotification: vi.fn(),
   sendLifecycleEmails: vi.fn(),
+  startPaidChangeCheckout: vi.fn(),
 }));
 
 vi.mock("@/lib/customerAccounts/customerSession", () => ({ getCustomerSession: mocks.getCustomerSession }));
@@ -43,6 +44,7 @@ vi.mock("@/lib/orders/orderEvents", () => ({
 }));
 vi.mock("@/lib/orders/orderNotifications", () => ({ createOrderNotification: mocks.createOrderNotification }));
 vi.mock("@/lib/orders/sendCustomerLifecycleEmail", () => ({ sendLifecycleEmailsForOrders: mocks.sendLifecycleEmails }));
+vi.mock("@/lib/customerAccounts/customerOrderPaidChange", () => ({ startPaidChangeCheckout: mocks.startPaidChangeCheckout }));
 
 import { normalizeSavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { GET, PUT } from "./route";
@@ -447,16 +449,115 @@ describe("customer order route", () => {
       expect((await res.json()).reason).toBe("UNKNOWN_PRODUCT");
     });
 
-    it("refuses a cheaper order once something has been paid (refunds aren't built)", async () => {
-      mocks.orderFindFirst.mockResolvedValue(
-        order({ status: "confirmed", payments: [{ amountChargedCents: 100000, createdAt: NOW, orderSnapshot: null }] }),
-      );
-      mocks.recompute.mockImplementation(async (_order: unknown, cards: unknown[]) => recomputed(800, cards));
+    describe("a paid order (1250 kr incl. VAT paid)", () => {
+      const paidOrder = (overrides: Record<string, unknown> = {}) => order({ status: "confirmed", payments: [{ amountChargedCents: 125000, createdAt: NOW, orderSnapshot: null, refunds: [] }], ...overrides });
+      const dearerCards = [{ ...washerCard, selectedExtraOptionIds: ["INSTALL"] }];
 
-      const res = await put({ productCards: [{ ...washerCard, selectedExtraOptionIds: ["NO_PACKAGING_REMOVAL"] }], shownTotal: 800 });
+      beforeEach(() => {
+        mocks.startPaidChangeCheckout.mockResolvedValue({ url: "https://checkout.stripe.test/s1" });
+      });
 
-      expect(res.status).toBe(422);
-      expect((await res.json()).reason).toBe("WOULD_DECREASE_PRICE");
+      it("previews what the customer pays now for a dearer change", async () => {
+        mocks.orderFindFirst.mockResolvedValue(paidOrder());
+        mocks.recompute.mockImplementation(async (_order: unknown, cards: unknown[]) => recomputed(1200, cards));
+
+        const json = await (await put({ productCards: dearerCards, dryRun: true })).json();
+
+        expect(json).toMatchObject({ dryRun: true, totalIncVat: 1500, payNowIncVat: 250 });
+      });
+
+      it("doesn't save a dearer change — it's held and the customer is sent to pay the difference first", async () => {
+        mocks.orderFindFirst.mockResolvedValue(paidOrder());
+        mocks.recompute.mockImplementation(async (_order: unknown, cards: unknown[]) => recomputed(1200, cards));
+
+        const res = await put({ productCards: dearerCards, shownTotal: 1500 });
+
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({
+          ok: true,
+          paymentRequired: true,
+          amountDueIncVat: 250,
+          totalIncVat: 1500,
+          checkoutUrl: "https://checkout.stripe.test/s1",
+        });
+        expect(mocks.startPaidChangeCheckout).toHaveBeenCalledWith(
+          expect.objectContaining({ amountDueCents: 25000, totalIncVat: 1500, body: { productCards: dearerCards, shownTotal: 1500 } }),
+        );
+        expect(mocks.transaction).not.toHaveBeenCalled();
+        expect(mocks.createOrderNotification).not.toHaveBeenCalled();
+        expect(mocks.sendLifecycleEmails).not.toHaveBeenCalled();
+      });
+
+      it("…also within 24h, while the job is under way (adding a service with the driver there)", async () => {
+        mocks.orderFindFirst.mockResolvedValue(paidOrder({ ...afterCutoff, status: "active" }));
+        mocks.recompute.mockImplementation(async (_order: unknown, cards: unknown[]) => recomputed(1200, cards));
+
+        const json = await (await put({ productCards: dearerCards, shownTotal: 1500 })).json();
+
+        expect(json.paymentRequired).toBe(true);
+        expect(mocks.transaction).not.toHaveBeenCalled();
+      });
+
+      it("still checks the shown price before sending anyone to pay", async () => {
+        mocks.orderFindFirst.mockResolvedValue(paidOrder());
+        mocks.recompute.mockImplementation(async (_order: unknown, cards: unknown[]) => recomputed(1200, cards));
+
+        const res = await put({ productCards: dearerCards, shownTotal: 1400 });
+
+        expect(res.status).toBe(409);
+        expect(mocks.startPaidChangeCheckout).not.toHaveBeenCalled();
+      });
+
+      it("reports a failure to start the payment, saving nothing", async () => {
+        mocks.orderFindFirst.mockResolvedValue(paidOrder());
+        mocks.recompute.mockImplementation(async (_order: unknown, cards: unknown[]) => recomputed(1200, cards));
+        mocks.startPaidChangeCheckout.mockRejectedValue(new Error("stripe down"));
+
+        const res = await put({ productCards: dearerCards, shownTotal: 1500 });
+
+        expect(res.status).toBe(502);
+        expect((await res.json()).reason).toBe("PAYMENT_START_FAILED");
+        expect(mocks.transaction).not.toHaveBeenCalled();
+      });
+
+      it("saves a cheaper change before the cutoff and sends a confirmed order back to processing (refund on confirm)", async () => {
+        mocks.orderFindFirst.mockResolvedValue(paidOrder());
+        mocks.recompute.mockImplementation(async (_order: unknown, cards: unknown[]) => recomputed(800, cards));
+
+        const res = await put({ productCards: [{ ...washerCard, selectedExtraOptionIds: ["NO_PACKAGING_REMOVAL"] }], shownTotal: 1000 });
+
+        expect(res.status).toBe(200);
+        expect(mocks.pricingWrites.mock.calls[0][2]).toMatchObject({ status: "processing" });
+        const alert = mocks.createOrderNotification.mock.calls[0][1];
+        expect(alert.message).toContain("refunded");
+        expect(mocks.createOrderStatusChangedEvent).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ fromStatus: "confirmed", toStatus: "processing" }),
+        );
+      });
+
+      it("tells the customer, in the preview and after saving, what is refunded once staff have reviewed a cheaper change", async () => {
+        mocks.orderFindFirst.mockResolvedValue(paidOrder());
+        mocks.recompute.mockImplementation(async (_order: unknown, cards: unknown[]) => recomputed(800, cards));
+        const cheaper = [{ ...washerCard, selectedExtraOptionIds: ["NO_PACKAGING_REMOVAL"] }];
+
+        const preview = await (await put({ productCards: cheaper, dryRun: true })).json();
+        expect(preview).toMatchObject({ totalIncVat: 1000, refundOnReviewIncVat: 250 });
+
+        const saved = await (await put({ productCards: cheaper, shownTotal: 1000 })).json();
+        expect(saved).toMatchObject({ changed: true, refundOnReviewIncVat: 250 });
+      });
+
+      it("refuses a cheaper change within 24h — only additions then", async () => {
+        mocks.orderFindFirst.mockResolvedValue(paidOrder(afterCutoff));
+        mocks.recompute.mockImplementation(async (_order: unknown, cards: unknown[]) => recomputed(800, cards));
+
+        const res = await put({ productCards: [{ ...washerCard, selectedExtraOptionIds: ["NO_PACKAGING_REMOVAL"] }], shownTotal: 1000 });
+
+        expect(res.status).toBe(422);
+        expect((await res.json()).reason).toBe("WOULD_DECREASE_PRICE");
+        expect(mocks.transaction).not.toHaveBeenCalled();
+      });
     });
 
     it("lets an unpaid order get cheaper", async () => {

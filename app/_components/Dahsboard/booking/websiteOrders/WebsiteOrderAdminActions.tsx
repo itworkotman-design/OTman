@@ -285,6 +285,9 @@ export default function WebsiteOrderAdminActions({
       return;
     }
 
+    // Setting an overpaid order to confirmed refunds the difference (app/api/orders/bulk).
+    let refundNote = "";
+    let refundFailed = false;
     try {
       setSaving(true);
       if (change.changed || pricesChanged) {
@@ -309,6 +312,18 @@ export default function WebsiteOrderAdminActions({
           if (change.changed || pricesChanged) onChanged();
           return;
         }
+        const refunded = Array.isArray(data.refunds) ? (data.refunds as { refundedCents: number }[]) : [];
+        refundFailed = Array.isArray(data.refundFailures) && data.refundFailures.length > 0;
+        if (refunded.length > 0) {
+          const kr = (refunded.reduce((sum, r) => sum + r.refundedCents, 0) / 100).toLocaleString("nb-NO");
+          refundNote = t(` ${kr} kr refunded to the customer.`, ` ${kr} kr tilbakebetalt til kunden.`);
+        }
+        if (refundFailed) {
+          refundNote += t(
+            " The refund of the overpaid amount failed — use Refund in the payment box.",
+            " Tilbakebetalingen av det kunden har betalt for mye feilet — bruk Tilbakebetal i betalingsboksen.",
+          );
+        }
       }
       // Last, once the order itself saved: the picked files go up, removed ones go.
       if (filesChanged) {
@@ -326,7 +341,7 @@ export default function WebsiteOrderAdminActions({
           return;
         }
       }
-      setMessage({ tone: "ok", text: t("Saved.", "Lagret.") });
+      setMessage({ tone: refundFailed ? "error" : "ok", text: t("Saved.", "Lagret.") + refundNote });
       onChanged();
     } catch {
       setMessage({ tone: "error", text: t("Couldn't save the order.", "Kunne ikke lagre bestillingen.") });

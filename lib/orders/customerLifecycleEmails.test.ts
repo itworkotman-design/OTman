@@ -68,6 +68,13 @@ describe("buildOrderConfirmedEmail", () => {
   it("throws for an order with no actionToken", () => {
     expect(() => buildOrderConfirmedEmail({ ...order, actionToken: null })).toThrow();
   });
+
+  it("sends an order with a public number to My order, where all changes are made (and paid first)", () => {
+    const { html } = buildOrderConfirmedEmail({ ...order, orderNumber: "AB12CD" });
+
+    expect(html).toContain("/min-bestilling/AB12CD");
+    expect(html).not.toContain("/bestilling/endre/");
+  });
 });
 
 describe("order reference shown to the customer", () => {

@@ -2,12 +2,10 @@
 
 ## Purpose
 Public endpoint backing `bestilling/endre/[token]` — a free-text message
-box for anything the structured editor doesn't cover. A `"confirmed"`
-order with catalog-priced items also gets a structured, self-service
-alternative for the narrow case of "change delivery type/addons on an
-existing product" — see `orders-token-edit-items.md` — but adding a new
-product, or any other kind of change, still comes through here and stays
-staff-mediated.
+box for anything the customer can't change themselves. Structured changes
+(products, services, date, addresses) are made in "My order"
+(`app/api/customer/orders/[orderNumber]`), where a change that costs more is
+paid for first; the page links there when the order has a public number.
 
 Eligible from `"rejected"`/`"approved"`/`"failed"` (the original behavior:
 reverts status to `"processing"` so staff re-review before the customer can

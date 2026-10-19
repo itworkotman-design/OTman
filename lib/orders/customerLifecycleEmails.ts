@@ -159,6 +159,10 @@ export function orderReference(order: Pick<LifecycleEmailOrder, "orderNumber" | 
 export function buildOrderConfirmedEmail(order: LifecycleEmailOrder) {
   const { requestChangeUrl } = buildOrderActionUrls(requireActionToken(order));
   const reference = orderReference(order);
+  // Changes are made (and paid for first) in "My order"; an older order
+  // without a public number falls back to the free-text request page.
+  const orderNumber = order.orderNumber?.trim();
+  const changeUrl = orderNumber ? buildCustomerOrderUrls(orderNumber).orderUrl : requestChangeUrl;
 
   const subject = `Bestilling ${reference} er bekreftet — takk!`.trim();
   const html = buildSimpleEmailShell(`
@@ -169,7 +173,7 @@ export function buildOrderConfirmedEmail(order: LifecycleEmailOrder) {
     <p style="margin:0 0 16px 0;">
       Trenger du å legge til noe eller gjøre en endring senere? Bruk lenken under.
     </p>
-    <div style="margin:20px 0;">${buttonLink(requestChangeUrl, "Be om endring")}</div>
+    <div style="margin:20px 0;">${buttonLink(changeUrl, orderNumber ? "Se og endre bestillingen" : "Be om endring")}</div>
   `);
 
   return { subject, html };

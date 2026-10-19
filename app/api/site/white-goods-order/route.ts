@@ -271,7 +271,7 @@ async function createWhiteGoodsOrder(
   const pickupContactPhoneStr = str(body.pickupContactPhone);
 
   const orderFloorNo = String(costliestFloor(pickupFloor, deliveryFloor));
-  // Legacy single field (see edit-items re-pricing) — "yes" only when
+  // Legacy single field (read when the order is re-priced) — "yes" only when
   // neither end would incur a floor surcharge, the safer combined value.
   const orderLift = pickupLiftAvailable && deliveryLiftAvailable ? "yes" : "no";
 

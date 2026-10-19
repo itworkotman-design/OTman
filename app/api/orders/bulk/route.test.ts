@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   createOrderUpdatedEventMock: vi.fn(),
   diffOrderEventSnapshotsMock: vi.fn(),
   findCancelledOrderPartnerMock: vi.fn(),
+  refundOrderDifferenceMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -44,6 +45,10 @@ vi.mock("@/lib/orders/orderEvents", () => ({
 
 vi.mock("@/lib/orders/cancelledOrderPartner", () => ({
   findCancelledOrderPartner: mocks.findCancelledOrderPartnerMock,
+}));
+
+vi.mock("@/lib/orders/refundOrderDifference", () => ({
+  refundOrderDifference: mocks.refundOrderDifferenceMock,
 }));
 
 import { PATCH } from "./route";
@@ -559,3 +564,67 @@ describe("PATCH /api/orders/bulk — website order statuses", () => {
     expect(res.status).toBe(200);
   });
 });
+
+describe("PATCH /api/orders/bulk — refund on confirm", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "user-1", activeCompanyId: "company-1" });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "ADMIN",
+      user: { username: "Admin", email: "admin@example.com" },
+    });
+    mocks.orderFindManyMock.mockResolvedValue([
+      { id: "web-1", companyId: "company-1", status: "processing", statusNotes: "", isWebsiteOrder: true, gdprHold: false },
+      { id: "b2b-1", companyId: "company-1", status: "processing", statusNotes: "", isWebsiteOrder: false, gdprHold: false },
+    ]);
+    mocks.orderUpdateManyMock.mockResolvedValue({ count: 2 });
+    mocks.buildOrderEventSnapshotMock.mockImplementation((order) => ({ status: order.status ?? null }));
+    mocks.diffOrderEventSnapshotsMock.mockReturnValue([]);
+    mocks.createManyOrderStatusChangedEventsMock.mockResolvedValue(undefined);
+    mocks.orderNotificationUpdateManyMock.mockResolvedValue({ count: 0 });
+    mocks.findCancelledOrderPartnerMock.mockResolvedValue(null);
+    mocks.refundOrderDifferenceMock.mockResolvedValue({ ok: true, refundedCents: 12500, emailFailed: false });
+  });
+
+  function bulk(status: string, orderIds = ["web-1", "b2b-1"]) {
+    return PATCH(new Request("http://localhost/api/orders/bulk", { method: "PATCH", body: JSON.stringify({ orderIds, status }) }));
+  }
+
+  it("refunds what a website order's customer overpaid when it's set to confirmed, and says so", async () => {
+    const res = await bulk("confirmed");
+
+    expect(res.status).toBe(200);
+    expect(mocks.refundOrderDifferenceMock).toHaveBeenCalledTimes(1);
+    expect(mocks.refundOrderDifferenceMock).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: "web-1", companyId: "company-1", actor: expect.objectContaining({ membershipId: "membership-1" }) }),
+    );
+    expect(await res.json()).toMatchObject({ ok: true, refunds: [{ orderId: "web-1", refundedCents: 12500 }], refundFailures: [] });
+  });
+
+  it("says nothing when nothing was overpaid", async () => {
+    mocks.refundOrderDifferenceMock.mockResolvedValue({ ok: false, reason: "NOTHING_TO_REFUND", status: 409 });
+
+    expect(await (await bulk("confirmed")).json()).toMatchObject({ refunds: [], refundFailures: [] });
+  });
+
+  it("reports a refund that failed, without failing the status change", async () => {
+    mocks.refundOrderDifferenceMock.mockResolvedValue({ ok: false, reason: "REFUND_FAILED", status: 502, refundedCents: 0 });
+
+    const res = await bulk("confirmed");
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ refundFailures: [{ orderId: "web-1", reason: "REFUND_FAILED" }] });
+  });
+
+  it("doesn't refund an order that was already confirmed, or on any other status", async () => {
+    mocks.orderFindManyMock.mockResolvedValue([
+      { id: "web-1", companyId: "company-1", status: "confirmed", statusNotes: "", isWebsiteOrder: true, gdprHold: false },
+    ]);
+    await bulk("confirmed", ["web-1"]);
+    await bulk("active", ["web-1"]);
+
+    expect(mocks.refundOrderDifferenceMock).not.toHaveBeenCalled();
+  });
+});
+

@@ -15,8 +15,17 @@ const TEXT = {
   en: { notFound: "We couldn't find that order on this login.", back: "My orders" },
 } as const;
 
-export default async function MyOrderPage({ params }: { params: Promise<{ locale: "en" | "no"; orderNumber: string }> }) {
+export default async function MyOrderPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: "en" | "no"; orderNumber: string }>;
+  searchParams: Promise<{ endring?: string }>;
+}) {
   const { locale, orderNumber: rawNumber } = await params;
+  // Back from paying for a change (customerOrderPaidChange.ts).
+  const { endring } = await searchParams;
+  const changePayment = endring === "betalt" ? "paid" : endring === "avbrutt" ? "cancelled" : null;
   const orderNumber = decodeURIComponent(rawNumber);
   const t = TEXT[locale];
 
@@ -47,6 +56,7 @@ export default async function MyOrderPage({ params }: { params: Promise<{ locale
       accountEmail={session.email}
       details={view.details}
       permissions={{ ...view.permissions, cutoffAt: view.permissions.cutoffAt?.toISOString() ?? null }}
+      changePayment={changePayment}
     />
   );
 }

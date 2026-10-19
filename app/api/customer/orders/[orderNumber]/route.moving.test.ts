@@ -175,10 +175,14 @@ describe("customer order route — a homepage move", () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
-  it("never makes a paid order cheaper here", async () => {
-    mocks.orderFindFirst.mockResolvedValue(order({ payments: [{ amountChargedCents: 1125000, createdAt: new Date(), orderSnapshot: null }] }));
-    const res = await put({ moving: { ...moving, serviceCodes: [] } });
-    expect((await res.json()).reason).toBe("WOULD_DECREASE_PRICE");
+  it("makes a paid, confirmed move cheaper before the cutoff and sends it back to processing (refund on confirm)", async () => {
+    mocks.orderFindFirst.mockResolvedValue(
+      order({ status: "confirmed", payments: [{ amountChargedCents: 1125000, createdAt: new Date(), orderSnapshot: null, refunds: [] }] }),
+    );
+    const preview = await (await put({ moving: { ...moving, serviceCodes: [] }, dryRun: true })).json();
+    const res = await put({ moving: { ...moving, serviceCodes: [] }, shownTotal: preview.totalIncVat });
+    expect(res.status).toBe(200);
+    expect(mocks.orderUpdate.mock.calls[0][0].data).toMatchObject({ status: "processing" });
   });
 
   it("tells staff and emails the customer what changed", async () => {

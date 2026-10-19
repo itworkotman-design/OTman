@@ -34,7 +34,7 @@ vi.mock("@/lib/content/websiteOrderCatalog", () => ({
   listSeededWebsiteCatalogs: mocks.listSeededWebsiteCatalogsMock,
 }));
 
-// The pricing pipeline itself is covered by the edit-items route tests; here
+// The pricing pipeline itself is covered by the My order route tests; here
 // only this route's own decisions (access, validation, details, payment link)
 // matter.
 vi.mock("@/lib/orders/websiteOrderRepricing", async () => {

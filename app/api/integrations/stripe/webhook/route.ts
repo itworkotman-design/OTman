@@ -7,8 +7,17 @@ import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { recordOrderPayment, sumOrderPayments } from "@/lib/orders/orderPayments";
 import { sendLifecycleEmailsForOrders } from "@/lib/orders/sendCustomerLifecycleEmail";
 import { buildOrderStateSnapshot } from "@/lib/orders/paidOrderSnapshot";
+import { applyPaidChange } from "@/lib/customerAccounts/customerOrderPaidChange";
+
+const ALREADY_CONFIRMED = new Set(["confirmed", "active", "completed"]);
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
+  // A paid "My order" change: applied (or refunded) there, status untouched.
+  if (session.metadata?.pendingChangeId) {
+    await applyPaidChange(session);
+    return;
+  }
+
   const orderId = session.metadata?.orderId;
   if (!orderId) {
     return;
@@ -78,7 +87,9 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   });
   const totalPaidCents = sumOrderPayments(payments);
 
-  const wasAlreadyConfirmed = normalizeOrderStatus(order.status) === "confirmed";
+  // Confirmed or further along (on its way, done): a top-up never moves an
+  // order back to "confirmed".
+  const wasAlreadyConfirmed = ALREADY_CONFIRMED.has(normalizeOrderStatus(order.status));
 
   await prisma.order.update({
     where: { id: order.id },

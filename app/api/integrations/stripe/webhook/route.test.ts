@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   createOrderActionEventMock: vi.fn(),
   constructEventMock: vi.fn(),
   sendLifecycleEmailsForOrdersMock: vi.fn(),
+  applyPaidChangeMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -32,6 +33,8 @@ vi.mock("@/lib/orders/orderEvents", () => ({
 vi.mock("@/lib/orders/sendCustomerLifecycleEmail", () => ({
   sendLifecycleEmailsForOrders: mocks.sendLifecycleEmailsForOrdersMock,
 }));
+
+vi.mock("@/lib/customerAccounts/customerOrderPaidChange", () => ({ applyPaidChange: mocks.applyPaidChangeMock }));
 
 vi.mock("@/lib/stripe/stripeClient", () => ({
   getStripeClient: () => ({ webhooks: { constructEvent: mocks.constructEventMock } }),
@@ -220,5 +223,27 @@ describe("POST /api/integrations/stripe/webhook", () => {
       expect.anything(),
       expect.objectContaining({ orderId: "order1", title: expect.stringMatching(/additional payment/i) }),
     );
+  });
+
+  it("hands a paid 'My order' change to applyPaidChange, and does none of the usual confirm work", async () => {
+    const res = await POST(webhookRequest(checkoutSessionCompletedEvent({ metadata: { orderId: "order1", pendingChangeId: "pc1" } })));
+
+    expect(res.status).toBe(200);
+    expect(mocks.applyPaidChangeMock).toHaveBeenCalledWith(expect.objectContaining({ id: "cs_test", metadata: { orderId: "order1", pendingChangeId: "pc1" } }));
+    expect(mocks.recordOrderPaymentMock).not.toHaveBeenCalled();
+    expect(mocks.orderUpdateMock).not.toHaveBeenCalled();
+    expect(mocks.sendLifecycleEmailsForOrdersMock).not.toHaveBeenCalled();
+  });
+
+  it("never moves an order that is already under way back to confirmed (a top-up paid while active)", async () => {
+    mocks.orderFindUniqueMock.mockResolvedValue({ id: "order1", companyId: "c1", status: "active", email: "a@b.no", extraPickupAddress: [] });
+    mocks.recordOrderPaymentMock.mockResolvedValue({ id: "pay2" });
+    mocks.orderPaymentFindManyMock.mockResolvedValue([{ amountChargedCents: 500000 }, { amountChargedCents: 25000 }]);
+
+    await POST(webhookRequest(checkoutSessionCompletedEvent({ amount_total: 25000 })));
+
+    expect(mocks.orderUpdateMock.mock.calls[0][0].data.status).toBeUndefined();
+    expect(mocks.createOrderStatusChangedEventMock).not.toHaveBeenCalled();
+    expect(mocks.sendLifecycleEmailsForOrdersMock).not.toHaveBeenCalled();
   });
 });

@@ -21,6 +21,10 @@ purpose comment in `lib/orders/customerLifecycleEmails.ts`.
 
 Each recorded payment also stores `orderSnapshot`: what the payment covered (priced lines, stops, date and the charged total, from `buildOrderStateSnapshot` in `lib/orders/paidOrderSnapshot.ts`). Later admin changes are compared against it, so "what changed and what's still due" is exact.
 
+A top-up never moves an order back: an order already `confirmed`, `active` or `completed` keeps its status.
+
+A session with `metadata.pendingChangeId` is a customer paying for a "My order" change: it's handed to `applyPaidChange` (`lib/customerAccounts/customerOrderPaidChange.ts`), which applies the change (or refunds the payment) and records the payment itself — none of the confirm/email work above runs.
+
 ## Functions
 - `handleCheckoutSessionCompleted(session)` — the logic above.
 - `POST` — signature verification, dispatches to the handler above for

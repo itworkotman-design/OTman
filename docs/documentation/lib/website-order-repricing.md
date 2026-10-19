@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Re-prices an existing homepage website order from a new set of product cards, using the exact pipeline `app/api/site/white-goods-order/route.ts` uses to create one. It is shared by the customer's edit link (`/api/public/orders/[token]/edit-items`) and the admin editor (`/api/orders/[orderId]/website-items`). Order-level context (driving distance, express delivery, per-stop floors via `floorPricingInputs`, extra pickups, rabatt/leggTil/subcontractor adjustments) comes from the order as stored.
+Re-prices an existing homepage website order from a new set of product cards, using the exact pipeline `app/api/site/white-goods-order/route.ts` uses to create one. It is shared by the customer's "My order" edit (`/api/customer/orders/[orderNumber]`) and the admin editor (`/api/orders/[orderId]/website-items`). Order-level context (driving distance, express delivery, per-stop floors via `floorPricingInputs`, extra pickups, rabatt/leggTil/subcontractor adjustments) comes from the order as stored.
 
 Catalog prices are frozen like the booking app's: `options.catalogPricing` (the stored cards' `OrderPricingSnapshot`, from `getSavedOrderPricingSnapshot`) prices the order with the prices it was saved with. Anything the snapshot doesn't cover, such as a product added since, comes from today's catalog. Without `catalogPricing` (the customer's own edits, "Use new price", older orders with no snapshot), today's catalog prices it. A snapshot sent in on the submitted cards is never used. Every result stores the catalog prices it used on each card (`cards[].pricingSnapshot`), so the next save prices the order the same way.
 
@@ -18,7 +18,7 @@ Catalog prices are frozen like the booking app's: `options.catalogPricing` (the 
 
 ## Km rule
 
-The order's `createdAt` decides the km rule (`usesFullDistanceKmPricing`). Orders made before `FULL_DISTANCE_KM_PRICING_FROM` keep the old "only km above 20" rule, so re-pricing never moves what the customer saw. Every caller passes `createdAt`: `website-items`, `website-details` and the customer's `edit-items` (via `getOrderByActionToken`). A missing date means a new order, so the new rule applies.
+The order's `createdAt` decides the km rule (`usesFullDistanceKmPricing`). Orders made before `FULL_DISTANCE_KM_PRICING_FROM` keep the old "only km above 20" rule, so re-pricing never moves what the customer saw. Every caller passes `createdAt`: `website-items`, `website-details` and the customer's "My order" edit. A missing date means a new order, so the new rule applies.
 
 ## Order extras set to 0
 

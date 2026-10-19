@@ -178,19 +178,21 @@ describe("customer order route — a homepage service request", () => {
     expect(transactionWrites()["items.createMany"].data).toEqual([expect.objectContaining({ optionCode: "QUOTE:option-1" })]);
   });
 
-  it("won't make a paid order cheaper", async () => {
+  it("makes a paid, confirmed order cheaper before the cutoff and sends it back to processing (refund on confirm)", async () => {
     const carpenterLine = { ...quoteItem, optionCode: "QUOTE:option-2", customerPriceCents: 100000 };
     mocks.orderFindFirst.mockResolvedValue(
       order({
         websiteBookingDetails: { version: 2, customerType: "private", services: [electrician, carpenter] },
         items: [quoteItem, carpenterLine],
         priceExVat: 5000,
-        payments: [{ amountChargedCents: 625000, createdAt: new Date(), orderSnapshot: null }],
+        status: "confirmed",
+        payments: [{ amountChargedCents: 625000, createdAt: new Date(), orderSnapshot: null, refunds: [] }],
       }),
     );
-    const res = await put({ service, shownTotal: 5000 });
-    expect(res.status).toBe(422);
-    expect((await res.json()).reason).toBe("WOULD_DECREASE_PRICE");
+    const preview = await (await put({ service, dryRun: true })).json();
+    const res = await put({ service, shownTotal: preview.totalIncVat });
+    expect(res.status).toBe(200);
+    expect(transactionWrites()["order.update"].data).toMatchObject({ status: "processing" });
   });
 
   it("previews a service change at the same price (dryRun)", async () => {

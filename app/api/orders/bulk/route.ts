@@ -11,6 +11,7 @@ import {
 import { resolveAllOrderNotifications } from "@/lib/orders/orderNotifications";
 import { isAllowedWebsiteOrderStatus, normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { findCancelledOrderPartner } from "@/lib/orders/cancelledOrderPartner";
+import { refundOrderDifference } from "@/lib/orders/refundOrderDifference";
 import { hasPartner, isPartnerTrackedOrder } from "@/lib/orders/partnerRequirement";
 import { createOrderActionToken } from "@/lib/orders/orderActionToken";
 
@@ -464,9 +465,32 @@ export async function PATCH(req: Request) {
 
   await createManyOrderStatusChangedEvents(prisma, statusOnlyEvents);
 
+  // A website order set (back) to confirmed whose customer has overpaid —
+  // they made it cheaper in "My order" after paying — gets the difference
+  // refunded now that staff have reviewed it. Reported, never failing the
+  // status change.
+  const refunds: { orderId: string; refundedCents: number }[] = [];
+  const refundFailures: { orderId: string; reason: string }[] = [];
+  if (normalizedStatus === "confirmed") {
+    const newlyConfirmed = effectiveOrdersBeforeUpdate.filter(
+      (order) => order.isWebsiteOrder && normalizeOrderStatus(order.status) !== "confirmed",
+    );
+    for (const order of newlyConfirmed) {
+      try {
+        const refund = await refundOrderDifference({ orderId: order.id, companyId: order.companyId, actor });
+        if (refund.ok) refunds.push({ orderId: order.id, refundedCents: refund.refundedCents });
+        else if (refund.reason !== "NOTHING_TO_REFUND") refundFailures.push({ orderId: order.id, reason: refund.reason });
+      } catch (error) {
+        console.error("[orders bulk] Refund on confirm failed", order.id, error);
+        refundFailures.push({ orderId: order.id, reason: "REFUND_FAILED" });
+      }
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     updatedCount: result.count,
     skippedHeldCount: heldOrderIds.length,
+    ...(normalizedStatus === "confirmed" ? { refunds, refundFailures } : {}),
   });
 }

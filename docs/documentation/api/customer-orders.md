@@ -4,6 +4,8 @@
 
 - `app/api/customer/orders/route.ts`
 - `app/api/customer/orders/[orderNumber]/route.ts`
+- `lib/customerAccounts/customerOrderEdit.ts` (the PUT logic, `editCustomerOrder`)
+- `lib/customerAccounts/paidOrderChange.ts`, `lib/customerAccounts/customerOrderPaidChange.ts` (paid orders)
 
 ## Responsibility
 
@@ -34,7 +36,7 @@ Body: `{ customer?: { name, phone, email, comments }, preferredDate?, timeWindow
 5. **Catalog order:**
    - Cards are checked with `validateWebsiteOrderCards` (`422` with the reason).
    - The distance comes from `resolveDrivingDistance`, the details from `buildDetailsUpdate`, and the price from `recomputeWebsiteOrderPricing` (strict).
-   - A lower price on an order that already has payments returns `422 WOULD_DECREASE_PRICE`, because refunds aren't built.
+   - On a paid order, see **Paid orders** below.
    - `dryRun` returns `{ previousPriceExVat, priceExVat, previousTotalIncVat, totalIncVat }` without saving. The `…IncVat` totals are what the customer sees and confirms: incl. VAT, summed per line (`websiteVat.ts`). `shownTotal` is compared with `totalIncVat`, and `PRICE_CHANGED` returns it. A change is priced with the order's saved catalog prices (`resolveSavedCatalogPricing`); only what's new is priced at today's catalog. A change whose prices would leave a product's delivery type or a selected option out (`missingPriceCardIds`) is refused with `409 PRICING_INCOMPLETE`.
    - If the price changed, `shownTotal` is required (`400 SHOWN_TOTAL_REQUIRED`) and must match the new price within 0.5 kr, otherwise `409 PRICE_CHANGED` with the real `priceExVat`.
    - The order is saved with `websiteOrderPricingWrites`.
@@ -48,7 +50,14 @@ Body: `{ customer?: { name, phone, email, comments }, preferredDate?, timeWindow
 
    None of these can turn a saved change into an error.
 
-Payment isn't part of this. When Stripe goes live, the existing `/betaling/[token]` page charges the current total or balance.
+### Paid orders
+
+Once an order has been paid (net of refunds), every priced change goes through `decidePaidOrderChange` (`paidOrderChange.ts`):
+
+- **Dearer — paid first.** Nothing is saved. The response is `{ ok, paymentRequired: true, amountDueIncVat, totalIncVat, checkoutUrl }`: the change is held as an `OrderPendingChange` and `checkoutUrl` is a Stripe checkout for the new total minus what's paid (any older balance included), valid 30 minutes, returning to `/min-bestilling/[orderNumber]?endring=betalt` (or `=avbrutt`). `dryRun` adds `payNowIncVat`. Same before and within 24h (adding a service with the driver there). When Stripe confirms, the webhook calls `applyPaidChange`, which runs the same edit again (mode `"paid"`, at the price that was paid, `now` = payment time) and then records the payment against the changed order. The status is never touched. If the change can't be applied any more (deadline passed, price moved, nothing to change) the payment is refunded automatically, the pending change is `FAILED` and staff get an alert. `502 PAYMENT_START_FAILED` if the checkout can't be created.
+- **Cheaper — before the cutoff only** (within 24h: `422 WOULD_DECREASE_PRICE`, only additions then). It's saved; a `confirmed` order goes back to `processing` with a status event, and the staff alert says how much was overpaid. `dryRun` and the save response add `refundOnReviewIncVat`. The refund goes out when staff set the order to confirmed again (`PATCH /api/orders/bulk` → `refundOrderDifference`).
+
+An unpaid order just saves; it's paid in full later.
 
 ### Cancelling
 
@@ -60,11 +69,11 @@ A `MOVING` order with stored answers is edited as a whole move (`moving`: addres
 until 24h before the job, then only contact details and adding services. A change is re-priced like a booking
 (`priceMovingOrder`, distance looked up again when an address moved) keeping any discount/extra staff gave it
 (`movingOrderSaveData` with `movingAdjustmentsFromOrder`, lines set to 0 included), must confirm the shown total (`shownTotal`, else
-`SHOWN_TOTAL_REQUIRED`/`PRICE_CHANGED`), never makes a paid order cheaper (`WOULD_DECREASE_PRICE`), and is followed by the same
+`SHOWN_TOTAL_REQUIRED`/`PRICE_CHANGED`), follows the paid-order rules above, and is followed by the same
 history event, staff notification and "order updated" email as a delivery order. `GET` skips the white-goods catalog for a move
 and returns `pricingContext: { rabatt, leggTil, nulledLineKeys, staffLines }` (`staffLines`: express/deviation lines staff
 added, `movingStaffLines` — carried over as priced on a re-price) (customer side only) for the flow's live price.
 Tested in `route.moving.test.ts`.
 
 ## Service requests
-`details.kind === "service"` carries `service: { address, services: [{ serviceCode, customService, jobDescription }] }` (never the quotes). A PUT with `service` is validated with `parseServiceEdit` — each service keeps its stored quote, a new one has none — and classified by `classifyServiceEdit`: a new address is `addresses`, a service added/removed `reconfigure`, a job description `notes`. Within 24h every change to a service request — contact details included — is refused (`editableAfterCutoff` false). Saved with `serviceOrderSaveData` + `serviceOrderItemWrites` (express/deviation and adjustments kept). Adding a service keeps the price (staff quote it); removing a quoted one drops its line and lowers the price, so it needs `shownTotal` like any price change, and is refused with `WOULD_DECREASE_PRICE` on a paid order. The staff notification and customer email list services added/removed and changed job descriptions.
+`details.kind === "service"` carries `service: { address, services: [{ serviceCode, customService, jobDescription }] }` (never the quotes). A PUT with `service` is validated with `parseServiceEdit` — each service keeps its stored quote, a new one has none — and classified by `classifyServiceEdit`: a new address is `addresses`, a service added/removed `reconfigure`, a job description `notes`. Within 24h every change to a service request — contact details included — is refused (`editableAfterCutoff` false). Saved with `serviceOrderSaveData` + `serviceOrderItemWrites` (express/deviation and adjustments kept). Adding a service keeps the price (staff quote it); removing a quoted one drops its line and lowers the price, so it needs `shownTotal` like any price change, and follows the paid-order rules above. The staff notification and customer email list services added/removed and changed job descriptions.
