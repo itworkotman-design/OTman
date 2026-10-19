@@ -229,8 +229,6 @@ export default function WebsiteOrderModal({
           contact,
         });
   const orderExtras = order.kind === "service" ? [] : order.kind === "moving" ? order.orderExtras : order.details.orderExtras;
-  const customerType =
-    order.kind === "service" ? order.service.customerType : order.kind === "moving" ? order.moving.customerType : order.details.customerType;
   // A move and a service request save (and preview) through their own routes.
   const detailsEndpoint =
     order.kind === "moving"
@@ -248,12 +246,6 @@ export default function WebsiteOrderModal({
   // The calculator's four fields; "Handle order" saves everything else.
   const { rabatt, leggTil, subcontractorMinus, subcontractorPlus, ...panelHandling } = order.handling;
   const calculatorAdjustments = { rabatt, leggTil, subcontractorMinus, subcontractorPlus };
-  const customerTypeLabel =
-    customerType === "business"
-      ? t("Business", "Bedrift")
-      : customerType === "private"
-        ? t("Private", "Privat")
-        : null;
 
   function confirmDiscardEdits() {
     return window.confirm(t("Discard your unsaved changes to the order?", "Forkaste ulagrede endringer i bestillingen?"));
@@ -324,24 +316,12 @@ export default function WebsiteOrderModal({
           className="flex max-h-[90vh] w-full max-w-6xl flex-col rounded-2xl bg-white shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex shrink-0 items-center justify-between gap-4 rounded-t-2xl border-b bg-white px-6 py-4">
+          <div className="flex shrink-0 items-center justify-between gap-4 rounded-t-2xl bg-white px-6 py-4">
             <div className="min-w-0">
               <h2 className="text-2xl font-semibold text-logoblue">
                 {t("Website order", "Nettsidebestilling")} {order.orderNumber ? `#${order.orderNumber}` : ""}
                 <span className="ml-2 text-base font-normal text-black/40">({order.displayId})</span>
               </h2>
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-black/60">
-                <span className="rounded-full bg-logoblue/10 px-2.5 py-0.5 font-semibold text-logoblue">
-                  {t("Website order", "Nettside")}
-                </span>
-                {customerTypeLabel && (
-                  <span className="rounded-full bg-black/5 px-2.5 py-0.5 font-medium">{customerTypeLabel}</span>
-                )}
-                {order.status && <span className="rounded-full bg-black/5 px-2.5 py-0.5 font-medium">{order.status}</span>}
-                <span>
-                  {t("Created", "Opprettet")} {new Date(order.createdAt).toLocaleString("nb-NO")}
-                </span>
-              </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {!order.hasCustomerLogin && (
@@ -362,7 +342,7 @@ export default function WebsiteOrderModal({
           </div>
 
           {canEditOrder && (
-            <div className="flex shrink-0 gap-1 border-b bg-white px-6">
+            <div className="flex shrink-0 gap-1 border-b border-logoblue/15 bg-white px-6">
               {(
                 [
                   ["overview", t("Overview", "Oversikt")],
