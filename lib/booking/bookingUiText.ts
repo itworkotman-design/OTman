@@ -274,6 +274,7 @@ const NB_STATUS_LABELS: Record<string, string> = {
   failed: "Feilet",
   invoiced: "Fakturert",
   paid: "Betalt",
+  pending: "På vent",
   processing: "Behandles",
   rejected: "Avvist",
 };

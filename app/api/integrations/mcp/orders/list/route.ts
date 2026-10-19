@@ -13,6 +13,7 @@ const MAX_RESULTS = 200;
 // the normalized value ("confirmed") matches every raw spelling that
 // normalizes to it, not just a literal string match against the column.
 const STATUS_RAW_VARIANTS: Record<string, string[]> = {
+  pending: ["pending", "på vent", "venter", "avventer"],
   processing: ["processing", "behandles", "behandling"],
   approved: ["approved", "godkjent"],
   rejected: ["rejected", "avvist"],

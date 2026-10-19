@@ -325,6 +325,11 @@ function normalizeInitialStatus(value: string | null | undefined) {
   const normalized = value?.trim().toLowerCase() ?? "";
 
   switch (normalized) {
+    case "på vent":
+    case "venter":
+    case "avventer":
+    case "pending":
+      return "pending";
     case "behandles":
     case "behandling":
     case "processing":

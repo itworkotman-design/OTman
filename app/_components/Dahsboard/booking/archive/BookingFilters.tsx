@@ -374,6 +374,7 @@ export default function BookingFilters({
             <Field label={t("Status")}>
               <select value={status} onChange={(e) => setStatus(e.target.value)} className="customInput padding-weird-landscape text-weird-landscape w-full">
                 <option value="">{t("All statuses")}</option>
+                <option value="pending">{bookingStatusText(locale, "pending")}</option>
                 <option value="processing">{bookingStatusText(locale, "processing")}</option>
                 <option value="confirmed">{bookingStatusText(locale, "confirmed")}</option>
                 <option value="active">{bookingStatusText(locale, "active")}</option>
