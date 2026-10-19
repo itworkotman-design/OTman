@@ -11,6 +11,7 @@ const EXCLUDED_CAPACITY_STATUSES = [
   "completed",
   "failed",
   "cancelled",
+  "refunded",
 ] as const;
 
 function parseTimeToMinutes(value: string) {

@@ -12,11 +12,13 @@ import {
   buildOrderConfirmedEmail,
   buildOrderReceivedEmail,
   buildOrderUpdatedEmail,
+  buildOrderDeclinedEmail,
   type LifecycleEmailOrder,
 } from "@/lib/orders/customerLifecycleEmails";
 
 // The kinds staff can (re)send from the dashboard. order_updated is only sent
-// by the customer edit route, which has the change list it needs.
+// by the customer edit route and order_declined only by the decline route —
+// each carries data (the change list, the refunded amount) a resend lacks.
 export const LIFECYCLE_EMAIL_KINDS = [
   "payment_request",
   "rejected",
@@ -25,14 +27,14 @@ export const LIFECYCLE_EMAIL_KINDS = [
   "order_confirmed",
   "order_received",
 ] as const;
-export type LifecycleEmailKind = (typeof LIFECYCLE_EMAIL_KINDS)[number] | "order_updated";
+export type LifecycleEmailKind = (typeof LIFECYCLE_EMAIL_KINDS)[number] | "order_updated" | "order_declined";
 
 // order_received goes out at submission, before staff approve/reject mint an
-// actionToken, and order_updated links to "My order" (by order number), not
-// to the token pages — every other kind builds links from the token and must
-// not send without one.
+// actionToken, order_updated links to "My order" (by order number), not to
+// the token pages, and order_declined has no links at all — every other kind
+// builds links from the token and must not send without one.
 export function lifecycleKindRequiresActionToken(kind: LifecycleEmailKind): boolean {
-  return kind !== "order_received" && kind !== "order_updated";
+  return kind !== "order_received" && kind !== "order_updated" && kind !== "order_declined";
 }
 
 export type LifecycleEmailOrderInput = LifecycleEmailOrder & {
@@ -69,6 +71,7 @@ function buildEmailForKind(kind: LifecycleEmailKind, order: LifecycleEmailOrder)
   if (kind === "order_confirmed") return buildOrderConfirmedEmail(order);
   if (kind === "order_received") return buildOrderReceivedEmail(order);
   if (kind === "order_updated") return buildOrderUpdatedEmail(order);
+  if (kind === "order_declined") return buildOrderDeclinedEmail(order);
   return buildPaymentTimeoutEmail(order);
 }
 

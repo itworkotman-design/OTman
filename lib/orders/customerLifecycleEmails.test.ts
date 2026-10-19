@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   buildBalanceDueEmail,
+  buildOrderDeclinedEmail,
   buildOrderConfirmedEmail,
   buildOrderReceivedEmail,
   buildOrderUpdatedEmail,
@@ -311,7 +312,6 @@ describe("buildOrderUpdatedEmail", () => {
     expect(subject).toContain("#K7MQ4XZ2");
     expect(html).toContain("Lagt til: Utpakking");
     expect(html).toContain("Telefon: &lt;1&gt; → 2");
-    expect(html).toContain("1");
     expect(html).toContain("749");
     expect(html).toContain("https://otman.no/min-bestilling/K7MQ4XZ2");
   });
@@ -324,5 +324,33 @@ describe("buildOrderUpdatedEmail", () => {
     });
 
     expect(html).not.toContain("Ny totalpris");
+  });
+});
+
+describe("buildOrderDeclinedEmail", () => {
+  const declined = { ...order, orderNumber: "AB12CD", statusNotes: "Vi kjører dessverre ikke til denne adressen." };
+
+  it("says the order is cancelled, gives the reason and the amount being refunded", () => {
+    const { subject, html } = buildOrderDeclinedEmail({ ...declined, refundedIncVatNok: 1250 });
+
+    expect(subject).toContain("#AB12CD");
+    expect(subject.toLowerCase()).toContain("kansellert");
+    expect(html).toContain("Vi kjører dessverre ikke til denne adressen.");
+    expect(html).toMatch(/1[\s\u00a0.]?250/);
+    expect(html.toLowerCase()).toContain("tilbakebetal");
+  });
+
+  it("has no pay / change / cancel links, and needs no actionToken", () => {
+    const { html } = buildOrderDeclinedEmail({ ...declined, actionToken: null, refundedIncVatNok: 1250 });
+
+    expect(html).not.toContain("/betaling/");
+    expect(html).not.toContain("/bestilling/endre/");
+    expect(html).not.toContain("/bestilling/avbryt/");
+  });
+
+  it("doesn't mention a refund when nothing was paid", () => {
+    const { html } = buildOrderDeclinedEmail({ ...declined, refundedIncVatNok: 0 });
+
+    expect(html.toLowerCase()).not.toContain("tilbakebetal");
   });
 });

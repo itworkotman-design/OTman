@@ -6,7 +6,7 @@ const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const CACHE_ID = "main-v3";
 
 // Raw status strings stored in the DB that mean "cancelled" or "failed"
-const EXCLUDED_STATUSES = ["cancelled", "kanselert", "avbrutt", "failed", "fail", "feilet"];
+const EXCLUDED_STATUSES = ["cancelled", "kanselert", "avbrutt", "refunded", "refundert", "failed", "fail", "feilet"];
 
 const KM_FALLBACK_PER_ORDER = 20;
 

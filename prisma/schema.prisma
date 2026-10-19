@@ -30,8 +30,8 @@ model User {
   resetTokens           PasswordResetToken[]
   sessions              Session[]
   blogPosts             BlogPost[]
-  mainPickupAddress     CustomPickupAddress? @relation("UserMainPickupAddress", fields: [mainPickupAddressId], references: [id])
-  mainReturnAddress     CustomPickupAddress? @relation("UserMainReturnAddress", fields: [mainReturnAddressId], references: [id])
+  mainPickupAddress     CustomPickupAddress?      @relation("UserMainPickupAddress", fields: [mainPickupAddressId], references: [id])
+  mainReturnAddress     CustomPickupAddress?      @relation("UserMainReturnAddress", fields: [mainReturnAddressId], references: [id])
   pickupAddresses       UserCustomPickupAddress[]
 
   @@index([status])
@@ -112,12 +112,12 @@ model CustomPickupAddress {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users                     UserCustomPickupAddress[]
-  mainForUsers              User[]                    @relation("UserMainPickupAddress")
-  mainReturnForUsers        User[]                    @relation("UserMainReturnAddress")
-  mainForInvites            Invite[]
-  ordersUsingThis           Order[]                   @relation("OrderCustomPickupAddress")
-  ordersUsingThisForReturn  Order[]                   @relation("OrderCustomReturnAddress")
+  users                    UserCustomPickupAddress[]
+  mainForUsers             User[]                    @relation("UserMainPickupAddress")
+  mainReturnForUsers       User[]                    @relation("UserMainReturnAddress")
+  mainForInvites           Invite[]
+  ordersUsingThis          Order[]                   @relation("OrderCustomPickupAddress")
+  ordersUsingThisForReturn Order[]                   @relation("OrderCustomReturnAddress")
 
   @@index([isActive])
 }
@@ -570,6 +570,7 @@ model Order {
   items                              OrderItem[]
   notifications                      OrderNotification[]
   payments                           OrderPayment[]
+  refunds                            OrderRefund[]
   recurringOrderOccurrence           RecurringOrderOccurrence?
   legacyWordpressOrderId             Int?                      @unique
   legacyWordpressAuthorId            Int?
@@ -584,7 +585,7 @@ model Order {
   gdprHoldReason String?
   gdprHoldSetAt  DateTime?
 
-  isWebsiteOrder           Boolean   @default(false)
+  isWebsiteOrder           Boolean          @default(false)
   // "WHITE_GOODS" for homepage white-goods orders (they open in the admin
   // WebsiteOrderModal); null for every other order, website or not.
   websiteOrderKind         String?
@@ -598,8 +599,8 @@ model Order {
   // the daily missing-partner alert cron. Defaults to now() for new orders;
   // existing rows were backfilled from order history. Never derive this from
   // updatedAt — notification activity bumps that.
-  statusChangedAt          DateTime? @default(now())
-  actionToken              String?   @unique
+  statusChangedAt          DateTime?        @default(now())
+  actionToken              String?          @unique
   stripeCheckoutSessionId  String?
   stripePaymentIntentId    String?
   stripeAmountChargedCents Int?
@@ -674,19 +675,39 @@ model CustomerSession {
 // tracing any individual charge back to its Stripe session for support or
 // refunds. See docs/homepage-ordering-roadmap.md §4.
 model OrderPayment {
-  id                      String   @id @default(cuid())
+  id                      String        @id @default(cuid())
   orderId                 String
   companyId               String
-  stripeCheckoutSessionId String   @unique
+  stripeCheckoutSessionId String        @unique
   stripePaymentIntentId   String?
   amountChargedCents      Int
   // What this payment covered — see lib/orders/paidOrderSnapshot.ts.
   orderSnapshot           Json?
-  createdAt               DateTime @default(now())
-  order                   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt               DateTime      @default(now())
+  order                   Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  refunds                 OrderRefund[]
 
   @@index([orderId, createdAt])
   @@index([companyId, createdAt])
+}
+
+// Money sent back to the customer through Stripe — one row per Stripe refund,
+// always against one OrderPayment (see lib/orders/orderRefunds.ts). What a
+// payment can still refund is its charge minus these.
+model OrderRefund {
+  id                  String       @id @default(cuid())
+  orderId             String
+  companyId           String
+  orderPaymentId      String
+  stripeRefundId      String       @unique
+  amountRefundedCents Int
+  reason              String?
+  createdAt           DateTime     @default(now())
+  order               Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderPayment        OrderPayment @relation(fields: [orderPaymentId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@index([orderPaymentId])
 }
 
 model OrderEvent {

@@ -10,7 +10,9 @@ import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 // processing). A rejected order is still in review, flagged "Trenger
 // endring". A cancelled order ends with a red "Kansellert" step right after
 // the last step it reached — unless it was already on its way, then (like a
-// failed order) it ends with "Ikke gjennomført" in Fullført's place.
+// failed order) it ends with "Ikke gjennomført" in Fullført's place. A
+// declined order (refunded) ends exactly like a cancelled one, with a note
+// that the money is on its way back.
 
 export type OrderProgressStepKey =
   | "received"
@@ -32,7 +34,7 @@ export type OrderProgressStep = { key: OrderProgressStepKey; state: OrderProgres
 export type OrderProgress = {
   steps: OrderProgressStep[];
   // What the page should explain under the bar, if anything.
-  note: "needsChange" | "cancelled" | "notCompleted" | null;
+  note: "needsChange" | "cancelled" | "refunded" | "notCompleted" | null;
 };
 
 const STEP_KEYS = ["received", "review", "confirmed", "onTheWay", "completed"] as const;
@@ -68,7 +70,7 @@ export function buildOrderProgress(order: { status: string | null; createdAt: Da
   const done = (count: number): OrderProgressStep[] =>
     STEP_KEYS.slice(0, count).map((key, i) => ({ key, state: "done", at: firstAt[i] }));
 
-  if (status === "cancelled" || status === "failed") {
+  if (status === "cancelled" || status === "refunded" || status === "failed") {
     // How far it got before it was stopped (the latest switch to this status).
     let stoppedIndex = -1;
     events.forEach((event, i) => {
@@ -79,10 +81,17 @@ export function buildOrderProgress(order: { status: string | null; createdAt: Da
     let reached = Math.max(REVIEW, ...before.map((event) => STEP_OF_STATUS[event.status] ?? REVIEW));
     if (status === "failed") reached = Math.max(reached, ON_THE_WAY);
 
+    const refunded = status === "refunded";
     if (reached >= ON_THE_WAY) {
-      return { steps: [...done(ON_THE_WAY + 1), { key: "notCompleted", state: "stopped", at: stoppedAt }], note: "notCompleted" };
+      return {
+        steps: [...done(ON_THE_WAY + 1), { key: "notCompleted", state: "stopped", at: stoppedAt }],
+        note: refunded ? "refunded" : "notCompleted",
+      };
     }
-    return { steps: [...done(reached + 1), { key: "cancelled", state: "stopped", at: stoppedAt }], note: "cancelled" };
+    return {
+      steps: [...done(reached + 1), { key: "cancelled", state: "stopped", at: stoppedAt }],
+      note: refunded ? "refunded" : "cancelled",
+    };
   }
 
   if (status === "rejected") {

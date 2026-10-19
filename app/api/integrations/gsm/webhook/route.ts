@@ -312,13 +312,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // Orders that are completed, invoiced, or paid are considered finalised.
+    // Orders that are completed, invoiced, paid or refunded are considered
+    // finalised (a refunded order's money has gone back — a late GSM
+    // assignment must not reopen it the way it can a cancelled one).
     // GSM webhooks must not alter their status, fields, or events in any way.
     const normalisedOrderStatus = normalizeOrderStatus(orderBeforeUpdate.status);
     const isOrderFinalised =
       normalisedOrderStatus === "completed" ||
       normalisedOrderStatus === "invoiced" ||
-      normalisedOrderStatus === "paid";
+      normalisedOrderStatus === "paid" ||
+      normalisedOrderStatus === "refunded";
 
     if (isOrderFinalised) {
       await prisma.gsmWebhookEvent.update({

@@ -26,7 +26,7 @@ import { EMPTY_ATTACHMENT_DRAFT, hasAttachmentChanges, type AttachmentDraft } fr
 import WebsiteOrderCustomerLoginButton from "./WebsiteOrderCustomerLoginButton";
 import WebsiteOrderCalculator from "./WebsiteOrderCalculator";
 import type { WebsiteOrderCalculatorView, WebsiteOrderPricingDraft } from "@/lib/orders/websiteOrderCalculator";
-import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
+import { isWebsiteOrderLocked, normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 
 // What GET /api/orders/[orderId]/website-details returns — the same for every
 // website order…
@@ -124,7 +124,6 @@ type Props = {
 
 // Nothing is changed from the modal once an order is done or dead (same rule
 // as PUT /api/orders/[orderId]/website-items).
-const LOCKED_STATUSES = new Set(["cancelled", "completed", "invoiced", "paid"]);
 
 function formatKr(n: number) {
   return `${n.toLocaleString("nb-NO")} kr`;
@@ -188,7 +187,7 @@ export default function WebsiteOrderModal({
         )
       : null,
   ].filter((warning): warning is string => warning !== null);
-  const canEditOrder = !LOCKED_STATUSES.has(normalizeOrderStatus(order.status));
+  const canEditOrder = !isWebsiteOrderLocked(order.status);
 
   const contact = {
     name: order.customerName ?? "",

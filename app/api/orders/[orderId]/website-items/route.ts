@@ -21,7 +21,7 @@ import {
   editableDetailsFromOrder,
   parseAdminOrderDetails,
 } from "@/lib/orders/websiteOrderDetailsEdit";
-import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
+import { isWebsiteOrderLocked } from "@/lib/orders/statusPresentation";
 import {
   applyNulledLinesToCards,
   parseNulledLines,
@@ -75,7 +75,6 @@ import {
 // Done or dead orders: products and addresses aren't changed any more. The
 // admin's handling fields (driver, deviation, discount…) still are — those
 // are often only known after the trip.
-const LOCKED_STATUSES = new Set(["cancelled", "completed", "invoiced", "paid"]);
 
 const ORDER_SELECT = {
   id: true,
@@ -273,7 +272,7 @@ export async function PUT(req: Request, { params }: Params) {
   const order = await findWhiteGoodsOrder(orderId, companyId);
   if (!order) return reject("NOT_FOUND", 404);
   const changesProductsOrDetails = body?.productCards !== undefined || body?.details !== undefined;
-  if (changesProductsOrDetails && LOCKED_STATUSES.has(normalizeOrderStatus(order.status))) {
+  if (changesProductsOrDetails && isWebsiteOrderLocked(order.status)) {
     return reject("NOT_EDITABLE_STATUS", 409);
   }
 

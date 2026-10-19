@@ -15,7 +15,7 @@ import {
 } from "@/lib/booking/archiveColumns";
 import { exportOrdersToExcel } from "@/lib/booking/exportOrdersToExcel";
 import { DEFAULT_BOOKING_ARCHIVE_FILTERS } from "@/lib/orders/archiveFilters";
-import { WEBSITE_ORDER_STATUS_OPTIONS } from "@/lib/orders/statusPresentation";
+import { WEBSITE_ORDER_FILTER_STATUS_OPTIONS, WEBSITE_ORDER_STATUS_OPTIONS } from "@/lib/orders/statusPresentation";
 import BookingArchiveTable from "@/app/_components/Dahsboard/booking/archive/BookingArchiveTable";
 import BookingFilters from "@/app/_components/Dahsboard/booking/archive/BookingFilters";
 import BulkUpdateBar from "@/app/_components/Dahsboard/booking/archive/BulkUpdateBar";
@@ -384,7 +384,7 @@ export default function WebsiteOrdersPage() {
           access={WEBSITE_FILTER_ACCESS}
           subcontractors={subcontractors}
           creators={[]}
-          statusOptions={WEBSITE_ORDER_STATUS_OPTIONS}
+          statusOptions={WEBSITE_ORDER_FILTER_STATUS_OPTIONS}
           onApply={handleApplyFilters}
           onReset={handleResetFilters}
           onRefresh={() => void loadOrders(appliedFilters)}

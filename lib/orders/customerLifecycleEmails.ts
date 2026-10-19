@@ -36,6 +36,9 @@ export type LifecycleEmailOrder = {
   // order_updated only: what the customer changed, and the new total (null =
   // the order has no price, e.g. a quote).
   orderUpdate?: { changes: string[]; totalIncVatNok: number | null };
+  // order_declined only: what was just refunded to the customer (0 = nothing
+  // had been paid, so no refund is mentioned).
+  refundedIncVatNok?: number;
 };
 
 export type OrderReceivedDetails = {
@@ -203,6 +206,34 @@ export function buildRejectedEmail(order: LifecycleEmailOrder) {
       ${buttonLink(requestChangeUrl, "Be om endring")}
       ${buttonLink(cancelUrl, "Kanseller bestilling", "#b91c1c")}
     </div>
+  `);
+
+  return { subject, html };
+}
+
+// Sent when staff decline an order (a job we can't or won't do): the order is
+// closed for good, so unlike the "needs change" email above there is nothing
+// to click — just the reason, and the refund if anything had been paid.
+export function buildOrderDeclinedEmail(order: LifecycleEmailOrder) {
+  const reference = orderReference(order);
+  const reason = order.statusNotes?.trim();
+  const refunded = order.refundedIncVatNok ?? 0;
+
+  const subject = `Bestilling ${reference} er kansellert`.trim();
+  const html = buildSimpleEmailShell(`
+    <p style="margin:0 0 16px 0;">Hei ${escapeHtml(customerGreetingName(order))},</p>
+    <p style="margin:0 0 16px 0;">
+      Vi kan dessverre ikke utføre bestillingen ${escapeHtml(reference)}, og den er derfor kansellert.
+    </p>
+    ${reason ? `<p style="margin:0 0 16px 0;font-style:italic;">"${escapeHtml(reason)}"</p>` : ""}
+    ${
+      refunded > 0
+        ? `<p style="margin:0 0 16px 0;">
+      Vi har tilbakebetalt <strong>${escapeHtml(formatKr(refunded))}</strong> til kortet du betalte med. Det tar vanligvis 5–10 virkedager før pengene er på konto.
+    </p>`
+        : ""
+    }
+    <p style="margin:16px 0 0 0;">Har du spørsmål? Bare svar på denne e-posten, eller ring oss.</p>
   `);
 
   return { subject, html };

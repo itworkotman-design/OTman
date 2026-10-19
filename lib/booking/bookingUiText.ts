@@ -270,6 +270,7 @@ const NB_STATUS_LABELS: Record<string, string> = {
   invoiced: "Fakturert",
   paid: "Betalt",
   processing: "Behandles",
+  refunded: "Refundert",
   rejected: "Avvist",
 };
 

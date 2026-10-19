@@ -23,6 +23,10 @@ export const PROGRESS_NOTES: Record<NonNullable<OrderProgress["note"]>, { no: st
     no: "Bestillingen er kansellert.",
     en: "This order is cancelled.",
   },
+  refunded: {
+    no: "Bestillingen er kansellert, og beløpet du betalte blir tilbakebetalt til kortet ditt. Det tar vanligvis 5–10 virkedager før pengene er på konto.",
+    en: "This order is cancelled, and what you paid is being refunded to your card. It usually takes 5–10 business days to reach your account.",
+  },
   notCompleted: {
     no: "Oppdraget ble ikke gjennomført. Ta kontakt med oss hvis du har spørsmål.",
     en: "The job was not carried out. Contact us if you have questions.",

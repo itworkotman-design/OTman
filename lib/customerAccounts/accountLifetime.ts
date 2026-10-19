@@ -8,7 +8,7 @@ import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 // staff putting it back to processing reopens it, which keeps the account.
 
 // The statuses where the customer can no longer change the order.
-const CLOSED_STATUSES = new Set(["completed", "cancelled", "failed", "invoiced", "paid"]);
+const CLOSED_STATUSES = new Set(["completed", "cancelled", "refunded", "failed", "invoiced", "paid"]);
 
 export const CUSTOMER_ACCOUNT_GRACE_DAYS = 1;
 

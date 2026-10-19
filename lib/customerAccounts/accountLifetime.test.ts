@@ -14,7 +14,7 @@ function order(overrides: Partial<TestOrder> = {}): TestOrder {
 }
 
 describe("isOrderClosedForCustomer", () => {
-  it.each(["completed", "cancelled", "failed", "invoiced", "paid", "Ferdig", "kanselert", "feilet"])("%s is closed", (status) => {
+  it.each(["completed", "cancelled", "failed", "invoiced", "paid", "refunded", "Ferdig", "kanselert", "feilet"])("%s is closed", (status) => {
     expect(isOrderClosedForCustomer(status)).toBe(true);
   });
 

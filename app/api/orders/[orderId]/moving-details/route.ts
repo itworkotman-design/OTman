@@ -26,7 +26,7 @@ import {
 } from "@/lib/orders/movingHandlingLines";
 import { buildOrderStateSnapshot, compareOrderWithPayments } from "@/lib/orders/paidOrderSnapshot";
 import { createOrderUpdatedEvent, type OrderEventChange } from "@/lib/orders/orderEvents";
-import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
+import { isWebsiteOrderLocked } from "@/lib/orders/statusPresentation";
 import { parseWebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import { validateTextField } from "@/lib/orders/websiteOrderValidation";
 
@@ -43,7 +43,6 @@ import { validateTextField } from "@/lib/orders/websiteOrderValidation";
 // `dryRun` previews the price against what was paid, and the calculator,
 // without saving. Status and partner save through /api/orders/bulk.
 
-const LOCKED_STATUSES = new Set(["cancelled", "completed", "invoiced", "paid"]);
 
 const ORDER_SELECT = {
   id: true,
@@ -160,7 +159,7 @@ export async function PUT(req: Request, { params }: Params) {
 
   const changesOrder =
     body.edit !== undefined || body.customer !== undefined || body.preferredDate !== undefined || body.timeWindow !== undefined || body.customerType !== undefined;
-  if (changesOrder && LOCKED_STATUSES.has(normalizeOrderStatus(order.status))) return reject("NOT_EDITABLE_STATUS", 409);
+  if (changesOrder && isWebsiteOrderLocked(order.status)) return reject("NOT_EDITABLE_STATUS", 409);
 
   const data: Record<string, unknown> = { lastEditedByMembershipId: membership.id };
 

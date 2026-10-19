@@ -144,4 +144,19 @@ describe("buildOrderProgress", () => {
     expect(progress.steps[1].at).toEqual(at("10T11:00:00"));
     expect(progress.note).toBe("needsChange");
   });
+
+  it("a declined (refunded) order ends like a cancelled one, with the refund note", () => {
+    const progress = buildOrderProgress({
+      ...base,
+      status: "refunded",
+      statusEvents: [
+        { toStatus: "confirmed", createdAt: at("10T11:00:00") },
+        { toStatus: "refunded", createdAt: at("10T15:00:00") },
+      ],
+    });
+
+    expect(stepState(progress)).toEqual(["received:done", "review:done", "confirmed:done", "cancelled:stopped"]);
+    expect(progress.steps[3].at).toEqual(at("10T15:00:00"));
+    expect(progress.note).toBe("refunded");
+  });
 });

@@ -101,6 +101,9 @@ export default function WebsiteOrderAdminActions({
   const [previewReason, setPreviewReason] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const previewSeq = useRef(0);
+  const [declineOpen, setDeclineOpen] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
+  const [declining, setDeclining] = useState(false);
 
   const change = handlingChange(order.handling, handling);
   const pricedHandling = pricedHandlingFields(order.handling, handling);
@@ -184,7 +187,76 @@ export default function WebsiteOrderAdminActions({
       "This order was saved with older prices, so its price can't be changed as it is. Press \"Use new price\" in the calculator first.",
       "Denne bestillingen ble lagret med eldre priser, så prisen kan ikke endres slik den er. Trykk «Bruk ny pris» i kalkulatoren først.",
     ),
+    REASON_REQUIRED: t("Write why — the customer is told.", "Skriv hvorfor — det får kunden vite."),
+    NOT_DECLINABLE: t(
+      "This order is already completed or closed.",
+      "Denne bestillingen er allerede fullført eller avsluttet.",
+    ),
+    REFUND_FAILED: t(
+      "Stripe couldn't refund the payment. Nothing was changed on the order — try again, or check Stripe.",
+      "Stripe kunne ikke tilbakebetale. Bestillingen er ikke endret — prøv igjen, eller sjekk Stripe.",
+    ),
+    REFUND_NOT_POSSIBLE: t(
+      "A payment on this order can't be refunded automatically. Refund it in Stripe.",
+      "En betaling på denne bestillingen kan ikke tilbakebetales automatisk. Gjør det i Stripe.",
+    ),
   };
+
+  // Decline: a job we can't or won't do. The server refunds everything paid
+  // through Stripe, closes the order (refunded, or cancelled if unpaid) and
+  // emails the customer the reason — see app/api/orders/[orderId]/decline.
+  async function handleDecline() {
+    setMessage(null);
+    const reason = declineReason.trim();
+    if (!reason) {
+      setMessage({ tone: "error", text: reasonText.REASON_REQUIRED });
+      return;
+    }
+    if (
+      !confirm(
+        t(
+          "Decline this order? Everything the customer paid is refunded, the order is closed and the customer gets an email with your reason. This can't be undone.",
+          "Avslå denne bestillingen? Alt kunden har betalt blir tilbakebetalt, bestillingen avsluttes og kunden får en e-post med begrunnelsen. Dette kan ikke angres.",
+        ),
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setDeclining(true);
+      const res = await fetch(`/api/orders/${order.id}/decline`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ reason }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        const reasonKey = data?.reason as string | undefined;
+        setMessage({ tone: "error", text: (reasonKey && reasonText[reasonKey]) || t("Couldn't decline the order.", "Kunne ikke avslå bestillingen.") });
+        return;
+      }
+      const refundedKr = ((data.refundedCents as number) / 100).toLocaleString("nb-NO");
+      const done =
+        data.status === "refunded"
+          ? t(`Declined — ${refundedKr} kr refunded.`, `Avslått — ${refundedKr} kr tilbakebetalt.`)
+          : t("Declined — nothing had been paid.", "Avslått — ingenting var betalt.");
+      setMessage({
+        tone: data.emailFailed ? "error" : "ok",
+        text: data.emailFailed
+          ? `${done} ${t("The email to the customer failed — contact them.", "E-posten til kunden feilet — ta kontakt med dem.")}`
+          : done,
+      });
+      setDeclineOpen(false);
+      onChanged();
+    } catch {
+      setMessage({ tone: "error", text: t("Couldn't decline the order.", "Kunne ikke avslå bestillingen.") });
+    } finally {
+      setDeclining(false);
+    }
+  }
+  const canDecline = !["completed", "cancelled", "refunded"].includes(initial.status);
 
   async function handleSave() {
     setMessage(null);
@@ -422,6 +494,52 @@ export default function WebsiteOrderAdminActions({
               placeholder={t("Saved with a status change", "Lagres sammen med en statusendring")}
             />
           </label>
+
+          {canDecline &&
+            (declineOpen ? (
+              <div className="flex flex-col gap-2 rounded-lg border border-red-200 bg-red-50/60 p-3">
+                <p className="font-semibold text-red-700">{t("Decline order", "Avslå bestilling")}</p>
+                <p className="text-xs text-black/60">
+                  {t(
+                    "For a job we can't or won't do. Refunds everything paid and closes the order. To ask the customer for a change instead, use the status \"rejected\".",
+                    "For et oppdrag vi ikke kan eller vil ta. Tilbakebetaler alt som er betalt og avslutter bestillingen. Skal kunden heller endre noe, bruk statusen «Avvist».",
+                  )}
+                </p>
+                <textarea
+                  value={declineReason}
+                  onChange={(e) => setDeclineReason(e.target.value)}
+                  rows={2}
+                  className={fieldClass}
+                  placeholder={t("Why (shown to the customer)", "Hvorfor (vises for kunden)")}
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDecline}
+                    disabled={declining}
+                    className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {declining ? t("Declining…", "Avslår…") : t("Decline and refund", "Avslå og tilbakebetal")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeclineOpen(false)}
+                    disabled={declining}
+                    className="rounded-full px-4 py-2 text-sm font-medium text-black/60"
+                  >
+                    {t("Cancel", "Avbryt")}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setDeclineOpen(true)}
+                className="self-start text-sm font-medium text-red-600 underline-offset-2 hover:underline"
+              >
+                {t("Decline order…", "Avslå bestilling…")}
+              </button>
+            ))}
         </div>
 
         {/* Attachments sit in the same card, below a divider. */}

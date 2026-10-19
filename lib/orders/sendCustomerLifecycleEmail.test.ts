@@ -114,6 +114,19 @@ describe("sendLifecycleEmailsForOrders", () => {
     expect(result.sentCount).toBe(1);
   });
 
+  it("sends order_declined without an actionToken, with the refunded amount", async () => {
+    const result = await sendLifecycleEmailsForOrders({
+      orders: [{ ...baseOrder, statusNotes: "Utenfor vårt område.", refundedIncVatNok: 1250 }],
+      kind: "order_declined",
+      actor,
+    });
+
+    expect(result.sentCount).toBe(1);
+    const sent = JSON.stringify(mocks.sendGmailEmail.mock.calls[0]);
+    expect(sent).toContain("kansellert");
+    expect(sent).toContain("Utenfor vårt område.");
+  });
+
   it("still requires an actionToken for the kinds that build action links", async () => {
     const result = await sendLifecycleEmailsForOrders({ orders: [baseOrder], kind: "payment_request", actor });
 

@@ -646,4 +646,28 @@ describe("POST /api/integrations/gsm/webhook", () => {
       },
     });
   });
+
+  it("never touches a refunded (declined) order — a late driver assignment must not reopen it", async () => {
+    mocks.orderFindUniqueMock.mockResolvedValue({ ...buildOrderBeforeUpdate(), status: "refunded" });
+    mocks.fetchGsmTaskMock.mockResolvedValue({ id: "task-1", external_id: "order:order-1", state: "assigned", metafields: {} });
+    mocks.orderGsmTaskFindManyMock.mockResolvedValue([{ state: "assigned", hasNotes: false }]);
+
+    const response = await POST(
+      new Request("http://localhost/api/integrations/gsm/webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-otman-secret": "test-secret",
+          "x-gsmtasks-topic": "taskevent.create",
+        },
+        body: JSON.stringify({ task: { id: "task-1", external_id: "order:order-1", state: "assigned" }, to_state: "assigned" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.orderUpdateMock).not.toHaveBeenCalled();
+    expect(mocks.gsmWebhookEventUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ processingError: "ORDER_FINALISED" }) }),
+    );
+  });
 });
