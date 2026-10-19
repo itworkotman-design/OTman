@@ -35,6 +35,7 @@ Groups alert-center notification rules and templates used by order creation, ord
 | `buildNoSubcontractorAlert` | Builds the no-subcontractor alert. Takes an optional `status` (defaults to `completed`) and `overdue` (cron wording: "for more than a day"). |
 | `createNoSubcontractorAlert` | Creates the no-subcontractor alert unless an unresolved one is already open for the order. |
 | `runMissingPartnerAlertSweep` | Daily cron sweep: alerts on failed/completed/invoiced/paid orders with no partner whose status is older than 24h (`missingPartnerSweep.ts`, imported directly rather than via `index.ts`). |
+| `isAwaitingReplyOnDeliveryDay` / `buildNeedsChangeNoReplyAlert` / `runNeedsChangeNoReplySweep` | Daily cron sweep (`needsChangeNoReplySweep.ts`, imported directly): alerts once per rejection on website orders still in "needs change" when their delivery date comes and the customer hasn't answered. See `docs/documentation/integrations/needs-change-alerts-cron.md`. |
 | `buildSubcontractorPriceAlert` | Builds the subcontractor-price warning content. |
 | `hasSubcontractorPriceAlertEverExisted` | Checks whether a subcontractor-price warning has ever been created for the order, regardless of resolved state. |
 | `createSubcontractorPriceAlert` | Creates a warning when both prices are numeric and subcontractor price is higher than customer price, unless one has ever existed for the order. |
