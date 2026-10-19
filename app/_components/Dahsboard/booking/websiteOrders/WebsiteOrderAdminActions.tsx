@@ -423,9 +423,10 @@ export default function WebsiteOrderAdminActions({
             />
           </label>
         </div>
-      </div>
 
-      {children}
+        {/* Attachments sit in the same card, below a divider. */}
+        {children && <div className="mt-6 border-t border-black/10 pt-6">{children}</div>}
+      </div>
 
       <div className="flex flex-col gap-2">
         {change.affectsPrice && (

@@ -57,7 +57,7 @@ export default function WebsiteOrderAttachments({ orderId, locale, draft, onDraf
   }
 
   return (
-    <div className="rounded-2xl border border-black/10 bg-white p-6">
+    <div>
       <h3 className="mb-4 text-base font-semibold text-logoblue">{t("Attachments", "Vedlegg")}</h3>
       <OrderAttachmentsSection
         attachments={shown}

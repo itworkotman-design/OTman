@@ -9,11 +9,12 @@ import type { ReviewBlock } from "./orderReview";
 
 // The answers as labelled cards: one per block, a location pin on
 // pickup/delivery/move-end blocks. Notes keep their line breaks.
-export function OrderReviewBlocks({ blocks }: { blocks: ReviewBlock[] }) {
+// `bare` drops each block's own card, for a parent that puts them all in one card.
+export function OrderReviewBlocks({ blocks, bare = false }: { blocks: ReviewBlock[]; bare?: boolean }) {
   return (
     <>
       {blocks.map((block) => (
-        <div key={block.title} className="rounded-2xl border border-black/10 bg-white p-6">
+        <div key={block.title} className={bare ? "p-6" : "rounded-2xl border border-black/10 bg-white p-6"}>
           <h3 className="flex items-center gap-2 text-base font-semibold text-logoblue">
             {block.kind === "location" && <PinIcon />}
             {block.title}

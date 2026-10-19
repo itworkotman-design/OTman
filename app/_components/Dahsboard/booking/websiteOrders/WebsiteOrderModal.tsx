@@ -459,14 +459,17 @@ export default function WebsiteOrderModal({
             ) : (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
               <div className="flex flex-col gap-4">
-                <OrderReviewBlocks blocks={reviewBlocks} />
+                {/* All the order's details in one card, sections split by a line. */}
+                <div className="divide-y divide-black/10 rounded-2xl border border-black/10 bg-white">
+                  <OrderReviewBlocks blocks={reviewBlocks} bare />
 
-                {order.statusNotes?.trim() && (
-                  <div className="rounded-2xl border border-black/10 bg-white p-6">
-                    <h3 className="text-base font-semibold text-logoblue">{t("Status notes", "Statusnotater")}</h3>
-                    <p className="mt-3 whitespace-pre-line text-sm text-black/85">{order.statusNotes}</p>
-                  </div>
-                )}
+                  {order.statusNotes?.trim() && (
+                    <div className="p-6">
+                      <h3 className="text-base font-semibold text-logoblue">{t("Status notes", "Statusnotater")}</h3>
+                      <p className="mt-3 whitespace-pre-line text-sm text-black/85">{order.statusNotes}</p>
+                    </div>
+                  )}
+                </div>
 
                 <WebsiteOrderAdminActions
                   key={`${order.status}|${order.statusNotes}|${order.subcontractorMembershipId}|${JSON.stringify(panelHandling)}`}
