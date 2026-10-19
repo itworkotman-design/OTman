@@ -603,12 +603,18 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
     if (!insuranceCases) void loadAllCreators();
     void loadPricelistOptions();
     void loadPickupAddressOptions();
-    void loadDriverOptions();
     return () => {
       orderLoadAbortRef.current?.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The current user loads asynchronously, so viewMode is not "ADMIN" on the
+  // first render — load drivers once admin access is actually known.
+  useEffect(() => {
+    void loadDriverOptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [access.viewMode]);
 
   useEffect(() => {
     if (access.viewMode !== "ADMIN") return;

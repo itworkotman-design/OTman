@@ -23,5 +23,6 @@ Provides the shared driver-name normalization used by archive options, filtering
 | `getKnownDriver` | Resolves an exact match or a unique one-character spelling variation. |
 | `resolveDriverParts` | Converts a stored single- or multi-driver value into deduplicated canonical and unmatched parts. |
 | `getKnownDriverFilterOptions` | Returns the canonical TypeScript registry as filter options. |
+| `getDriverFilterOptions` | Builds filter options from stored order `driver` values: known drivers (including spelling variants) by canonical id, other names once by their formatted label, sorted by label. |
 | `matchesDriverFilter` | Matches an order when any resolved driver equals the selected canonical driver, or applies the no-driver sentinel. |
 | `getDriverDisplayLabel` | Joins resolved drivers into one canonical display label or returns the supplied no-driver label. |

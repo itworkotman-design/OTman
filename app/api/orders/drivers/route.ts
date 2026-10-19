@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
-import { getKnownDriverFilterOptions } from "@/lib/orders/driverNormalization";
+import { getDriverFilterOptions } from "@/lib/orders/driverNormalization";
 
 export async function GET(req: Request) {
   const session = await getAuthenticatedSession(req);
@@ -41,8 +41,18 @@ export async function GET(req: Request) {
     );
   }
 
+  // Same scope as the admin order list: every order in the active company.
+  const orders = await prisma.order.findMany({
+    where: {
+      companyId: session.activeCompanyId,
+      driver: { not: null },
+    },
+    select: { driver: true },
+    distinct: ["driver"],
+  });
+
   return NextResponse.json({
     ok: true,
-    drivers: getKnownDriverFilterOptions(),
+    drivers: getDriverFilterOptions(orders.map((order) => order.driver)),
   });
 }

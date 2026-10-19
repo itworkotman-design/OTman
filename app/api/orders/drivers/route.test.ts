@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getAuthenticatedSessionMock: vi.fn(),
   membershipFindFirstMock: vi.fn(),
+  orderFindManyMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -12,6 +13,7 @@ vi.mock("@/lib/auth/session", () => ({
 vi.mock("@/lib/db", () => ({
   prisma: {
     membership: { findFirst: mocks.membershipFindFirstMock },
+    order: { findMany: mocks.orderFindManyMock },
   },
 }));
 
@@ -30,21 +32,33 @@ describe("GET /api/orders/drivers", () => {
     expect(response.status).toBe(401);
   });
 
-  it("returns the configured drivers for an active admin", async () => {
+  it("returns the drivers found on the active company's orders for an admin", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "admin-user",
       activeCompanyId: "company-1",
     });
     mocks.membershipFindFirstMock.mockResolvedValue({ role: "ADMIN" });
+    mocks.orderFindManyMock.mockResolvedValue([
+      { driver: "otto" },
+      { driver: "Otto / Edijs" },
+      { driver: "kari nordmann" },
+    ]);
 
     const response = await GET(new Request("http://localhost/api/orders/drivers"));
     const data = await response.json();
 
     expect(response.status).toBe(200);
     expect(data.ok).toBe(true);
-    expect(data.drivers).toHaveLength(11);
-    expect(data.drivers).toContainEqual({ id: "otto", label: "Otto" });
-    expect(data.drivers).toContainEqual({ id: "learning-team", label: "Learning team" });
+    expect(data.drivers).toEqual([
+      { id: "edijs", label: "Edijs" },
+      { id: "Kari Nordmann", label: "Kari Nordmann" },
+      { id: "otto", label: "Otto" },
+    ]);
+    expect(mocks.orderFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ companyId: "company-1" }),
+      }),
+    );
   });
 
   it("returns 403 when the active membership is missing", async () => {

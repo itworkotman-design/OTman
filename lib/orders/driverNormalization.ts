@@ -166,6 +166,35 @@ export function getKnownDriverFilterOptions(): DriverFilterOption[] {
   }));
 }
 
+// Builds the driver filter from the drivers actually written on orders.
+// Spelling variants collapse into the known driver; names outside the known
+// list are kept with their label as id, which matchesDriverFilter accepts.
+export function getDriverFilterOptions(
+  values: Array<string | null | undefined>,
+): DriverFilterOption[] {
+  const options: DriverFilterOption[] = [];
+
+  for (const value of values) {
+    for (const part of resolveDriverParts(value)) {
+      const option = part.knownDriver
+        ? { id: part.knownDriver.id, label: part.knownDriver.name }
+        : { id: part.label, label: part.label };
+
+      const exists = options.some((existing) =>
+        part.knownDriver
+          ? existing.id === option.id
+          : areDriverNamesEquivalent(existing.label, option.label),
+      );
+
+      if (!exists) options.push(option);
+    }
+  }
+
+  return options.sort((left, right) =>
+    left.label.localeCompare(right.label, "nb-NO"),
+  );
+}
+
 export function matchesDriverFilter(
   value: string | null | undefined,
   filterValue: string | null | undefined,

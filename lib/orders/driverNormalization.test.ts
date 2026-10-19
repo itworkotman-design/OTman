@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   areDriverNamesEquivalent,
   getDriverDisplayLabel,
+  getDriverFilterOptions,
   getKnownDriverFilterOptions,
   isNoDriverValue,
   matchesDriverFilter,
@@ -56,5 +57,37 @@ describe("driver normalization", () => {
   it("does not fuzzy-match short arbitrary names or numbered labels", () => {
     expect(areDriverNamesEquivalent("Bo", "Jo")).toBe(false);
     expect(areDriverNamesEquivalent("Driver 1", "Driver 2")).toBe(false);
+  });
+});
+
+describe("getDriverFilterOptions", () => {
+  it("lists only drivers that appear on orders, merging spellings into known drivers", () => {
+    expect(getDriverFilterOptions(["otto", "Otto ", "ronallds", null])).toEqual([
+      { id: "otto", label: "Otto" },
+      { id: "ronalds", label: "Ronalds" },
+    ]);
+  });
+
+  it("splits multi-driver values into separate drivers", () => {
+    expect(getDriverFilterOptions(["-otto/ edijs", "Gints, Otto"])).toEqual([
+      { id: "edijs", label: "Edijs" },
+      { id: "gints", label: "Gints" },
+      { id: "otto", label: "Otto" },
+    ]);
+  });
+
+  it("includes drivers that are not in the known list once, filterable by their label", () => {
+    const options = getDriverFilterOptions(["kari nordmann", "Kari Nordmann", "Otto"]);
+
+    expect(options).toEqual([
+      { id: "Kari Nordmann", label: "Kari Nordmann" },
+      { id: "otto", label: "Otto" },
+    ]);
+    expect(matchesDriverFilter("kari nordmann", options[0].id)).toBe(true);
+    expect(matchesDriverFilter("Otto", options[0].id)).toBe(false);
+  });
+
+  it("ignores blank, zero and dash values", () => {
+    expect(getDriverFilterOptions(["", "0", "-", "  "])).toEqual([]);
   });
 });
