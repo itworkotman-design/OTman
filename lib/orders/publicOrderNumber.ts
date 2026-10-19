@@ -1,7 +1,7 @@
 import { randomInt } from "crypto";
 import type { PrismaClient } from "@prisma/client";
 
-// The order number a website customer sees (emails, payment/change/cancel
+// The order number a website customer sees (emails, payment/change
 // pages, confirmation screens) and quotes when they call. Stored in
 // Order.orderNumber — the app's existing customer-reference field, so it also
 // shows up in the dashboard list/search and on GSM tasks with no extra work.

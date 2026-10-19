@@ -6,6 +6,8 @@ import {
   buildOrderConfirmedEmail,
   buildOrderReceivedEmail,
   buildOrderUpdatedEmail,
+  buildPaymentTimeoutEmail,
+  buildRejectedEmail,
 } from "./customerLifecycleEmails";
 
 beforeEach(() => {
@@ -203,12 +205,13 @@ describe("buildOrderReceivedEmail", () => {
     expect(html).not.toContain("Totalpris");
   });
 
-  it("states until when the order can be changed and cancelled — 24h before the time window starts", () => {
+  it("states until when the order can be changed — 24h before the time window starts — and that cancelling is by phone", () => {
     const { html } = buildOrderReceivedEmail({ ...order, orderNumber: "K7MQ4XZ2", customerLogin, orderDetails: details });
 
     expect(html).toContain("14. oktober kl. 10:00");
-    expect(html).toContain("avbestille");
     expect(html).toContain("legge til tjenester");
+    expect(html).toContain("Vil du avbestille, ring oss på +47 402 84 977.");
+    expect(html).not.toContain("forespørsel");
   });
 
   it("bolds the 'add services in case you forgot something' hint in the login section", () => {
@@ -381,5 +384,23 @@ describe("buildRefundIssuedEmail", () => {
     expect(html).toContain("/min-bestilling/AB12CD");
     expect(html).not.toContain("/betaling/");
     expect(html).not.toContain("/bestilling/avbryt/");
+  });
+});
+
+describe("cancelling is by phone only", () => {
+  it("the needs-change email offers a change request, and a phone number to cancel — no cancel link", () => {
+    const { html } = buildRejectedEmail({ ...order, statusNotes: "Vi trenger etasjen." });
+
+    expect(html).toContain("/bestilling/endre/");
+    expect(html).not.toContain("/bestilling/avbryt/");
+    expect(html).toContain("Vil du avbestille, ring oss på +47 402 84 977.");
+  });
+
+  it("the payment reminder offers paying or a change request, and a phone number to cancel — no cancel link", () => {
+    const { html } = buildPaymentTimeoutEmail(order);
+
+    expect(html).toContain("/betaling/");
+    expect(html).not.toContain("/bestilling/avbryt/");
+    expect(html).toContain("Vil du avbestille, ring oss på +47 402 84 977.");
   });
 });

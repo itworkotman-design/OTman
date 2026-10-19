@@ -26,12 +26,12 @@ These pages are where homepage customers see and change their own order (see `do
 
 **`CustomerOrderClient`** (the order page) shows:
 
-- the back link and the profile menu, the order number with its status badge and when it was ordered, and **Endre bestilling** / **Avbestill bestilling** (after the cutoff "Be om å avbestille", which sends a request instead of cancelling). Both buttons are hidden on a closed order.
+- the back link and the profile menu, the order number with its status badge and when it was ordered, and **Endre bestilling** plus a **Ring for å avbestille** phone link (cancelling is by phone only — there is no cancel route). Both are hidden on a closed order.
 - the progress bar
 - **Tid og adresser**: date and time window, each pickup (with Butikk / Privatperson / Bedrift, place name, floor and lift, and the contact person on catalog orders) and the delivery address
 - **Varer og tjenester**: a tile per product with its blue product icon (`ProductIcon`, from `findCustomerOrderProducts`) and count, and under it that product's delivery type and its own services (install, extras, return)
 - **Kundeinformasjon**: name, phone, email, and the comment on its own row
-- on the right: the total (incl. VAT), **Godt å vite** (`orderRules.ts` — what can still be changed or cancelled and until when, in Oslo time), and the contact box
+- on the right: the total (incl. VAT), **Godt å vite** (`orderRules.ts` — what can still be changed and until when, in Oslo time, and that cancelling is by phone), and the contact box
 
 Changing the password and logging out are in the profile menu (both pages).
 

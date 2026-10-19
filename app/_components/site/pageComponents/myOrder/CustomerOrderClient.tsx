@@ -21,6 +21,7 @@ import ContactUsCard from "./ContactUsCard";
 import CustomerProfileMenu from "./CustomerProfileMenu";
 import { progressBadge } from "./orderProgressText";
 import { orderRules } from "./orderRules";
+import { OTMAN_PHONE, OTMAN_PHONE_HREF } from "@/lib/content/companyContact";
 import {
   ArrowLeftIcon,
   BoxIcon,
@@ -28,7 +29,6 @@ import {
   CalendarIcon,
   CheckIcon,
   CoinsIcon,
-  CrossIcon,
   FlagIcon,
   MailIcon,
   NoteIcon,
@@ -110,9 +110,6 @@ export default function CustomerOrderClient({ locale, order, products, accountEm
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const [cancelOpen, setCancelOpen] = useState(false);
-  const [cancelMessage, setCancelMessage] = useState("");
-  const [cancelling, setCancelling] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const orderNumber = order.orderNumber ?? "";
@@ -128,38 +125,6 @@ export default function CustomerOrderClient({ locale, order, products, accountEm
     setNotice(message);
     setError("");
     router.refresh();
-  }
-
-  async function cancelOrder() {
-    setCancelling(true);
-    setError("");
-    try {
-      const res = await fetch(`/api/customer/orders/${encodeURIComponent(orderNumber)}/cancel`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ message: cancelMessage }),
-      });
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.ok) {
-        setError(t("Could not cancel. Please contact us.", "Kunne ikke kansellere. Ta kontakt med oss."));
-        return;
-      }
-      setCancelOpen(false);
-      setNotice(
-        json.mode === "cancelled"
-          ? t("Your order is cancelled.", "Bestillingen er kansellert.")
-          : t(
-              "We've received your cancellation request and will contact you.",
-              "Vi har mottatt ønsket om å kansellere og tar kontakt med deg.",
-            ),
-      );
-      router.refresh();
-    } catch {
-      setError(t("Could not cancel. Please contact us.", "Kunne ikke kansellere. Ta kontakt med oss."));
-    } finally {
-      setCancelling(false);
-    }
   }
 
   const badge = progressBadge(order.progress, locale);
@@ -230,7 +195,6 @@ export default function CustomerOrderClient({ locale, order, products, accountEm
                 type="button"
                 onClick={() => {
                   setNotice("");
-                  setCancelOpen(false);
                   setEditing(true);
                 }}
                 className="inline-flex h-11 items-center gap-2 rounded-xl border border-gray-300 bg-white px-5 text-sm font-semibold text-logoblue transition hover:border-logoblue"
@@ -239,58 +203,20 @@ export default function CustomerOrderClient({ locale, order, products, accountEm
                 {t("Change order", "Endre bestilling")}
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => setCancelOpen((open) => !open)}
-              className="inline-flex h-11 items-center gap-2 rounded-xl border border-red-500 bg-white px-5 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+            {/* Cancelling is by phone only. */}
+            <a
+              href={OTMAN_PHONE_HREF}
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-gray-300 bg-white px-5 text-sm font-semibold text-gray-700 transition hover:border-logoblue"
             >
-              <CrossIcon className="h-5 w-5" />
-              {permissions.beforeCutoff ? t("Cancel order", "Avbestill bestilling") : t("Ask to cancel", "Be om å avbestille")}
-            </button>
+              <PhoneIcon className="h-5 w-5" />
+              {t(`Call to cancel: ${OTMAN_PHONE}`, `Ring for å avbestille: ${OTMAN_PHONE}`)}
+            </a>
           </div>
         )}
       </div>
 
       {notice && <p className="mt-5 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-800">{notice}</p>}
       {error && <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</p>}
-
-      {cancelOpen && permissions.open && (
-        <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-red-100 bg-red-50 p-5 text-sm">
-          <p className="font-medium text-red-900">
-            {permissions.beforeCutoff
-              ? t("Are you sure? The order is cancelled straight away.", "Er du sikker? Bestillingen avbestilles med en gang.")
-              : t(
-                  "It's less than 24 hours until the job, so we'll contact you about the cancellation.",
-                  "Det er mindre enn 24 timer til oppdraget, så vi tar kontakt med deg om avbestillingen.",
-                )}
-          </p>
-          <textarea
-            value={cancelMessage}
-            onChange={(e) => setCancelMessage(e.target.value)}
-            maxLength={2000}
-            rows={3}
-            placeholder={t("Reason (optional)", "Årsak (valgfritt)")}
-            className="w-full rounded-xl border border-gray-300 bg-white p-3"
-          />
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={cancelOrder}
-              disabled={cancelling}
-              className="inline-flex h-11 items-center justify-center rounded-xl bg-red-600 px-6 font-semibold text-white disabled:opacity-50"
-            >
-              {cancelling
-                ? t("Sending…", "Sender…")
-                : permissions.beforeCutoff
-                  ? t("Yes, cancel the order", "Ja, avbestill bestillingen")
-                  : t("Send cancellation request", "Send ønske om avbestilling")}
-            </button>
-            <button type="button" onClick={() => setCancelOpen(false)} className="h-11 px-4 font-semibold text-gray-700">
-              {t("Keep the order", "Behold bestillingen")}
-            </button>
-          </div>
-        </div>
-      )}
 
       {editing && details.kind === "basic" && (
         <div className={`mt-5 ${CARD}`}>

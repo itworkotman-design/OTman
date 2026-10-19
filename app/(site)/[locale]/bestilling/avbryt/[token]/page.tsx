@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { getOrderByActionToken } from "@/lib/orders/publicOrderAccess";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
-import OrderCancelClient from "@/app/_components/site/pageComponents/OrderCancelClient";
+import { CALL_TO_CANCEL, OTMAN_PHONE, OTMAN_PHONE_HREF } from "@/lib/content/companyContact";
+
+// The page behind the "Kanseller bestilling" button older customer emails
+// still carry. Cancelling is by phone only now, so it no longer cancels
+// anything — it shows the order and the number to call.
 
 export const metadata: Metadata = {
   title: "Kanseller bestilling | Otman AS",
@@ -13,15 +17,15 @@ const TEXT = {
     heading: "Kanseller bestilling",
     notFound: "Fant ikke bestillingen. Sjekk lenken, eller ta kontakt med oss.",
     alreadyCancelled: "Denne bestillingen er allerede kansellert.",
-    notEligible: "Denne bestillingen kan ikke kanselleres akkurat nå. Ta kontakt med oss om du tror dette er feil.",
     order: "Bestilling",
+    call: "Ring oss",
   },
   en: {
     heading: "Cancel order",
     notFound: "We couldn't find that order. Check the link, or contact us.",
     alreadyCancelled: "This order has already been cancelled.",
-    notEligible: "This order can't be cancelled right now. Contact us if you think this is a mistake.",
     order: "Order",
+    call: "Call us",
   },
 } as const;
 
@@ -43,8 +47,8 @@ export default async function OrderCancelPage({
     );
   }
 
-  const normalizedStatus = normalizeOrderStatus(order.status);
-  const eligible = ["rejected", "approved", "failed"].includes(normalizedStatus);
+  const status = normalizeOrderStatus(order.status);
+  const closed = status === "cancelled" || status === "refunded";
 
   return (
     <div className="py-16">
@@ -56,12 +60,18 @@ export default async function OrderCancelPage({
           </p>
         ) : null}
 
-        {normalizedStatus === "cancelled" ? (
+        {closed ? (
           <p className="mt-4 text-sm font-medium text-textColorThird">{t.alreadyCancelled}</p>
-        ) : !eligible ? (
-          <p className="mt-4 text-sm text-textColorThird">{t.notEligible}</p>
         ) : (
-          <OrderCancelClient token={token} locale={locale} />
+          <>
+            <p className="mt-4 text-sm text-textColorThird">{CALL_TO_CANCEL[locale]}</p>
+            <a
+              href={OTMAN_PHONE_HREF}
+              className="mt-4 inline-flex h-11 items-center rounded-xl bg-logoblue px-5 text-sm font-semibold text-white"
+            >
+              {t.call}: {OTMAN_PHONE}
+            </a>
+          </>
         )}
       </div>
     </div>

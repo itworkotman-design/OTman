@@ -20,7 +20,7 @@ Applied on every path that cancels an order:
 | Order modal (`PATCH /api/orders/[orderId]`) | `cancelledOrderPartnerData`, merged into the update and the history snapshot. |
 | Bulk update (`PATCH /api/orders/bulk`) | One `findCancelledOrderPartner` lookup, then `updateMany` on the rows newly cancelled without a partner. Skipped when a bulk partner is chosen. |
 | Payment-timeout sweep (`runPaymentTimeoutSweep`) | `cancelledOrderPartnerData`, merged into the cancel update. |
-| Customer cancel link (`POST /api/public/orders/[token]/cancel`) | `findCancelledOrderPartner`, then a conditional `updateMany` that only writes where the partner is still empty. This keeps partner data out of the public token lookup. |
+| Decline (`POST /api/orders/[orderId]/decline`) | `findCancelledOrderPartner`, then a conditional `updateMany` that only writes where the partner is still empty. (Customers can't cancel themselves — cancelling is by phone.) |
 
 ## Functions
 

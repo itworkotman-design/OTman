@@ -19,7 +19,7 @@ export function isOrderClosedForCustomer(status: string | null | undefined): boo
 export type AccountLifetimeOrder = {
   status: string | null;
   statusChangedAt: Date | null;
-  // Some status writers (e.g. the public cancel route) don't set
+  // Some status writers (e.g. the payment-timeout sweep) don't set
   // statusChangedAt — updatedAt covers them. It can only move deleteAt later.
   updatedAt: Date;
   gdprHold: boolean;

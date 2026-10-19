@@ -6,6 +6,7 @@ import type { BookingPickupStop } from "./websiteBookingDetails";
 import { getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
 import { getOrderEmailLogoUrl } from "@/lib/email/emailAssets";
 import { getOrderActionBaseUrl } from "@/lib/stripe/stripeClient";
+import { CALL_TO_CANCEL } from "@/lib/content/companyContact";
 
 export type LifecycleEmailOrder = {
   id: string;
@@ -123,7 +124,6 @@ export function buildOrderActionUrls(token: string) {
 
   return {
     payUrl: `${baseUrl}/betaling/${token}`,
-    cancelUrl: `${baseUrl}/bestilling/avbryt/${token}`,
     requestChangeUrl: `${baseUrl}/bestilling/endre/${token}`,
   };
 }
@@ -193,7 +193,7 @@ export function buildPaymentRequestEmail(order: LifecycleEmailOrder) {
 }
 
 export function buildRejectedEmail(order: LifecycleEmailOrder) {
-  const { cancelUrl, requestChangeUrl } = buildOrderActionUrls(requireActionToken(order));
+  const { requestChangeUrl } = buildOrderActionUrls(requireActionToken(order));
   const reference = orderReference(order);
   const comment = order.statusNotes?.trim();
 
@@ -204,11 +204,11 @@ export function buildRejectedEmail(order: LifecycleEmailOrder) {
       Vi kan dessverre ikke gå videre med bestillingen ${escapeHtml(reference)} slik den er nå.
     </p>
     ${comment ? `<p style="margin:0 0 16px 0;font-style:italic;">"${escapeHtml(comment)}"</p>` : ""}
-    <p style="margin:0 0 16px 0;">Velg et av alternativene under:</p>
+    <p style="margin:0 0 16px 0;">Fortell oss hva som skal endres:</p>
     <div style="margin:20px 0;">
       ${buttonLink(requestChangeUrl, "Be om endring")}
-      ${buttonLink(cancelUrl, "Kanseller bestilling", "#b91c1c")}
     </div>
+    <p style="margin:16px 0 0 0;">${escapeHtml(CALL_TO_CANCEL.no)}</p>
   `);
 
   return { subject, html };
@@ -313,7 +313,7 @@ export function buildBalanceDueEmail(order: LifecycleEmailOrder) {
 }
 
 export function buildPaymentTimeoutEmail(order: LifecycleEmailOrder) {
-  const { payUrl, cancelUrl, requestChangeUrl } = buildOrderActionUrls(requireActionToken(order));
+  const { payUrl, requestChangeUrl } = buildOrderActionUrls(requireActionToken(order));
   const reference = orderReference(order);
 
   const subject = `Påminnelse: betaling for bestilling ${reference}`.trim();
@@ -325,8 +325,8 @@ export function buildPaymentTimeoutEmail(order: LifecycleEmailOrder) {
     <div style="margin:20px 0;">
       ${buttonLink(payUrl, "Betal nå")}
       ${buttonLink(requestChangeUrl, "Be om endring")}
-      ${buttonLink(cancelUrl, "Kanseller bestilling", "#b91c1c")}
     </div>
+    <p style="margin:16px 0 0 0;">${escapeHtml(CALL_TO_CANCEL.no)}</p>
   `);
 
   return { subject, html };
@@ -340,14 +340,14 @@ function formatCutoff(cutoff: Date): string {
 }
 
 // What the customer may do in "My order" and until when — the rules of
-// customerOrderEditPolicy.ts (and the cancel route) in words.
+// customerOrderEditPolicy.ts in words. Cancelling is by phone only.
 function editRulesBlock(details: OrderReceivedDetails | undefined) {
   const cutoff = getEditCutoff(details?.deliveryDate, details?.timeWindow);
   const until = cutoff ? `Frem til ${escapeHtml(formatCutoff(cutoff))} (24 timer før leveringen)` : "Frem til 24 timer før leveringen";
   return `
     <p style="margin:0 0 16px 0;">
-      ${until} kan du endre dato, adresser og varer, eller avbestille bestillingen. Etter det kan du fortsatt
-      legge til tjenester og oppdatere kontaktinformasjonen din — vil du avbestille da, sender du oss en forespørsel.
+      ${until} kan du endre dato, adresser og varer. Etter det kan du fortsatt
+      legge til tjenester og oppdatere kontaktinformasjonen din. ${escapeHtml(CALL_TO_CANCEL.no)}
     </p>`;
 }
 

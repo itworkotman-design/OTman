@@ -4,7 +4,6 @@
 
 - `app/api/customer/orders/route.ts`
 - `app/api/customer/orders/[orderNumber]/route.ts`
-- `app/api/customer/orders/[orderNumber]/cancel/route.ts`
 
 ## Responsibility
 
@@ -51,13 +50,9 @@ Body: `{ customer?: { name, phone, email, comments }, preferredDate?, timeWindow
 
 Payment isn't part of this. When Stripe goes live, the existing `/betaling/[token]` page charges the current total or balance.
 
-### `POST /api/customer/orders/[orderNumber]/cancel`
+### Cancelling
 
-Body `{ message? }`.
-
-- **More than 24h before the time window:** the order is cancelled straight away (`status` and `statusChangedAt`), the cancelled-order partner is filled in, the status change is logged, and staff are notified. Returns `{ mode: "cancelled" }`.
-- **Within 24h:** the status is left as it is. The cancellation request is logged as an inbound message in the order's Email Center thread, and staff get a notification. Returns `{ mode: "requested" }`.
-- **Closed order:** returns `409 ORDER_CLOSED`.
+There is no cancel route: customers cancel by phone only (`lib/content/companyContact.ts`). "My order" shows a call link instead, and staff close the order with Decline (`POST /api/orders/[orderId]/decline`), which refunds what was paid.
 
 ## Homepage moves
 A `MOVING` order with stored answers is edited as a whole move (`moving`: addresses, both ends, services —

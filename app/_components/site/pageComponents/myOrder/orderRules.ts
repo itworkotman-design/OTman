@@ -1,6 +1,8 @@
-// "Godt å vite" on the order page: what the customer may still change or
-// cancel, and until when — the rules of lib/orders/customerOrderEditPolicy.ts
-// and the cancel route, in words.
+import { CALL_TO_CANCEL } from "@/lib/content/companyContact";
+
+// "Godt å vite" on the order page: what the customer may still change, and
+// until when — the rules of lib/orders/customerOrderEditPolicy.ts in words.
+// Cancelling is by phone only.
 
 type Permissions = {
   open: boolean;
@@ -17,6 +19,7 @@ type Permissions = {
 export function orderRules(permissions: Permissions, locale: "no" | "en"): string[] {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const until = permissions.cutoffText ?? t("24 hours before the delivery", "24 timer før leveringen");
+  const callToCancel = CALL_TO_CANCEL[locale];
 
   if (!permissions.open) {
     return [
@@ -27,17 +30,16 @@ export function orderRules(permissions: Permissions, locale: "no" | "en"): strin
 
   // A service request is frozen completely at the cutoff.
   if (permissions.kind === "service") {
-    const cancelLater = t("To cancel, send us a request and we will contact you.", "Vil du avbestille, sender du oss en forespørsel, så tar vi kontakt.");
     if (permissions.beforeCutoff) {
       return [
         t(`You can change the order until ${until}.`, `Du kan endre bestillingen frem til ${until}.`),
-        t(`You can cancel the order yourself until ${until}.`, `Du kan avbestille bestillingen selv frem til ${until}.`),
-        `${t("After that the order can't be changed.", "Etter det kan bestillingen ikke endres.")} ${cancelLater}`,
+        t("After that the order can't be changed.", "Etter det kan bestillingen ikke endres."),
+        callToCancel,
       ];
     }
     return [
       t(`The deadline for changing the order was ${until}, so it can no longer be changed.`, `Fristen for å endre bestillingen var ${until}, så den kan ikke endres lenger.`),
-      cancelLater,
+      callToCancel,
     ];
   }
 
@@ -51,18 +53,14 @@ export function orderRules(permissions: Permissions, locale: "no" | "en"): strin
   if (permissions.beforeCutoff) {
     return [
       t(`You can change ${whatChanges} until ${until}.`, `Du kan endre ${whatChanges} frem til ${until}.`),
-      t(`You can cancel the order yourself until ${until}.`, `Du kan avbestille bestillingen selv frem til ${until}.`),
       t(`After that you can still ${addOns}.`, `Etter det kan du fortsatt ${addOns}.`),
-      t(
-        "To cancel after the deadline, send us a request and we will contact you.",
-        "Vil du avbestille etter fristen, sender du oss en forespørsel, så tar vi kontakt.",
-      ),
+      callToCancel,
     ];
   }
 
   return [
     t(`The deadline for changing ${whatChanges} was ${until}.`, `Fristen for å endre ${whatChanges} var ${until}.`),
     t(`You can still ${addOns}.`, `Du kan fortsatt ${addOns}.`),
-    t("To cancel, send us a request and we will contact you.", "Vil du avbestille, sender du oss en forespørsel, så tar vi kontakt."),
+    callToCancel,
   ];
 }

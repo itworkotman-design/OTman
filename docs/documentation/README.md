@@ -214,6 +214,7 @@ Each documentation file should include:
 - [Lib: order alerts](./lib/order-alerts.md)
 - [Lib: order refunds](./lib/order-refunds.md)
 - [Lib: website order admin access](./lib/website-order-admin-access.md)
+- [Lib: company contact](./lib/company-contact.md)
 - [Lib: order form visibility](./lib/order-form-visibility.md)
 - [Lib: price list settings](./lib/price-list-settings.md)
 - [Lib: distance charges](./lib/distance-charges.md)
