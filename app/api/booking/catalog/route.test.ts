@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   findUniqueMock: vi.fn(),
   productFindManyMock: vi.fn(),
   queryRawMock: vi.fn(),
+  configFindManyMock: vi.fn(),
   getEffectivePriceMock: vi.fn(),
 }));
 
@@ -29,6 +30,9 @@ vi.mock("@/lib/db", () => ({
     product: {
       findMany: mocks.productFindManyMock,
     },
+    priceListProductConfig: {
+      findMany: mocks.configFindManyMock,
+    },
   },
 }));
 
@@ -41,6 +45,7 @@ import { GET } from "./route";
 describe("GET /api/booking/catalog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.configFindManyMock.mockResolvedValue([]);
     mocks.getEffectivePriceMock.mockImplementation(
       ({ basePrice, discountAmount = null }) =>
         typeof discountAmount === "number" ? basePrice - discountAmount : basePrice,
@@ -293,6 +298,11 @@ describe("GET /api/booking/catalog", () => {
     expect(mocks.findUniqueMock).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "requested-list" },
+      }),
+    );
+    expect(mocks.configFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ priceListId: "price-list-1" }),
       }),
     );
   });

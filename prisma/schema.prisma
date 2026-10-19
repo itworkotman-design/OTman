@@ -391,6 +391,7 @@ model Product {
   deliveryTypes       Json?
   allowModelNumber    Boolean         @default(true)
   options             ProductOption[]
+  priceListConfigs    PriceListProductConfig[]
 }
 
 model ProductOption {
@@ -442,6 +443,25 @@ model PriceList {
   membershipPriceLists MembershipPriceList[]
   items                PriceListItem[]
   specialOptions       PriceListSpecialOption[]
+  productConfigs       PriceListProductConfig[]
+}
+
+// Per-price-list delivery pricing for a product. A null column falls back to
+// the matching Product column, so editing one price list never changes another.
+model PriceListProductConfig {
+  id                String    @id @default(cuid())
+  priceListId       String
+  productId         String
+  autoDeliveryPrice Json?
+  deliveryTypes     Json?
+  customSections    Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  priceList         PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  product           Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([priceListId, productId])
+  @@index([productId])
 }
 
 model PriceListSpecialOption {

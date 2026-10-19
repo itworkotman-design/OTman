@@ -4,7 +4,10 @@ import { getAuthenticatedSession } from "@/lib/auth/session";
 import { requireFullAccessMembership } from "@/lib/products/pricelistAccess";
 import { prisma } from "@/lib/db";
 import { getEffectivePrice } from "@/lib/products/discounts";
-import { getProductConfigMap } from "@/lib/products/productConfig";
+import {
+  getProductConfigMap,
+  savePriceListProductConfig,
+} from "@/lib/products/productConfig";
 import {
   normalizeProductCustomSections,
   type ProductCustomSection,
@@ -113,6 +116,7 @@ async function findPriceListItemById(
     where: { id: itemId },
     select: {
       id: true,
+      priceListId: true,
       productOptionId: true,
       customerPriceCents: true,
       subcontractorPriceCents: true,
@@ -316,6 +320,11 @@ export async function PATCH(
     allowHoursInput?: boolean;
     allowModelNumber?: boolean;
     autoXtraPerPallet?: boolean;
+  } = {};
+
+  // Delivery pricing belongs to this item's price list, never to the shared
+  // Product row — other price lists pricing the same product must not change.
+  const priceListPricing: {
     autoDeliveryPrice?: ProductAutoDeliveryPrice;
     deliveryTypes?: ProductDeliveryType[];
     customSections?: ProductCustomSection[];
@@ -391,33 +400,20 @@ export async function PATCH(
   }
 
   if (body.autoDeliveryPrice !== undefined) {
-    productData.autoDeliveryPrice = normalizeProductAutoDeliveryPrice(
+    priceListPricing.autoDeliveryPrice = normalizeProductAutoDeliveryPrice(
       body.autoDeliveryPrice,
     );
   }
 
   if (body.deliveryTypes !== undefined) {
-    productData.deliveryTypes = normalizeProductDeliveryTypes(body.deliveryTypes);
+    priceListPricing.deliveryTypes = normalizeProductDeliveryTypes(body.deliveryTypes);
   }
 
   if (body.customSections !== undefined) {
-    productData.customSections = normalizeProductCustomSections(
+    priceListPricing.customSections = normalizeProductCustomSections(
       body.customSections,
     );
   }
-
-  const deliveryTypesJson =
-    productData.deliveryTypes !== undefined
-      ? JSON.stringify(productData.deliveryTypes)
-      : null;
-  const autoDeliveryPriceJson =
-    productData.autoDeliveryPrice !== undefined
-      ? JSON.stringify(productData.autoDeliveryPrice)
-      : null;
-  const customSectionsJson =
-    productData.customSections !== undefined
-      ? JSON.stringify(productData.customSections)
-      : null;
 
   let updated;
 
@@ -440,12 +436,17 @@ export async function PATCH(
             "allowPeopleCount" = COALESCE(${productData.allowPeopleCount ?? null}, "allowPeopleCount"),
             "allowHoursInput" = COALESCE(${productData.allowHoursInput ?? null}, "allowHoursInput"),
             "allowModelNumber" = COALESCE(${productData.allowModelNumber ?? null}, "allowModelNumber"),
-            "autoXtraPerPallet" = COALESCE(${productData.autoXtraPerPallet ?? null}, "autoXtraPerPallet"),
-            "autoDeliveryPrice" = COALESCE(${autoDeliveryPriceJson}::jsonb, "autoDeliveryPrice"),
-            "deliveryTypes" = COALESCE(${deliveryTypesJson}::jsonb, "deliveryTypes"),
-            "customSections" = COALESCE(${customSectionsJson}::jsonb, "customSections")
+            "autoXtraPerPallet" = COALESCE(${productData.autoXtraPerPallet ?? null}, "autoXtraPerPallet")
           WHERE "id" = ${existing.productOption.productId}
         `;
+      }
+
+      if (Object.keys(priceListPricing).length > 0) {
+        await savePriceListProductConfig(tx, {
+          priceListId: existing.priceListId,
+          productId: existing.productOption.productId,
+          ...priceListPricing,
+        });
       }
 
       if (Object.keys(productOptionData).length > 0) {
@@ -493,9 +494,10 @@ export async function PATCH(
     discountEndsAt: updated.discountEndsAt,
   });
 
-  const productConfigMap = await getProductConfigMap([
-    updated.productOption.product.id,
-  ]);
+  const productConfigMap = await getProductConfigMap(
+    [updated.productOption.product.id],
+    updated.priceListId,
+  );
   const updatedProduct = updated.productOption.product;
   const rawProductConfig = productConfigMap.get(updatedProduct.id);
   const productSnapshot = {
@@ -559,17 +561,17 @@ export async function PATCH(
       existing.productOption.product.autoXtraPerPallet,
     autoDeliveryPrice:
       rawProductConfig?.autoDeliveryPrice ??
-      productData.autoDeliveryPrice ??
+      priceListPricing.autoDeliveryPrice ??
       normalizeProductAutoDeliveryPrice(
         existing.productOption.product.autoDeliveryPrice,
       ),
     deliveryTypes:
       rawProductConfig?.deliveryTypes ??
-      productData.deliveryTypes ??
+      priceListPricing.deliveryTypes ??
       normalizeProductDeliveryTypes(null),
     customSections:
       rawProductConfig?.customSections ??
-      productData.customSections ??
+      priceListPricing.customSections ??
       normalizeProductCustomSections(null),
   };
 

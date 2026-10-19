@@ -146,7 +146,10 @@ export async function GET(req: Request) {
     },
   });
 
-  const productConfigMap = await getProductConfigMap(products.map((product) => product.id));
+  const productConfigMap = await getProductConfigMap(
+    products.map((product) => product.id),
+    priceList.id,
+  );
 
   const priceItemMap = new Map(priceList.items.map((item) => [item.productOptionId, item]));
 

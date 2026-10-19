@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { requireFullAccessMembership } from "@/lib/products/pricelistAccess";
+import { copyPriceListProductConfigs } from "@/lib/products/productConfig";
 
 type SourceSpecialOption = {
   type: "RETURN" | "XTRA" | "EXTRA_SERVICE";
@@ -296,6 +297,11 @@ export async function POST(req: Request) {
           })),
         });
       }
+
+      await copyPriceListProductConfigs(tx, {
+        fromPriceListId: sourcePriceList.id,
+        toPriceListId: created.id,
+      });
 
       return created;
     });
