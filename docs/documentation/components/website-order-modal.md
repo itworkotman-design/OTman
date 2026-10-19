@@ -8,7 +8,7 @@
 
 A read-only admin view of a homepage white-goods website order, laid out like the customer's own summary page. It's opened by `DashboardOrderModal`.
 
-- **Header:** website order number and display id.
+- **Header:** "Editing website order - {displayId}".
 - **Left column:** one card holding the `buildOrderReviewBlocks` sections (every pickup stop, the delivery, and the customer's details with their comments) split by thin lines, with logo-blue titles and a pin on the location sections. Status notes appear as the last section when set.
 - **Right column:** `WebsiteOrderCalculator` for `order.calculator` (customer side, partner side for admins, discount/extra and partner minus/plus inputs). When the order can't be priced (`calculator` is null) it falls back to the stored products grouped per card, the order extras and the totals, shown ex. VAT as stored, with the same layout as the calculator (Total ex. VAT, VAT, and Total incl. VAT, which is what the customer pays, `payment.currentTotalIncVatNok`).
 - **Send new login:** a header button (`WebsiteOrderCustomerLoginButton`), shown only when the order has an email and no live "My order" login for it (`hasCustomerLogin` from website-details). It hides itself once it has sent one. A customer who already has a login gets password help under User management → Website users. After a confirm, it emails the customer a new "My order" password (`POST /api/orders/[orderId]/customer-login`). The account is recreated if it was already deleted. The result shows as the notice.

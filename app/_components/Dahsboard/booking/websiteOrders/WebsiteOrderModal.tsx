@@ -319,8 +319,7 @@ export default function WebsiteOrderModal({
           <div className="flex shrink-0 items-center justify-between gap-4 rounded-t-2xl bg-white px-6 py-4">
             <div className="min-w-0">
               <h2 className="text-2xl font-semibold text-logoblue">
-                {t("Website order", "Nettsidebestilling")} {order.orderNumber ? `#${order.orderNumber}` : ""}
-                <span className="ml-2 text-base font-normal text-black/40">({order.displayId})</span>
+                {t("Editing website order", "Redigerer nettsidebestilling")} - {order.displayId}
               </h2>
             </div>
             <div className="flex shrink-0 items-center gap-2">
