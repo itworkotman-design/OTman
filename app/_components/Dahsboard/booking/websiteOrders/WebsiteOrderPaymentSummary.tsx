@@ -38,8 +38,8 @@ export default function WebsiteOrderPaymentSummary({ comparison, locale, totalLa
           ? {
               className: "bg-red-100 text-red-800",
               text: t(
-                `Customer overpaid ${formatKr(-c.differenceIncVatNok)} — refund manually in Stripe`,
-                `Kunden har betalt ${formatKr(-c.differenceIncVatNok)} for mye — refunder manuelt i Stripe`,
+                `Customer overpaid ${formatKr(-c.differenceIncVatNok)} — to be refunded`,
+                `Kunden har betalt ${formatKr(-c.differenceIncVatNok)} for mye — skal tilbakebetales`,
               ),
             }
           : { className: "bg-green-100 text-green-800", text: t("Fully paid — nothing to collect", "Fullt betalt — ingenting å kreve inn") };

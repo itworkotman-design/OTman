@@ -41,7 +41,7 @@ const baseOrder = {
   rabatt: null,
   leggTil: null,
   pricingSnapshot: null,
-  payments: [] as { amountChargedCents: number }[],
+  payments: [] as { amountChargedCents: number; refunds: { amountRefundedCents: number }[] }[],
 };
 
 describe("POST /api/public/orders/[token]/checkout", () => {
@@ -85,7 +85,7 @@ describe("POST /api/public/orders/[token]/checkout", () => {
     mocks.getOrderByActionTokenMock.mockResolvedValue({
       ...baseOrder,
       status: "confirmed",
-      payments: [{ amountChargedCents: 125000 }],
+      payments: [{ amountChargedCents: 125000, refunds: [] }],
     });
 
     const res = await call();
@@ -102,7 +102,7 @@ describe("POST /api/public/orders/[token]/checkout", () => {
       ...baseOrder,
       status: "confirmed",
       priceExVat: 1400,
-      payments: [{ amountChargedCents: 125000 }],
+      payments: [{ amountChargedCents: 125000, refunds: [] }],
     });
 
     const res = await call();

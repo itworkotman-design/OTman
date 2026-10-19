@@ -30,5 +30,5 @@ Access: company owner/admin, or `WEBSITE_ORDERS` at `ADMIN` level.
 
 | Function | Description |
 | --- | --- |
-| `authorize` | Session + membership check (same rule as the admin website-order editor). |
+| (auth) | `authorizeWebsiteOrderAdmin` (`lib/orders/websiteOrderAdminAccess.ts`). |
 | `POST` | Body `{ reason }`. Responses: `{ ok, status, refundedCents, emailFailed? }`; `400 REASON_REQUIRED`; `404 NOT_FOUND` (not in the company / not a website order); `409 NOT_DECLINABLE` (completed, cancelled, refunded); `409 REFUND_NOT_POSSIBLE` (a payment has no Stripe payment intent); `502 REFUND_FAILED` with `refundedCents` (Stripe error, order untouched). |

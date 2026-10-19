@@ -12,7 +12,8 @@ Stripe session (support/refunds). See
 `docs/homepage-ordering-roadmap.md` §4 for the decision and full design.
 
 ## Functions
-- `sumOrderPayments(payments)` — total charged across every recorded payment.
+- `ORDER_PAYMENT_LEDGER_SELECT` — the Prisma select every reader of an order's payments uses: each charge with its refunds (`OrderRefund`, see `lib/orders/orderRefunds.ts`). `refunds` is required by the types, so a query that forgets it doesn't compile.
+- `sumOrderPayments(payments)` — net paid: everything charged minus everything refunded.
 - `recordOrderPayment(client, { orderId, companyId, stripeCheckoutSessionId, stripePaymentIntentId, amountChargedCents })`
   — inserts one row. **This is the webhook's idempotency guard**: returns
   `null` instead of throwing when `stripeCheckoutSessionId` already exists

@@ -6,14 +6,29 @@ import type { OrderStateSnapshot } from "./paidOrderSnapshot";
 // composes inside the same $transaction as the rest of a webhook/order write.
 type OrderPaymentClient = Pick<PrismaClient, "orderPayment">;
 
-export type OrderPaymentTotal = { amountChargedCents: number };
+export type OrderPaymentTotal = { amountChargedCents: number; refunds: { amountRefundedCents: number }[] };
+
+// What every reader of an order's payments selects: each charge with the
+// refunds made against it (lib/orders/orderRefunds.ts), so "paid" is always
+// net of what went back. `refunds` is required by the types above and in
+// paidOrderSnapshot.ts, so a query that forgets it doesn't compile.
+export const ORDER_PAYMENT_LEDGER_SELECT = {
+  amountChargedCents: true,
+  createdAt: true,
+  orderSnapshot: true,
+  refunds: { select: { amountRefundedCents: true, createdAt: true, orderSnapshot: true } },
+} as const;
 
 // Source of truth for "how much has actually been paid on this order so
-// far" — sum every recorded charge rather than trusting a single scalar
-// field, since an order can be paid in more than one pass (see
-// docs/homepage-ordering-roadmap.md §4).
+// far" — sum every recorded charge, minus every refund, rather than trusting
+// a single scalar field, since an order can be paid in more than one pass
+// (see docs/homepage-ordering-roadmap.md §4).
 export function sumOrderPayments(payments: OrderPaymentTotal[]): number {
-  return payments.reduce((sum, payment) => sum + payment.amountChargedCents, 0);
+  return payments.reduce(
+    (sum, payment) =>
+      sum + payment.amountChargedCents - payment.refunds.reduce((refunded, refund) => refunded + refund.amountRefundedCents, 0),
+    0,
+  );
 }
 
 export async function recordOrderPayment(

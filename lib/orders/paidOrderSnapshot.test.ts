@@ -110,10 +110,12 @@ describe("buildOrderStateSnapshot", () => {
 
 describe("compareOrderWithPayments", () => {
   const paidSnapshot: OrderStateSnapshot = buildOrderStateSnapshot(order());
-  const payment = (cents: number, snapshot: OrderStateSnapshot | null, at = "2026-10-03T10:00:00Z") => ({
+  type Refund = { amountRefundedCents: number; createdAt: Date; orderSnapshot: unknown };
+  const payment = (cents: number, snapshot: OrderStateSnapshot | null, at = "2026-10-03T10:00:00Z", refunds: Refund[] = []) => ({
     amountChargedCents: cents,
     createdAt: new Date(at),
     orderSnapshot: snapshot,
+    refunds,
   });
 
   it("is 'unpaid' with no payments, owing the whole total", () => {
@@ -130,6 +132,44 @@ describe("compareOrderWithPayments", () => {
 
   it("is 'settled' when the current order is what was paid", () => {
     const result = compareOrderWithPayments({ payments: [payment(110000, paidSnapshot)], current: paidSnapshot });
+    expect(result).toMatchObject({ outcome: "settled", differenceIncVatNok: 0, hasPaidSnapshot: true });
+    expect(result.lineChanges).toEqual([]);
+  });
+
+  // A 100 kr (ex. VAT) discount, saved: the stored total drops by 125 incl. VAT.
+  const discountedOrder = () =>
+    order({
+      rabatt: "100",
+      priceExVat: 780,
+      pricingSnapshot: { customer: { totalExVat: 780, totalIncVat: 975 }, lines: [line(0, "Vaskemaskin", "Levering med innbæring", 720)] },
+    });
+
+  it("counts refunds against what was paid", () => {
+    const discounted = buildOrderStateSnapshot(discountedOrder());
+    const overpaid = 1100 - discounted.totalIncVatNok;
+
+    const before = compareOrderWithPayments({ payments: [payment(110000, paidSnapshot)], current: discounted });
+    expect(before).toMatchObject({ outcome: "refund", totalPaidIncVatNok: 1100, differenceIncVatNok: -overpaid });
+
+    const partly = compareOrderWithPayments({
+      payments: [payment(110000, paidSnapshot, undefined, [{ amountRefundedCents: 1000, createdAt: new Date("2026-10-04T10:00:00Z"), orderSnapshot: null }])],
+      current: discounted,
+    });
+    expect(partly).toMatchObject({ outcome: "refund", totalPaidIncVatNok: 1090, differenceIncVatNok: -(overpaid - 10) });
+  });
+
+  it("once the difference is refunded, the order is settled and compared with the refunded state, not the original payment", () => {
+    const discounted = buildOrderStateSnapshot(discountedOrder());
+    const overpaidCents = (1100 - discounted.totalIncVatNok) * 100;
+    const result = compareOrderWithPayments({
+      payments: [
+        payment(110000, paidSnapshot, undefined, [
+          { amountRefundedCents: overpaidCents, createdAt: new Date("2026-10-04T10:00:00Z"), orderSnapshot: discounted },
+        ]),
+      ],
+      current: discounted,
+    });
+
     expect(result).toMatchObject({ outcome: "settled", differenceIncVatNok: 0, hasPaidSnapshot: true });
     expect(result.lineChanges).toEqual([]);
   });

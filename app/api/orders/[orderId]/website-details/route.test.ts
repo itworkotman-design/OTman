@@ -321,7 +321,7 @@ describe("GET /api/orders/[orderId]/website-details", () => {
 
     mocks.orderFindFirstMock.mockResolvedValue({
       ...whiteGoodsOrder,
-      payments: [{ amountChargedCents: 200000, createdAt: new Date("2026-10-03T10:00:00Z"), orderSnapshot: null }],
+      payments: [{ amountChargedCents: 200000, createdAt: new Date("2026-10-03T10:00:00Z"), orderSnapshot: null, refunds: [] }],
     });
     json = await (await call()).json();
     expect(json.order.payment).toMatchObject({ outcome: "due", totalPaidIncVatNok: 2000, differenceIncVatNok: 1568.75 });

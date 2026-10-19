@@ -1,3 +1,4 @@
+import { ORDER_PAYMENT_LEDGER_SELECT } from "@/lib/orders/orderPayments";
 import { prisma } from "@/lib/db";
 import { getOrderChargeAmountIncVatNok } from "@/lib/orders/orderTotals";
 import { getCustomerEditPermissions, type CustomerEditPermissions } from "@/lib/orders/customerOrderEditPolicy";
@@ -74,7 +75,7 @@ export const CUSTOMER_ORDER_SELECT = {
   websiteOrderKind: true,
   websiteBookingDetails: true,
   productCardsSnapshot: true,
-  payments: { select: { amountChargedCents: true, createdAt: true, orderSnapshot: true } },
+  payments: { select: ORDER_PAYMENT_LEDGER_SELECT },
   events: STATUS_EVENTS,
   items: {
     select: {

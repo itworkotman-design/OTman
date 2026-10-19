@@ -7,6 +7,7 @@ CREATE TABLE "OrderRefund" (
     "stripeRefundId" TEXT NOT NULL,
     "amountRefundedCents" INTEGER NOT NULL,
     "reason" TEXT,
+    "orderSnapshot" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "OrderRefund_pkey" PRIMARY KEY ("id")

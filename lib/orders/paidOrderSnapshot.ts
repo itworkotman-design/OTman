@@ -45,6 +45,22 @@ export type OrderStateSource = {
   drivingDistance: string | null;
 };
 
+// The Order fields buildOrderStateSnapshot reads, for a Prisma select.
+export const ORDER_STATE_SOURCE_SELECT = {
+  priceExVat: true,
+  rabatt: true,
+  leggTil: true,
+  pricingSnapshot: true,
+  websiteOrderKind: true,
+  websiteBookingDetails: true,
+  pickupAddress: true,
+  deliveryAddress: true,
+  extraPickupAddress: true,
+  deliveryDate: true,
+  timeWindow: true,
+  drivingDistance: true,
+} as const;
+
 function makeLine(group: string, label: string, qty: number, price: number): OrderStateLine {
   return { key: `${group}::${label}`, group, label, qty, price: roundNok(price) };
 }
@@ -176,7 +192,7 @@ export type OrderLineChange = {
 export type OrderDetailChange = { key: string; before: string; after: string };
 
 export type OrderPaymentComparison = {
-  // No payment yet / owes more / overpaid (refund by hand) / exactly paid.
+  // No payment yet / owes more / overpaid (refund the difference) / exactly paid.
   outcome: "unpaid" | "due" | "refund" | "settled";
   totalPaidIncVatNok: number;
   currentTotalIncVatNok: number;
@@ -191,22 +207,41 @@ export type OrderPaymentComparison = {
   detailChanges: OrderDetailChange[];
 };
 
-export type PaymentForComparison = { amountChargedCents: number; createdAt: Date; orderSnapshot: unknown };
+type RefundForComparison = { amountRefundedCents: number; createdAt: Date; orderSnapshot: unknown };
+export type PaymentForComparison = {
+  amountChargedCents: number;
+  createdAt: Date;
+  orderSnapshot: unknown;
+  // Refunds made against this payment (lib/orders/orderRefunds.ts).
+  refunds: RefundForComparison[];
+};
 
 export function compareOrderWithPayments(params: {
   payments: PaymentForComparison[];
   current: OrderStateSnapshot;
 }): OrderPaymentComparison {
   const { payments, current } = params;
-  const totalPaidIncVatNok = roundNok(payments.reduce((sum, p) => sum + p.amountChargedCents, 0) / 100);
+  const refunds = payments.flatMap((p) => p.refunds);
+  const netPaidCents =
+    payments.reduce((sum, p) => sum + p.amountChargedCents, 0) - refunds.reduce((sum, r) => sum + r.amountRefundedCents, 0);
+  const totalPaidIncVatNok = roundNok(netPaidCents / 100);
   const differenceIncVatNok = roundNok(current.totalIncVatNok - totalPaidIncVatNok);
 
-  // The latest payment brought the order up to date with its snapshot.
+  // The latest payment brought the order up to date with its snapshot, and
+  // so does a later refund of the difference — whichever is newest is the
+  // state the customer has paid for.
   const latest = [...payments]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     .map((p) => ({ payment: p, snapshot: parseOrderStateSnapshot(p.orderSnapshot) }))
     .find((entry) => entry.snapshot !== null);
-  const paid = latest?.snapshot ?? null;
+  const latestRefund = [...refunds]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .map((r) => ({ refund: r, snapshot: parseOrderStateSnapshot(r.orderSnapshot) }))
+    .find((entry) => entry.snapshot !== null);
+  const paid =
+    latestRefund && (!latest || latestRefund.refund.createdAt > latest.payment.createdAt)
+      ? latestRefund.snapshot
+      : (latest?.snapshot ?? null);
 
   const outcome: OrderPaymentComparison["outcome"] =
     payments.length === 0

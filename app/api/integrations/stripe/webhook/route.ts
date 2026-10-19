@@ -74,7 +74,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
 
   const payments = await prisma.orderPayment.findMany({
     where: { orderId: order.id },
-    select: { amountChargedCents: true },
+    select: { amountChargedCents: true, refunds: { select: { amountRefundedCents: true } } },
   });
   const totalPaidCents = sumOrderPayments(payments);
 

@@ -1,3 +1,4 @@
+import { ORDER_PAYMENT_LEDGER_SELECT } from "@/lib/orders/orderPayments";
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -121,7 +122,7 @@ const ORDER_SELECT = {
   productCardsSnapshot: true,
   // The stored lines' prices — an older order's saved catalog prices are read back from them.
   items: { select: { optionId: true, customerPriceCents: true, subcontractorPriceCents: true } },
-  payments: { select: { amountChargedCents: true, createdAt: true, orderSnapshot: true } },
+  payments: { select: ORDER_PAYMENT_LEDGER_SELECT },
 } as const;
 
 type Params = { params: Promise<{ orderId: string }> };

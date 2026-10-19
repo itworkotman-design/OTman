@@ -1,3 +1,4 @@
+import { ORDER_PAYMENT_LEDGER_SELECT } from "@/lib/orders/orderPayments";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
@@ -89,7 +90,7 @@ const ORDER_SELECT = {
       subcontractorPriceCents: true,
     },
   },
-  payments: { select: { amountChargedCents: true, createdAt: true, orderSnapshot: true } },
+  payments: { select: ORDER_PAYMENT_LEDGER_SELECT },
 } as const;
 
 type Params = { params: Promise<{ orderId: string }> };

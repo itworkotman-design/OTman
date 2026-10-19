@@ -186,7 +186,7 @@ function paidOrder(paidCents: number, overrides: Record<string, unknown> = {}) {
   return {
     ...base,
     payments: [
-      { amountChargedCents: paidCents, createdAt: new Date("2026-10-03T10:00:00Z"), orderSnapshot: buildOrderStateSnapshot(base) },
+      { amountChargedCents: paidCents, createdAt: new Date("2026-10-03T10:00:00Z"), orderSnapshot: buildOrderStateSnapshot(base), refunds: [] },
     ],
   };
 }

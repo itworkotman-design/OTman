@@ -26,8 +26,9 @@ that went through are already in the ledger and a retry only refunds the rest.
 | --- | --- |
 | `sumRefundableCents` | Everything charged minus everything already refunded, across an order's payments. |
 | `planOrderRefund` | Pure: splits an amount (or `"ALL"`) across payments, newest first. Fails with `INVALID_AMOUNT`, `NOTHING_TO_REFUND`, `EXCEEDS_REFUNDABLE` or `MISSING_PAYMENT_INTENT`. |
-| `refundOrderPayments` | Loads the order's payments and refunds, plans, calls `stripe.refunds.create` per allocation and records each `OrderRefund`. Returns the refunded cents, the plan's failure reason, or `STRIPE_ERROR` with what was refunded before the failure. |
+| `refundOrderPayments` | Loads the order's payments and refunds, plans, calls `stripe.refunds.create` per allocation and records each `OrderRefund` (with the optional `orderSnapshot` — the order after the refund, which `compareOrderWithPayments` then treats as the paid state). Returns the refunded cents, the plan's failure reason, or `STRIPE_ERROR` with what was refunded before the failure. |
 
 ## Used by
 
 - `POST /api/orders/[orderId]/decline` (`"ALL"`).
+- `POST /api/orders/[orderId]/refund-difference` (exactly the overpaid amount).

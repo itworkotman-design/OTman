@@ -39,6 +39,9 @@ export type LifecycleEmailOrder = {
   // order_declined only: what was just refunded to the customer (0 = nothing
   // had been paid, so no refund is mentioned).
   refundedIncVatNok?: number;
+  // refund_issued only: the difference refunded after the price went down,
+  // the order's new total, and what changed (lib/orders/orderChangeText.ts).
+  refundIssued?: { refundedIncVatNok: number; totalIncVatNok: number; changes: string[] };
 };
 
 export type OrderReceivedDetails = {
@@ -234,6 +237,38 @@ export function buildOrderDeclinedEmail(order: LifecycleEmailOrder) {
         : ""
     }
     <p style="margin:16px 0 0 0;">Har du spørsmål? Bare svar på denne e-posten, eller ring oss.</p>
+  `);
+
+  return { subject, html };
+}
+
+// Sent when the order's price went down after the customer paid (a discount,
+// something removed) and the difference has been refunded. The order itself
+// carries on as before, so it links to "My order", not the action pages.
+export function buildRefundIssuedEmail(order: LifecycleEmailOrder) {
+  const reference = orderReference(order);
+  const orderNumber = order.orderNumber?.trim();
+  const refund = order.refundIssued ?? { refundedIncVatNok: 0, totalIncVatNok: 0, changes: [] };
+
+  const subject = `Bestilling ${reference} — vi har tilbakebetalt ${formatKr(refund.refundedIncVatNok)}`.trim();
+  const changes =
+    refund.changes.length > 0
+      ? `<ul style="margin:0 0 16px 0;padding-left:20px;">${refund.changes.map((c) => `<li>${escapeHtml(c)}</li>`).join("")}</ul>`
+      : "";
+  const link = orderNumber
+    ? `<div style="margin:20px 0;">${buttonLink(buildCustomerOrderUrls(orderNumber).orderUrl, "Se bestillingen")}</div>`
+    : "";
+  const html = buildSimpleEmailShell(`
+    <p style="margin:0 0 16px 0;">Hei ${escapeHtml(customerGreetingName(order))},</p>
+    <p style="margin:0 0 16px 0;">
+      Prisen på bestillingen din ${escapeHtml(reference)} er satt ned, og vi har tilbakebetalt
+      <strong>${escapeHtml(formatKr(refund.refundedIncVatNok))}</strong> til kortet du betalte med.
+      Det tar vanligvis 5–10 virkedager før pengene er på konto.
+    </p>
+    ${changes}
+    <p style="margin:0 0 16px 0;">Ny totalpris (inkl. MVA): <strong>${escapeHtml(formatKr(refund.totalIncVatNok))}</strong></p>
+    ${link}
+    <p style="margin:16px 0 0 0;">Har du spørsmål? Bare svar på denne e-posten.</p>
   `);
 
   return { subject, html };

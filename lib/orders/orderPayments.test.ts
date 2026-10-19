@@ -6,12 +6,24 @@ import type { OrderStateSnapshot } from "./paidOrderSnapshot";
 describe("sumOrderPayments", () => {
   it("sums the charged amounts across every recorded payment", () => {
     expect(
-      sumOrderPayments([{ amountChargedCents: 500000 }, { amountChargedCents: 120000 }]),
+      sumOrderPayments([
+        { amountChargedCents: 500000, refunds: [] },
+        { amountChargedCents: 120000, refunds: [] },
+      ]),
     ).toBe(620000);
   });
 
   it("returns 0 for no payments", () => {
     expect(sumOrderPayments([])).toBe(0);
+  });
+
+  it("subtracts what has been refunded on each payment — it is what the customer has paid, net", () => {
+    expect(
+      sumOrderPayments([
+        { amountChargedCents: 500000, refunds: [{ amountRefundedCents: 20000 }] },
+        { amountChargedCents: 120000, refunds: [] },
+      ]),
+    ).toBe(600000);
   });
 });
 

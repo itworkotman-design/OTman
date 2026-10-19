@@ -17,10 +17,11 @@ Amounts are what the customer is charged (`getOrderChargeAmountIncVatNok`), incl
   - **Details:** raw values for every pickup stop (`pickup.<n>.address|place|floor|lift|contact`), the delivery (`delivery.address|floor|lift`), `date`, `timeWindow` and `distance`, using the live order columns laid over the booking details.
 - `parseOrderStateSnapshot(value)` — reads a stored snapshot back. Returns `null` for anything malformed.
 - `diffOrderStates(before, after)` — `{ lineChanges, detailChanges }` between any two snapshots. The customer's "My order" edit uses it to describe what they changed to staff and in the `order_updated` email.
+- `ORDER_STATE_SOURCE_SELECT` — the Order fields `buildOrderStateSnapshot` reads, for a Prisma select.
 - `compareOrderWithPayments({ payments, current })` — returns:
   - `outcome`: `unpaid`, `due`, `refund` or `settled`.
-  - `totalPaidIncVatNok` (the sum of every payment), `currentTotalIncVatNok`, and `differenceIncVatNok` (current − paid).
-  - `lineChanges` (added/removed/changed, with before/after and delta) and `detailChanges` (before/after). Both are measured against the **latest** payment that has a snapshot.
+  - `totalPaidIncVatNok` (every payment minus every refund made against it — each payment carries its `refunds`), `currentTotalIncVatNok`, and `differenceIncVatNok` (current − paid).
+  - `lineChanges` (added/removed/changed, with before/after and delta) and `detailChanges` (before/after). Both are measured against the **latest** payment that has a snapshot — or a newer refund with one: refunding the difference (`POST /api/orders/[orderId]/refund-difference`) stores the order as it then was, so a settled discount stops showing as a change.
   - Payments made before snapshots existed (`hasPaidSnapshot: false`) still get the money outcome, but no itemized changes.
 
 A `MOVING` order's amounts are ex. VAT like a `WHITE_GOODS` one: its lines are compared incl. VAT (each line + 25 %, rounded).

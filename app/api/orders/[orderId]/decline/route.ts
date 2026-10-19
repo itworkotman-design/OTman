@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getAuthenticatedSession } from "@/lib/auth/session";
-import { getModuleAccess } from "@/lib/users/access";
+import { authorizeWebsiteOrderAdmin } from "@/lib/orders/websiteOrderAdminAccess";
 import { getStripeClient } from "@/lib/stripe/stripeClient";
 import { refundOrderPayments } from "@/lib/orders/orderRefunds";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
@@ -23,39 +22,8 @@ type Params = { params: Promise<{ orderId: string }> };
 
 const NOT_DECLINABLE = new Set(["completed", "cancelled", "refunded"]);
 
-// Company owner/admin, or anyone with Website orders at ADMIN level — the
-// same rule as the admin website-order editor.
-async function authorize(req: Request) {
-  const session = await getAuthenticatedSession(req);
-  if (!session) {
-    return { ok: false as const, response: NextResponse.json({ ok: false, reason: "UNAUTHORIZED" }, { status: 401 }) };
-  }
-  if (!session.activeCompanyId) {
-    return {
-      ok: false as const,
-      response: NextResponse.json({ ok: false, reason: "TENANT_SELECTION_REQUIRED" }, { status: 409 }),
-    };
-  }
-
-  const membership = await prisma.membership.findFirst({
-    where: { userId: session.userId, companyId: session.activeCompanyId, status: "ACTIVE" },
-    select: { id: true, role: true, appAccess: true, user: { select: { username: true, email: true } } },
-  });
-  const websiteOrders = membership ? getModuleAccess(membership, "WEBSITE_ORDERS") : null;
-  const canEdit =
-    !!membership &&
-    (membership.role === "OWNER" ||
-      membership.role === "ADMIN" ||
-      (!!websiteOrders?.enabled && websiteOrders.level === "ADMIN"));
-  if (!membership || !canEdit) {
-    return { ok: false as const, response: NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 }) };
-  }
-
-  return { ok: true as const, companyId: session.activeCompanyId, membership };
-}
-
 export async function POST(req: Request, { params }: Params) {
-  const auth = await authorize(req);
+  const auth = await authorizeWebsiteOrderAdmin(req);
   if (!auth.ok) return auth.response;
 
   const { orderId } = await params;
@@ -137,17 +105,10 @@ export async function POST(req: Request, { params }: Params) {
     });
   }
 
-  const actor = {
-    membershipId: auth.membership.id,
-    name: auth.membership.user.username ?? null,
-    email: auth.membership.user.email,
-    source: "USER",
-  } as const;
-
   await createOrderStatusChangedEvent(prisma, {
     orderId: order.id,
     companyId: order.companyId,
-    actor,
+    actor: auth.actor,
     fromStatus: order.status,
     toStatus: nextStatus,
     note: reason,
@@ -166,7 +127,7 @@ export async function POST(req: Request, { params }: Params) {
       const sent = await sendLifecycleEmailsForOrders({
         orders: [{ ...order, statusNotes: reason, refundedIncVatNok: refundedCents / 100 }],
         kind: "order_declined",
-        actor,
+        actor: auth.actor,
       });
       emailFailed = sent.failedOrderIds.length > 0;
     } catch (error) {

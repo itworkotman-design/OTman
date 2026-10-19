@@ -131,6 +131,18 @@ describe("refundOrderPayments", () => {
     ]);
   });
 
+  it("stores the order snapshot it was given on every refund row — the new state the customer has paid for", async () => {
+    const { client, stripe, created } = setup([payment("a", 100_00, "2026-10-01"), payment("b", 30_00, "2026-10-02")]);
+    const snapshot = { version: 1 as const, totalIncVatNok: 0, lines: [], details: [] };
+
+    await refundOrderPayments(client, stripe, { orderId: "o1", companyId: "c1", amountCents: 40_00, orderSnapshot: snapshot });
+
+    expect(created).toEqual([
+      expect.objectContaining({ orderPaymentId: "b", amountRefundedCents: 30_00, orderSnapshot: snapshot }),
+      expect.objectContaining({ orderPaymentId: "a", amountRefundedCents: 10_00, orderSnapshot: snapshot }),
+    ]);
+  });
+
   it("returns the plan's reason without calling Stripe when nothing can be refunded", async () => {
     const { client, stripe } = setup([]);
     const result = await refundOrderPayments(client, stripe, { orderId: "o1", companyId: "c1", amountCents: "ALL" });

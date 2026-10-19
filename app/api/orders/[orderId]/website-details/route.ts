@@ -1,3 +1,4 @@
+import { ORDER_PAYMENT_LEDGER_SELECT } from "@/lib/orders/orderPayments";
 import { isCustomerAccountExpired, LIFETIME_ORDER_SELECT } from "@/lib/customerAccounts/accountLifetime";
 import { normalizeCustomerEmail } from "@/lib/customerAccounts/ensureCustomerAccount";
 import { NextResponse } from "next/server";
@@ -113,7 +114,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       deviation: true,
       description: true,
       expressDelivery: true,
-      payments: { select: { amountChargedCents: true, createdAt: true, orderSnapshot: true } },
+      payments: { select: ORDER_PAYMENT_LEDGER_SELECT },
       websiteOrderKind: true,
       websiteBookingDetails: true,
       pricingSnapshot: true,

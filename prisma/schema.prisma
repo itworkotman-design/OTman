@@ -702,6 +702,9 @@ model OrderRefund {
   stripeRefundId      String       @unique
   amountRefundedCents Int
   reason              String?
+  // The order as it was when the refund went out (see paidOrderSnapshot.ts) —
+  // the new "paid" state later changes are compared against.
+  orderSnapshot       Json?
   createdAt           DateTime     @default(now())
   order               Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderPayment        OrderPayment @relation(fields: [orderPaymentId], references: [id], onDelete: Cascade)

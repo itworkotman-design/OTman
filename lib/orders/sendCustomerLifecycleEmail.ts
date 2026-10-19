@@ -13,12 +13,14 @@ import {
   buildOrderReceivedEmail,
   buildOrderUpdatedEmail,
   buildOrderDeclinedEmail,
+  buildRefundIssuedEmail,
   type LifecycleEmailOrder,
 } from "@/lib/orders/customerLifecycleEmails";
 
 // The kinds staff can (re)send from the dashboard. order_updated is only sent
-// by the customer edit route and order_declined only by the decline route —
-// each carries data (the change list, the refunded amount) a resend lacks.
+// by the customer edit route, order_declined by the decline route and
+// refund_issued by the refund-difference route — each carries data (the
+// change list, the refunded amount) a resend lacks.
 export const LIFECYCLE_EMAIL_KINDS = [
   "payment_request",
   "rejected",
@@ -27,14 +29,20 @@ export const LIFECYCLE_EMAIL_KINDS = [
   "order_confirmed",
   "order_received",
 ] as const;
-export type LifecycleEmailKind = (typeof LIFECYCLE_EMAIL_KINDS)[number] | "order_updated" | "order_declined";
+export type LifecycleEmailKind =
+  | (typeof LIFECYCLE_EMAIL_KINDS)[number]
+  | "order_updated"
+  | "order_declined"
+  | "refund_issued";
 
 // order_received goes out at submission, before staff approve/reject mint an
-// actionToken, order_updated links to "My order" (by order number), not to
-// the token pages, and order_declined has no links at all — every other kind
-// builds links from the token and must not send without one.
+// actionToken, order_updated and refund_issued link to "My order" (by order
+// number), not to the token pages, and order_declined has no links at all —
+// every other kind builds links from the token and must not send without one.
+const TOKENLESS_KINDS = new Set<LifecycleEmailKind>(["order_received", "order_updated", "order_declined", "refund_issued"]);
+
 export function lifecycleKindRequiresActionToken(kind: LifecycleEmailKind): boolean {
-  return kind !== "order_received" && kind !== "order_updated" && kind !== "order_declined";
+  return !TOKENLESS_KINDS.has(kind);
 }
 
 export type LifecycleEmailOrderInput = LifecycleEmailOrder & {
@@ -72,6 +80,7 @@ function buildEmailForKind(kind: LifecycleEmailKind, order: LifecycleEmailOrder)
   if (kind === "order_received") return buildOrderReceivedEmail(order);
   if (kind === "order_updated") return buildOrderUpdatedEmail(order);
   if (kind === "order_declined") return buildOrderDeclinedEmail(order);
+  if (kind === "refund_issued") return buildRefundIssuedEmail(order);
   return buildPaymentTimeoutEmail(order);
 }
 

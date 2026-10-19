@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   buildBalanceDueEmail,
   buildOrderDeclinedEmail,
+  buildRefundIssuedEmail,
   buildOrderConfirmedEmail,
   buildOrderReceivedEmail,
   buildOrderUpdatedEmail,
@@ -352,5 +353,33 @@ describe("buildOrderDeclinedEmail", () => {
     const { html } = buildOrderDeclinedEmail({ ...declined, refundedIncVatNok: 0 });
 
     expect(html.toLowerCase()).not.toContain("tilbakebetal");
+  });
+});
+
+describe("buildRefundIssuedEmail", () => {
+  const refunded = {
+    ...order,
+    orderNumber: "AB12CD",
+    actionToken: null,
+    refundIssued: { refundedIncVatNok: 125, totalIncVatNok: 975, changes: ["Rabatt: −125 kr"] },
+  };
+
+  it("states what was refunded, why (the changes) and the order's new total", () => {
+    const { subject, html } = buildRefundIssuedEmail(refunded);
+
+    expect(subject).toContain("#AB12CD");
+    expect(subject.toLowerCase()).toContain("tilbakebetalt");
+    expect(html).toMatch(/125/);
+    expect(html).toContain("Rabatt: −125 kr");
+    expect(html).toMatch(/975/);
+    expect(html.toLowerCase()).toContain("5–10 virkedager");
+  });
+
+  it("links to My order, never to the pay / change / cancel pages", () => {
+    const { html } = buildRefundIssuedEmail(refunded);
+
+    expect(html).toContain("/min-bestilling/AB12CD");
+    expect(html).not.toContain("/betaling/");
+    expect(html).not.toContain("/bestilling/avbryt/");
   });
 });

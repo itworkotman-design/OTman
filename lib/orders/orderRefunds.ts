@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import type { OrderStateSnapshot } from "./paidOrderSnapshot";
 
 // Sends money back to a website-order customer through Stripe. Every refund is
 // made against one recorded OrderPayment (a Stripe refund always targets one
@@ -91,6 +92,7 @@ type RefundClient = {
         stripeRefundId: string;
         amountRefundedCents: number;
         reason: string | null;
+        orderSnapshot?: Prisma.InputJsonValue;
       };
     }): Promise<unknown>;
   };
@@ -115,7 +117,15 @@ export type RefundResult =
 export async function refundOrderPayments(
   client: RefundClient,
   stripe: StripeRefunds,
-  params: { orderId: string; companyId: string; amountCents: number | "ALL"; reason?: string | null },
+  params: {
+    orderId: string;
+    companyId: string;
+    amountCents: number | "ALL";
+    reason?: string | null;
+    // The order as it is after this refund (buildOrderStateSnapshot) — when a
+    // refund settles a price change, later changes compare against it.
+    orderSnapshot?: OrderStateSnapshot | null;
+  },
 ): Promise<RefundResult> {
   const payments = await client.orderPayment.findMany({
     where: { orderId: params.orderId },
@@ -160,6 +170,7 @@ export async function refundOrderPayments(
           stripeRefundId: refundId,
           amountRefundedCents: allocation.amountCents,
           reason: params.reason?.trim() || null,
+          ...(params.orderSnapshot ? { orderSnapshot: params.orderSnapshot as unknown as Prisma.InputJsonValue } : {}),
         },
       });
     } catch (error) {

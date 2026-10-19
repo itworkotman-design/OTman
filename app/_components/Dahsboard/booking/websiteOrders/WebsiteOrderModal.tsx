@@ -19,6 +19,7 @@ import type { ProductGroup } from "@/lib/orders/websiteOrderProducts";
 import WebsiteOrderAdminActions from "./WebsiteOrderAdminActions";
 import WebsiteOrderEditTab from "./WebsiteOrderEditTab";
 import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
+import WebsiteOrderRefundButton from "./WebsiteOrderRefundButton";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import type { PricedHandlingFields, WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import WebsiteOrderAttachments from "./WebsiteOrderAttachments";
@@ -26,7 +27,7 @@ import { EMPTY_ATTACHMENT_DRAFT, hasAttachmentChanges, type AttachmentDraft } fr
 import WebsiteOrderCustomerLoginButton from "./WebsiteOrderCustomerLoginButton";
 import WebsiteOrderCalculator from "./WebsiteOrderCalculator";
 import type { WebsiteOrderCalculatorView, WebsiteOrderPricingDraft } from "@/lib/orders/websiteOrderCalculator";
-import { isWebsiteOrderLocked, normalizeOrderStatus } from "@/lib/orders/statusPresentation";
+import { isWebsiteOrderLocked } from "@/lib/orders/statusPresentation";
 
 // What GET /api/orders/[orderId]/website-details returns — the same for every
 // website order…
@@ -503,6 +504,14 @@ export default function WebsiteOrderModal({
                 <div className="rounded-2xl border border-black/10 bg-white p-6">
                   <h3 className="mb-3 text-lg font-semibold text-logoblue">{t("Payment", "Betaling")}</h3>
                   <WebsiteOrderPaymentSummary comparison={order.payment} locale={locale} />
+                  {order.payment.outcome === "refund" && (
+                    <WebsiteOrderRefundButton
+                      orderId={order.id}
+                      overpaidIncVatNok={-order.payment.differenceIncVatNok}
+                      locale={locale}
+                      onRefunded={onChanged}
+                    />
+                  )}
                 </div>
                 {/* The same calculator for a delivery and a move — set to 0,
                     discount/extra, partner minus/plus and "Use new price". */}

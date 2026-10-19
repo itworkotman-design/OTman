@@ -1,3 +1,4 @@
+import { ORDER_PAYMENT_LEDGER_SELECT } from "@/lib/orders/orderPayments";
 import { prisma } from "@/lib/db";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 
@@ -65,7 +66,7 @@ export async function getOrderByActionToken(token: string | null | undefined) {
       actionToken: true,
       stripeCheckoutSessionId: true,
       stripePaymentIntentId: true,
-      payments: { select: { amountChargedCents: true, createdAt: true, orderSnapshot: true } },
+      payments: { select: ORDER_PAYMENT_LEDGER_SELECT },
     },
   });
 }
