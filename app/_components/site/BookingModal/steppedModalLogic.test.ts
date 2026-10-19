@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  activeSectionIndex,
   asideSectionGroups,
   heightHoldAction,
   nextRevealedCount,
@@ -8,6 +9,7 @@ import {
   isSectionDimmed,
   newSectionScrollTop,
   revealsUnseenSection,
+  revealedSectionToScrollTo,
   progressPercent,
   showsBottomSpace,
   retractedRevealedCount,
@@ -231,17 +233,45 @@ describe("asideSectionGroups", () => {
   });
 });
 
-describe("isSectionDimmed", () => {
-  const base = { revealedCount: 3, showAll: false, enabled: true };
-
-  it("dims every section before the one being answered", () => {
-    expect(isSectionDimmed({ ...base, index: 0 })).toBe(true);
-    expect(isSectionDimmed({ ...base, index: 1 })).toBe(true);
+describe("activeSectionIndex", () => {
+  it("is the newest revealed section when nothing was picked", () => {
+    expect(activeSectionIndex({ revealedCount: 3, picked: null })).toBe(2);
   });
 
-  it("never dims the section being answered (the last revealed one)", () => {
+  it("is the section the user picked (clicked/focused) while the reveal is unchanged", () => {
+    expect(activeSectionIndex({ revealedCount: 3, picked: { index: 0, revealedCount: 3 } })).toBe(0);
+  });
+
+  it("moves to the newly revealed section once answering reveals the next one", () => {
+    expect(activeSectionIndex({ revealedCount: 4, picked: { index: 0, revealedCount: 3 } })).toBe(3);
+  });
+
+  it("follows a retraction back to the section being re-answered", () => {
+    expect(activeSectionIndex({ revealedCount: 2, picked: { index: 3, revealedCount: 4 } })).toBe(1);
+  });
+});
+
+describe("isSectionDimmed", () => {
+  const base = { activeIndex: 3, revealedCount: 4, showAll: false, enabled: true };
+
+  it("dims every section except the active one and the newest two", () => {
+    expect(isSectionDimmed({ ...base, index: 0 })).toBe(true);
+    expect(isSectionDimmed({ ...base, index: 1 })).toBe(true);
+    expect(isSectionDimmed({ ...base, activeIndex: 0, index: 1 })).toBe(true);
+  });
+
+  it("keeps the newest two sections lit, e.g. a section auto-completed by a preselected option", () => {
     expect(isSectionDimmed({ ...base, index: 2 })).toBe(false);
-    expect(isSectionDimmed({ ...base, revealedCount: 1, index: 0 })).toBe(false);
+    expect(isSectionDimmed({ ...base, index: 3 })).toBe(false);
+  });
+
+  it("never dims the active section", () => {
+    expect(isSectionDimmed({ ...base, activeIndex: 0, index: 0 })).toBe(false);
+  });
+
+  it("keeps the newest two lit while the user goes back to an earlier one (three lit at most)", () => {
+    expect(isSectionDimmed({ ...base, activeIndex: 0, index: 2 })).toBe(false);
+    expect(isSectionDimmed({ ...base, activeIndex: 0, index: 3 })).toBe(false);
   });
 
   it("dims nothing unless the modal opts in, or with every section open at once", () => {
@@ -282,5 +312,22 @@ describe("newSectionScrollTop", () => {
 
   it("never scrolls the view up", () => {
     expect(newSectionScrollTop({ ...base, scrollTop: 600, sectionTop: 400, sectionBottom: 700 })).toBeNull();
+  });
+});
+
+describe("revealedSectionToScrollTo (StepSection.scrollOnReveal)", () => {
+  const sections = [{ id: "a" }, { id: "b", scrollOnReveal: true }, { id: "c" }];
+
+  it("is a newly shown section that asks to be scrolled to", () => {
+    expect(revealedSectionToScrollTo({ previousIds: ["a"], sections, shownIds: ["a", "b"] })).toBe("b");
+  });
+
+  it("is found again every time it reappears, e.g. a category removed and added again", () => {
+    expect(revealedSectionToScrollTo({ previousIds: ["a", "b", "c"], sections, shownIds: ["a"] })).toBeNull();
+    expect(revealedSectionToScrollTo({ previousIds: ["a"], sections, shownIds: ["a", "b"] })).toBe("b");
+  });
+
+  it("is null when the section was already shown, or the new one doesn't ask", () => {
+    expect(revealedSectionToScrollTo({ previousIds: ["a", "b"], sections, shownIds: ["a", "b", "c"] })).toBeNull();
   });
 });

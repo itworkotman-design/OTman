@@ -12,6 +12,31 @@ export function filterUnusedLists(available: WebsiteListInfo[], usedCodes: strin
   return available.filter((list) => !usedCodes.includes(list.code));
 }
 
+// The list whose "product options" section also holds the "any other
+// products?" question — the last one added — so the question is part of that
+// section rather than a step of its own. Null when there's nothing left to
+// add, no list yet, or the order is locked ("My order" within 24h).
+export function moreProductsHostCode(params: {
+  chosenCodes: string[];
+  remainingCount: number;
+  customerLocked: boolean;
+}): string | null {
+  if (params.customerLocked || params.remainingCount === 0) return null;
+  return params.chosenCodes.at(-1) ?? null;
+}
+
+// Whether a list's "product options" step is done, revealing the steps after
+// it. The one holding "any other products?" also waits for the customer to
+// answer "no, continue" (picking a category instead moves the question to the
+// new list's step, which completes this one).
+export function isListOptionsStepComplete(params: {
+  optionsReady: boolean;
+  hostsMoreProducts: boolean;
+  declinedMoreProducts: boolean;
+}): boolean {
+  return params.optionsReady && (!params.hostsMoreProducts || params.declinedMoreProducts);
+}
+
 // Cards on the order that belong to one list — i.e. whose product is one of
 // that list's products.
 export function cardsForList(cards: SavedProductCard[], listProducts: CatalogProduct[]): SavedProductCard[] {

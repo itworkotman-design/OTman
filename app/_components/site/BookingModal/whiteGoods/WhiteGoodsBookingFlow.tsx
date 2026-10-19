@@ -82,8 +82,10 @@ import {
   cardsForList,
   filterUnusedLists,
   highlightedStartList,
+  isListOptionsStepComplete,
   isListOptionsStepReady,
   isProductsStepReady,
+  moreProductsHostCode,
   removeListCards,
   type WebsiteListInfo,
 } from "./websiteLists";
@@ -139,6 +141,9 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   // unticked while another list still has products) must not hold back the
   // steps after it — see isProductsStepReady.
   const [populatedListCodes, setPopulatedListCodes] = useState<string[]>([]);
+  // "No, continue" answered on "any other products?" — holds back the steps
+  // after it until then. Asked again after a category is added.
+  const [declinedMoreProducts, setDeclinedMoreProducts] = useState(false);
   const catalogProducts = useMemo(
     () => chosenListCodes.flatMap((code) => loadedProducts[code] ?? []),
     [chosenListCodes, loadedProducts],
@@ -594,6 +599,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   async function addList(code: string) {
     if (!(await loadList(code))) return;
     setChosenListCodes((codes) => (codes.includes(code) ? codes : [...codes, code]));
+    setDeclinedMoreProducts(false);
   }
 
   // First step: which list to start with. Changing it after products were
@@ -913,10 +919,15 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   }
 
   // Every list on the order gets its own "choose products" + "product options"
-  // steps, in the order they were added; "any other products?" follows the
-  // last one until every list is on the order. Steps reveal one after another,
-  // so a newly added list's steps slot in ahead of the question and the
-  // address/contact steps.
+  // steps, in the order they were added; "any other products?" sits at the
+  // bottom of the last list's options step until every list is on the order.
+  // Steps reveal one after another, so a newly added list's steps slot in
+  // ahead of the address/contact steps (and take over the question).
+  const moreProductsCode = moreProductsHostCode({
+    chosenCodes: chosenListCodes,
+    remainingCount: remainingLists.length,
+    customerLocked,
+  });
   const listSections: StepSection[] = chosenListCodes.flatMap((code, index) => {
     const info = availableLists.find((l) => l.code === code);
     const listProducts = loadedProducts[code] ?? [];
@@ -925,6 +936,9 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     const productsStep: StepSection = {
       id: `products-${code}`,
       title: t("Choose products", "Velg produkter") + suffix,
+      // An added category's products scroll into view — each time, also when
+      // it was removed ("not needed") and a category is picked again.
+      scrollOnReveal: index > 0,
       render: ({ onComplete, onUncomplete }) => (
         <div className="flex flex-col gap-4">
           {catalogLoading && (
@@ -943,7 +957,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
             <button
               type="button"
               onClick={() => removeList(code)}
-              className="self-center text-sm font-semibold text-logoblue transition hover:opacity-70"
+              className="customContainer self-center inline-flex h-11 items-center justify-center rounded-full bg-white px-6 text-sm font-semibold text-logoblue transition hover:-translate-y-0.5 hover:shadow-lg"
             >
               {t("Not needed — remove this category", "Trengs ikke — fjern denne kategorien")}
             </button>
@@ -970,12 +984,20 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
       const booked = bookedCards.get(card.cardId);
       return !!product && !!booked && hasAddableServices(product, booked);
     });
+    const optionsReady = isListOptionsStepReady({
+      cards: productCards,
+      listProducts,
+      wasPopulated: populatedListCodes.includes(code),
+    });
+    const hostsMoreProducts = code === moreProductsCode;
     const optionsStep: StepSection = {
       id: `product-options-${code}`,
       title: t("Product options", "Produktvalg") + suffix,
-      // Nothing to configure once every product of the list is unticked.
-      hidden: optionCards.length === 0,
+      // Nothing to configure once every product of the list is unticked
+      // (unless it still holds "any other products?").
+      hidden: optionCards.length === 0 && !hostsMoreProducts,
       render: ({ onComplete, onUncomplete }) => (
+        <div className="flex flex-col gap-10">
         <div className={customerLocked ? "flex flex-col gap-4" : "grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]"}>
           <div className="flex flex-col gap-4">
             <AnimatedStack
@@ -1038,10 +1060,11 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
               })}
             />
             <AutoAdvance
-              ready={isListOptionsStepReady({
-                cards: productCards,
-                listProducts,
-                wasPopulated: populatedListCodes.includes(code),
+              ready={isListOptionsStepComplete({
+                optionsReady,
+                // "My order" shows every step at once — nothing to hold back.
+                hostsMoreProducts: hostsMoreProducts && !customer,
+                declinedMoreProducts,
               })}
               onReady={onComplete}
               onRetract={onUncomplete}
@@ -1066,36 +1089,44 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
           </div>
           )}
         </div>
+
+        {/* "Any other products?" — part of this step, not one of its own.
+            Appears once the options are filled in; the steps after this one
+            wait for "no, continue" (or a picked category, which moves the
+            question to that category's options step). */}
+        {hostsMoreProducts && optionsReady && (
+          <div className="flex flex-col items-center gap-3">
+            <h5 className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">
+              {t("Any other products you need added?", "Trenger du å legge til andre produkter?")}
+            </h5>
+            <WebsiteListTiles
+              locale={locale}
+              lists={remainingLists}
+              selectedCode={null}
+              loadingCode={loadingListCode}
+              onPick={(next) => addList(next)}
+            />
+            {addListError && <p className="text-xs text-red-600">{addListError}</p>}
+            {!customer && (
+              <button
+                type="button"
+                onClick={() => setDeclinedMoreProducts(true)}
+                aria-pressed={declinedMoreProducts}
+                className={`mt-2 inline-flex h-11 items-center justify-center rounded-full px-6 text-sm font-semibold transition hover:-translate-y-0.5 hover:shadow-lg ${
+                  declinedMoreProducts ? "bg-logoblue text-white" : "customContainer bg-white text-logoblue"
+                }`}
+              >
+                {t("No, continue to order details", "Nei, fortsett med ordredetaljer")}
+              </button>
+            )}
+          </div>
+        )}
+        </div>
       ),
     };
 
     return [productsStep, optionsStep];
   });
-
-  const moreSections: StepSection[] =
-    chosenListCodes.length > 0 && remainingLists.length > 0 && !customerLocked
-      ? [
-          {
-            id: "more-products",
-            title: t("Any other products you need added?", "Trenger du å legge til andre produkter?"),
-            render: ({ onComplete, onUncomplete }) => (
-              <div className="flex flex-col items-center gap-3">
-                <WebsiteListTiles
-                  locale={locale}
-                  lists={remainingLists}
-                  selectedCode={null}
-                  loadingCode={loadingListCode}
-                  onPick={(code) => addList(code)}
-                />
-                {addListError && <p className="text-xs text-red-600">{addListError}</p>}
-                {/* Nothing to answer: the steps after this one simply appear below,
-                    like every other step, and adding a category is optional. */}
-                <AutoAdvance ready onReady={onComplete} onRetract={onUncomplete} />
-              </div>
-            ),
-          },
-        ]
-      : [];
 
   const sections: StepSection[] = [
     {
@@ -1135,7 +1166,6 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
       ),
     }] satisfies StepSection[])),
     ...listSections,
-    ...moreSections,
     {
       id: "pickup-source",
       title: t("Where are we picking up from?", "Hvor henter vi fra?"),

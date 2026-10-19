@@ -23,9 +23,12 @@ screens); sections before and after stay full width. Grouping is `asideSectionGr
 "your-details".
 
 ## Dimming answered sections (`dimCompleted`)
-Opt-in (the moving and delivery/white-goods flows use it): every revealed section before the one being answered fades to 50%
-opacity (`isSectionDimmed` in `steppedModalLogic.ts`), back to full on hover or focus-within so earlier
-answers can still be edited. Never applies with `showAll`; the `aside` column is never dimmed.
+Opt-in (the moving, services and delivery/white-goods flows use it): every section except the **active** one and the
+newest two revealed ones fades to 50% opacity (`isSectionDimmed` in `steppedModalLogic.ts`). Hover does not change it. The
+active section (`activeSectionIndex`) is the one the user last clicked/focused into — until the reveal changes, so
+answering a section hands "active" to the section it reveals. The newest two sections always stay lit (a preselected
+option can complete a section the instant it appears), so going back to an earlier section shows at most three lit. Never applies with `showAll`;
+the `aside` column is never dimmed.
 
 ## Scrolling to new sections (`scrollToNewSections`)
 Opt-in (the moving flow uses it): once a section is revealed for the first time and has animated open, the body
@@ -34,3 +37,7 @@ with `prefers-reduced-motion`). "First time" is past the furthest the flow has e
 (`revealsUnseenSection`, both in `steppedModalLogic.ts`, tested): going back, changing an answer that retracts the
 later sections and re-revealing them leaves the view where it is. Never applies with `showAll`. Each section's
 wrapper carries `data-step-section={id}` for the lookup.
+
+A single section can instead ask for the same scroll **every** time it comes on screen with `StepSection.scrollOnReveal`
+(`revealedSectionToScrollTo`): the white-goods flow sets it on an added category's "Choose products" step, so adding a
+category, removing it ("not needed") and adding another still pans down to the new products.

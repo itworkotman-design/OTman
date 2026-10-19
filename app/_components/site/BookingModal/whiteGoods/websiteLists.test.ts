@@ -6,7 +6,9 @@ import {
   isListConfigured,
   isListOptionsStepReady,
   isOptionsStepReady,
+  isListOptionsStepComplete,
   isProductsStepReady,
+  moreProductsHostCode,
   removeListCards,
   type WebsiteListInfo,
 } from "./websiteLists";
@@ -203,5 +205,36 @@ describe("isListConfigured — installation only", () => {
 
   it("is done once the installation is picked", () => {
     expect(isListConfigured([installOnly(["inst"])], products)).toBe(true);
+  });
+});
+
+describe("moreProductsHostCode (\"any other products?\" sits inside the last list's options section)", () => {
+  const base = { chosenCodes: [wg.code, fn.code], remainingCount: 2, customerLocked: false };
+
+  it("is the last chosen list", () => {
+    expect(moreProductsHostCode(base)).toBe(fn.code);
+    expect(moreProductsHostCode({ ...base, chosenCodes: [wg.code] })).toBe(wg.code);
+  });
+
+  it("is null with no list chosen yet, every list already on the order, or the order locked", () => {
+    expect(moreProductsHostCode({ ...base, chosenCodes: [] })).toBeNull();
+    expect(moreProductsHostCode({ ...base, remainingCount: 0 })).toBeNull();
+    expect(moreProductsHostCode({ ...base, customerLocked: true })).toBeNull();
+  });
+});
+
+describe("isListOptionsStepComplete (the step holding \"any other products?\" waits for an answer)", () => {
+  it("completes as soon as the options are ready when it doesn't hold the question", () => {
+    expect(isListOptionsStepComplete({ optionsReady: true, hostsMoreProducts: false, declinedMoreProducts: false })).toBe(true);
+  });
+
+  it("waits for \"no, continue\" when it holds the question", () => {
+    expect(isListOptionsStepComplete({ optionsReady: true, hostsMoreProducts: true, declinedMoreProducts: false })).toBe(false);
+    expect(isListOptionsStepComplete({ optionsReady: true, hostsMoreProducts: true, declinedMoreProducts: true })).toBe(true);
+  });
+
+  it("never completes while the options aren't filled in", () => {
+    expect(isListOptionsStepComplete({ optionsReady: false, hostsMoreProducts: false, declinedMoreProducts: false })).toBe(false);
+    expect(isListOptionsStepComplete({ optionsReady: false, hostsMoreProducts: true, declinedMoreProducts: true })).toBe(false);
   });
 });

@@ -112,12 +112,33 @@ export function asideSectionGroups<T extends { id: string }>(
   return { before: visible.slice(0, from), within: visible.slice(from, until), after: visible.slice(until) };
 }
 
+// The section the user is working in (SteppedModal's `dimCompleted`): the one
+// they last clicked/focused, but only until the reveal changes — answering
+// a section reveals the next one, which then becomes active (as does the
+// section being re-answered after a retraction).
+export function activeSectionIndex(params: {
+  revealedCount: number;
+  picked: { index: number; revealedCount: number } | null;
+}): number {
+  const { picked, revealedCount } = params;
+  if (picked && picked.revealedCount === revealedCount) return picked.index;
+  return revealedCount - 1;
+}
+
 // Whether a section shows faded (SteppedModal's `dimCompleted`): every
-// revealed section before the one being answered, so the eye goes to the
-// current question. Never with every section open at once (`showAll`).
-export function isSectionDimmed(params: { index: number; revealedCount: number; showAll: boolean; enabled: boolean }): boolean {
+// section except the active one and the newest two revealed ones (two, since
+// a preselected option can complete a section the instant it appears and
+// reveal the next one). The newest two stay lit while the user goes back to
+// an earlier section. Never with every section open at once (`showAll`).
+export function isSectionDimmed(params: {
+  index: number;
+  activeIndex: number;
+  revealedCount: number;
+  showAll: boolean;
+  enabled: boolean;
+}): boolean {
   if (!params.enabled || params.showAll) return false;
-  return params.index < params.revealedCount - 1;
+  return params.index !== params.activeIndex && params.index < params.revealedCount - 2;
 }
 
 // Whether a reveal brings a section on screen for the first time
@@ -126,6 +147,20 @@ export function isSectionDimmed(params: { index: number; revealedCount: number; 
 // sections after it; revealing those again is not new, so the view stays put.
 export function revealsUnseenSection(params: { furthestRevealed: number; revealedCount: number }): boolean {
   return params.revealedCount > params.furthestRevealed;
+}
+
+// A section that just came on screen and asked to be scrolled to
+// (StepSection.scrollOnReveal) — every time it appears, unlike
+// revealsUnseenSection, e.g. a category removed and added again. Null if none.
+export function revealedSectionToScrollTo(params: {
+  previousIds: string[];
+  sections: { id: string; scrollOnReveal?: boolean }[];
+  shownIds: string[];
+}): string | null {
+  const id = params.shownIds.find(
+    (shown) => !params.previousIds.includes(shown) && params.sections.some((s) => s.id === shown && s.scrollOnReveal),
+  );
+  return id ?? null;
 }
 
 // Where to scroll the modal body to bring a newly revealed section into view

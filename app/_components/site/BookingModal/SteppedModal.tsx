@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { asideSectionGroups, finalStepScrollTarget, heightHoldAction, isFinalStepShown, isSectionDimmed, newSectionScrollTop, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, revealsUnseenSection, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
+import { activeSectionIndex, asideSectionGroups, finalStepScrollTarget, heightHoldAction, isFinalStepShown, isSectionDimmed, newSectionScrollTop, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, revealedSectionToScrollTo, revealsUnseenSection, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
 
 export type StepSectionRenderProps = {
   // True for the one section currently being answered (the last one
@@ -33,6 +33,9 @@ export type StepSection = {
   // a dropdown (e.g. address autocomplete) that would otherwise open past the
   // modal's bottom edge.
   bottomSpace?: boolean;
+  // Smoothly scrolls the body down to this section every time it comes on
+  // screen (e.g. an added category's products), even when it was shown before.
+  scrollOnReveal?: boolean;
   render: (props: StepSectionRenderProps) => ReactNode;
 };
 
@@ -71,9 +74,9 @@ type SteppedModalProps = {
   // Sticky in a 400px right column on large screens, centred in the visible part of its row, under those sections on
   // small ones; it appears with the first of them.
   aside?: { node: ReactNode; fromId: string; untilId: string };
-  // Fades the sections already answered to 50% once the next one opens
-  // (isSectionDimmed), back to full on hover/focus so they can still be
-  // edited. Opt-in — the moving and delivery flows use it.
+  // Fades every section to 50% except the newest two and the one last
+  // clicked/focused (isSectionDimmed). Hover never changes it. Opt-in — the
+  // moving, services and delivery flows use it.
   dimCompleted?: boolean;
   // Smoothly scrolls the body down to each section the first time it
   // appears (revealsUnseenSection) — not when going back to change an
@@ -236,6 +239,29 @@ export function SteppedModal({
   const contentRef = useRef<HTMLDivElement>(null);
   // The modal body that scrolls (the header and progress bar stay put).
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Smoothly scrolls the body down to a just-revealed section once its open
+  // animation (RevealSection) is done, so its full height is measured.
+  const newSectionScrollTimerRef = useRef<number | undefined>(undefined);
+  const scrollToSectionAfterReveal = (sectionId: string) => {
+    window.clearTimeout(newSectionScrollTimerRef.current);
+    newSectionScrollTimerRef.current = window.setTimeout(() => {
+      const scroller = scrollRef.current;
+      const el = scroller?.querySelector<HTMLElement>(`[data-step-section="${CSS.escape(sectionId)}"]`);
+      if (!scroller || !el) return;
+      const scrollerTop = scroller.getBoundingClientRect().top + scroller.clientTop;
+      const rect = el.getBoundingClientRect();
+      const target = newSectionScrollTop({
+        scrollTop: scroller.scrollTop,
+        viewportHeight: scroller.clientHeight,
+        sectionTop: rect.top - scrollerTop + scroller.scrollTop,
+        sectionBottom: rect.bottom - scrollerTop + scroller.scrollTop,
+        padding: 24,
+      });
+      if (target === null) return;
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      scroller.scrollTo({ top: target, behavior: reduceMotion ? "auto" : "smooth" });
+    }, TRANSITION_MS + 50);
+  };
   const lastHeightRef = useRef(0);
   const holdTimerRef = useRef<number | undefined>(undefined);
   // True from when a reveal starts holding the height until that hold is released.
@@ -297,6 +323,10 @@ export function SteppedModal({
   const [revealedSteps, setRevealedCount] = useState(1);
   const [finalStepReached, setShowFinalStep] = useState(false);
   const revealedCount = showAll ? sections.length : revealedSteps;
+  // The section last clicked/focused, tagged with the reveal it happened in
+  // so a newly revealed section takes over as active (activeSectionIndex).
+  const [pickedSection, setPickedSection] = useState<{ index: number; revealedCount: number } | null>(null);
+  const activeIndex = activeSectionIndex({ revealedCount, picked: pickedSection });
   const showFinalStep = isFinalStepShown({ showAll, reached: finalStepReached, open: finalStepOpen });
   const visibleSections = sections.slice(0, revealedCount);
   const shownIds = shownSectionIds(visibleSections);
@@ -309,7 +339,11 @@ export function SteppedModal({
     const next: SectionStructure = { ids: shownIds, showFinalStep };
     const gained = structureGainedSections(previousStructure.current, next);
     const scrollTarget = finalStepScrollTarget(previousStructure.current.showFinalStep, showFinalStep);
+    const revealedScrollId = showAll
+      ? null
+      : revealedSectionToScrollTo({ previousIds: previousStructure.current.ids, sections: visibleSections, shownIds });
     previousStructure.current = next;
+    if (revealedScrollId && !scrollTarget) scrollToSectionAfterReveal(revealedScrollId);
     const el = contentRef.current;
     // Entering or leaving the final step swaps the whole body and sets its own
     // scroll position, so there's no old height worth holding — holding it
@@ -367,31 +401,13 @@ export function SteppedModal({
   // the first time scrolls into view. The scroll waits for its open animation
   // (RevealSection), so its full height is measured.
   const furthestRevealedRef = useRef(revealedCount);
-  const newSectionScrollTimerRef = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (!scrollToNewSections || showAll) return;
     const unseen = revealsUnseenSection({ furthestRevealed: furthestRevealedRef.current, revealedCount });
     furthestRevealedRef.current = Math.max(furthestRevealedRef.current, revealedCount);
-    window.clearTimeout(newSectionScrollTimerRef.current);
     const section = sections[revealedCount - 1];
     if (!unseen || !section || section.hidden) return;
-    newSectionScrollTimerRef.current = window.setTimeout(() => {
-      const scroller = scrollRef.current;
-      const el = scroller?.querySelector<HTMLElement>(`[data-step-section="${CSS.escape(section.id)}"]`);
-      if (!scroller || !el) return;
-      const scrollerTop = scroller.getBoundingClientRect().top + scroller.clientTop;
-      const rect = el.getBoundingClientRect();
-      const target = newSectionScrollTop({
-        scrollTop: scroller.scrollTop,
-        viewportHeight: scroller.clientHeight,
-        sectionTop: rect.top - scrollerTop + scroller.scrollTop,
-        sectionBottom: rect.bottom - scrollerTop + scroller.scrollTop,
-        padding: 24,
-      });
-      if (target === null) return;
-      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      scroller.scrollTo({ top: target, behavior: reduceMotion ? "auto" : "smooth" });
-    }, TRANSITION_MS + 50);
+    scrollToSectionAfterReveal(section.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealedCount]);
   useEffect(() => () => window.clearTimeout(newSectionScrollTimerRef.current), []);
@@ -416,14 +432,16 @@ export function SteppedModal({
   const stackItems = (group: StepSection[], offset: number): AnimatedStackItem[] =>
     group.map((section, i) => {
       const index = offset + i;
-      const dimmed = isSectionDimmed({ index, revealedCount, showAll, enabled: dimCompleted });
+      const dimmed = isSectionDimmed({ index, activeIndex, revealedCount, showAll, enabled: dimCompleted });
       return {
         key: section.id,
         hidden: section.hidden,
         node: (
           <div
             data-step-section={section.id}
-            className={`transition-opacity duration-300 ${dimmed ? "opacity-50 hover:opacity-100 focus-within:opacity-100" : ""}`}
+            onPointerDownCapture={() => setPickedSection({ index, revealedCount })}
+            onFocusCapture={() => setPickedSection({ index, revealedCount })}
+            className={`transition-opacity duration-300 ${dimmed ? "opacity-50" : ""}`}
           >
             {/* An empty title (e.g. "My order"'s contact details) renders untitled. */}
             {section.title && (
