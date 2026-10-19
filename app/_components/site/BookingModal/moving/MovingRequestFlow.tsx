@@ -673,8 +673,9 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
           </h4>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]">
-            <div className="flex flex-col gap-4">
-              <OrderReviewBlocks blocks={reviewBlocks} />
+            {/* All the answers in one card, sections split by a line (as in the admin modal). */}
+            <div className="divide-y divide-black/10 rounded-2xl border border-black/10 bg-white lg:self-start">
+              <OrderReviewBlocks blocks={reviewBlocks} bare />
             </div>
 
             <div className="flex flex-col gap-4 lg:self-start">
