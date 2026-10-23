@@ -226,7 +226,7 @@ export default function WebsiteOrderModal({
           preferredDate: order.details.preferredDate,
           timeWindow: order.details.timeWindow,
           drivingDistance: order.details.drivingDistance,
-          contact,
+          contact: { ...contact, customerType: order.details.customerType, orgNumber: order.details.orgNumber },
         });
   const orderExtras = order.kind === "service" ? [] : order.kind === "moving" ? order.orderExtras : order.details.orderExtras;
   // A move and a service request save (and preview) through their own routes.

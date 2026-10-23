@@ -227,7 +227,8 @@ export async function editCustomerOrder(
   if (details.kind === "catalog") {
     const parsed = parseAdminOrderDetails({
       ...details,
-      customer: { ...customer, customerType: details.customer.customerType },
+      // The org number isn't editable on "My order" — the stored one is kept.
+      customer: { ...customer, customerType: details.customer.customerType, orgNumber: details.customer.orgNumber },
       preferredDate,
       timeWindow,
       pickups: body.pickups !== undefined ? body.pickups : details.pickups,

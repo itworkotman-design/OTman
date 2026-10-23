@@ -112,6 +112,16 @@ describe("buildWhiteGoodsBookingDetails", () => {
     expect(details.delivery.floor).toBeNull();
   });
 
+  it("stores the org number (digits only) for a business, never for a private customer", () => {
+    expect(buildWhiteGoodsBookingDetails({ ...input, customerType: "business", orgNumber: "974 760 673" }).orgNumber).toBe(
+      "974760673",
+    );
+    expect(buildWhiteGoodsBookingDetails({ ...input, customerType: "private", orgNumber: "974760673" })).not.toHaveProperty(
+      "orgNumber",
+    );
+    expect(buildWhiteGoodsBookingDetails({ ...input, customerType: "business", orgNumber: "" })).not.toHaveProperty("orgNumber");
+  });
+
   it("keeps only a recognised customer type", () => {
     expect(buildWhiteGoodsBookingDetails({ ...input, customerType: "business" }).customerType).toBe("business");
     expect(buildWhiteGoodsBookingDetails({ ...input, customerType: "company" }).customerType).toBeNull();
@@ -126,6 +136,12 @@ describe("parseWhiteGoodsBookingDetails", () => {
       firstPickup: { ...input.firstPickup, productNames: ["Vaskemaskin"] },
     });
     expect(parseWhiteGoodsBookingDetails(JSON.parse(JSON.stringify(details)))).toEqual(details);
+  });
+
+  it("reads the org number back", () => {
+    const built = buildWhiteGoodsBookingDetails({ ...input, customerType: "business", orgNumber: "974760673" });
+    expect(parseWhiteGoodsBookingDetails(JSON.parse(JSON.stringify(built)))?.orgNumber).toBe("974760673");
+    expect(parseWhiteGoodsBookingDetails({ ...built, orgNumber: 42 })).not.toHaveProperty("orgNumber");
   });
 
   it("keeps the total the customer was shown at booking, and only a real number", () => {

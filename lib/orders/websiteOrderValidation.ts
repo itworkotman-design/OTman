@@ -42,6 +42,11 @@ export function sanitizePhoneInput(v: string): string {
   return leadingPlus ? `+${digitsAndDashes}` : digitsAndDashes;
 }
 
+// Org number: digits and spaces only ("974 760 673"), at most 11 characters.
+export function sanitizeOrgNumberInput(v: string): string {
+  return v.replace(/[^\d ]/g, "").slice(0, 11);
+}
+
 // Free text (names, notes, addresses): drops exactly what
 // validateTextField rejects, plus stray control characters.
 export function sanitizeTextInput(v: string): string {
@@ -68,6 +73,21 @@ export function isValidEmail(v: string): boolean {
   const labels = domain.split(".");
   if (labels.length < 2) return false;
   return labels.every((label) => EMAIL_LABEL_RE.test(label)) && EMAIL_TLD_RE.test(labels[labels.length - 1]);
+}
+
+// A Norwegian organisation number is stored as its 9 digits, without spaces.
+export function normalizeOrgNumber(v: string): string {
+  return v.replace(/\s/g, "");
+}
+
+// 9 digits whose last is the Brønnøysund mod-11 check digit.
+export function isValidOrgNumber(v: string): boolean {
+  const digits = normalizeOrgNumber(v);
+  if (!/^\d{9}$/.test(digits)) return false;
+  const weights = [3, 2, 7, 6, 5, 4, 3, 2];
+  const sum = weights.reduce((acc, weight, i) => acc + weight * Number(digits[i]), 0);
+  const check = (11 - (sum % 11)) % 11;
+  return check !== 10 && check === Number(digits[8]);
 }
 
 export function validatePhoneField(v: string): string | null {

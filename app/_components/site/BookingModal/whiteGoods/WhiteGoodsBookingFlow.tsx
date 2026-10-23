@@ -70,7 +70,7 @@ import { buildOrderAdjustmentLines, sortSummaryLines } from "./orderSummaryLines
 import { categorizeWhiteGoodsLineCode } from "@/lib/content/whiteGoodsLineCategory";
 import { OrderDetailsCard } from "./OrderDetailsCard";
 import { isOrderDetailsStepReady } from "./orderDetailsReady";
-import { isValidEmail } from "@/lib/orders/websiteOrderValidation";
+import { isValidEmail, isValidOrgNumber } from "@/lib/orders/websiteOrderValidation";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import {
   type CatalogProduct,
@@ -201,6 +201,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   const [drivingDistanceLoading, setDrivingDistanceLoading] = useState(false);
 
   const [name, setName] = useState("");
+  // Only asked when ordering as a business (with the company name in `name`).
+  const [orgNumber, setOrgNumber] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
@@ -471,6 +473,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
 
     setCustomerType(details.customer.customerType);
     setName(details.customer.name);
+    setOrgNumber(details.customer.orgNumber ?? "");
     setPhone(details.customer.phone);
     setEmail(details.customer.email);
     setNotes(details.customer.comments);
@@ -827,7 +830,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   // the pickup-contact step's AutoAdvance for why this isn't gated any
   // earlier: order-details/contact must not disappear just because the
   // customer went back and split the pickup across more locations.
-  const canContinueContact = !!name.trim() && !!phone.trim() && emailValid && allPickupLocationsReady;
+  const orgNumberReady = customerType !== "business" || isValidOrgNumber(orgNumber);
+  const canContinueContact = !!name.trim() && orgNumberReady && !!phone.trim() && emailValid && allPickupLocationsReady;
   const canSubmit =
     name.trim() &&
     phone.trim() &&
@@ -865,6 +869,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
           notes,
           // Stored on the order for the admin view (websiteBookingDetails).
           customerType,
+          ...(customerType === "business" ? { orgNumber } : {}),
           // The total shown above — the server only accepts the order at
           // this price (see app/api/site/white-goods-order).
           // What the customer saw and pays: incl. VAT, summed per line.
@@ -1308,8 +1313,12 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
         <div className="flex flex-col gap-4">
           <ContactDetailsCard
             locale={locale}
+            customerType={customerType}
             name={name}
             setName={setName}
+            orgNumber={orgNumber}
+            setOrgNumber={setOrgNumber}
+            orgNumberLocked={!!customer}
             phone={phone}
             setPhone={setPhone}
             email={email}
@@ -1365,7 +1374,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     preferredDate,
     timeWindow,
     drivingDistance,
-    contact: { name, phone, email, notes },
+    contact: { name, phone, email, notes, customerType, orgNumber },
   };
   const reviewBlocks = buildOrderReviewBlocks(locale, reviewInput);
 
@@ -1444,6 +1453,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   const editedDetails = adminDetailsFromFlow({
     customerType,
     name,
+    orgNumber,
     phone,
     email,
     notes,

@@ -19,4 +19,5 @@ Builds the text half of the homepage white-goods flow's review page (the `Steppe
 
 | Function | Purpose |
 |---|---|
-| `buildOrderReviewBlocks` | Returns the pickup block(s) (numbered "Pickup 1", "Pickup 2" once there's more than one), then Delivery, then Your details. Rows for blank answers (place name, floor, driving distance, notes) are left out. The date is shown long-form ("5. oktober 2026"), read as a UTC calendar date so it can't shift by timezone. |
+| `buildOrderReviewBlocks` | Returns the pickup block(s) (numbered "Pickup 1", "Pickup 2" once there's more than one), then Delivery, then Your details. Rows for blank answers (place name, floor, driving distance, notes) are left out. The date is shown long-form ("5. oktober 2026"), read as a UTC calendar date so it can't shift by timezone. The name row is "Full name" for a private customer and "Company name" for a business, which also gets an "Org. no." row (`contact.customerType` / `contact.orgNumber`; the admin modal and partner view pass them from the booking details). |
+| `formatOrgNumber` | `974760673` → `974 760 673`; anything that isn't 9 digits is returned as-is. |

@@ -89,4 +89,19 @@ describe("buildOrderReviewBlocks", () => {
       Merknader: "Ring på",
     });
   });
+
+  it("shows a business customer's company name and org number", () => {
+    const blocks = buildOrderReviewBlocks("no", {
+      ...base,
+      contact: { ...base.contact, name: "Kari AS", customerType: "business", orgNumber: "974760673" },
+    });
+    expect(rows(blocks[blocks.length - 1])).toMatchObject({ Firmanavn: "Kari AS", "Org.nr.": "974 760 673" });
+  });
+
+  it("shows a private customer's full name and no org number", () => {
+    const blocks = buildOrderReviewBlocks("en", { ...base, contact: { ...base.contact, customerType: "private" } });
+    const contact = rows(blocks[blocks.length - 1]);
+    expect(contact["Full name"]).toBe("Kari");
+    expect(contact).not.toHaveProperty("Org. no.");
+  });
 });

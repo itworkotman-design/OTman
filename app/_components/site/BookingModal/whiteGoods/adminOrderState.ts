@@ -92,6 +92,7 @@ function toAdminStop(stop: FlowStop): AdminPickupStop {
 export function adminDetailsFromFlow(state: {
   customerType: BookingCustomerType | null;
   name: string;
+  orgNumber: string;
   phone: string;
   email: string;
   notes: string;
@@ -109,6 +110,7 @@ export function adminDetailsFromFlow(state: {
       email: state.email,
       comments: state.notes,
       customerType: state.customerType,
+      ...(state.customerType === "business" && state.orgNumber.trim() ? { orgNumber: state.orgNumber.trim() } : {}),
     },
     pickups: [toAdminStop(state.firstPickup), ...state.extraPickups.map(toAdminStop)],
     delivery: { ...state.delivery },

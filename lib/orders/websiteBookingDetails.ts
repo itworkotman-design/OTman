@@ -1,4 +1,5 @@
 import type { ParsedExtraPickupLocation } from "./websiteExtraPickupLocations";
+import { normalizeOrgNumber } from "./websiteOrderValidation";
 
 // What the customer entered in the homepage white-goods flow, stored as-is on
 // Order.websiteBookingDetails so the admin WebsiteOrderModal can show every
@@ -32,6 +33,9 @@ export type BookingPickupStop = {
 export type WhiteGoodsBookingDetails = {
   version: 1;
   customerType: BookingCustomerType | null;
+  // A business customer's organisation number (9 digits). The company name
+  // is the order's customerName.
+  orgNumber?: string;
   pickups: BookingPickupStop[];
   delivery: { address: string; floor: number | null; liftAvailable: boolean };
   preferredDate: string;
@@ -50,6 +54,7 @@ export type OrderExtraLine = { label: string; price: number; qty: number };
 
 export type WhiteGoodsBookingDetailsInput = {
   customerType: unknown;
+  orgNumber?: unknown;
   firstPickup: {
     source: unknown;
     placeName: string | null;
@@ -84,6 +89,12 @@ function customerType(value: unknown): BookingCustomerType | null {
 // 0 means "not given" in the order route (see parseFloorNumber).
 function floorOrNull(floor: unknown): number | null {
   return typeof floor === "number" && Number.isInteger(floor) && floor !== 0 ? floor : null;
+}
+
+// Only a business has one; stored as digits only, left out when blank.
+function orgNumberField(type: BookingCustomerType | null, value: unknown): { orgNumber?: string } {
+  const digits = typeof value === "string" ? normalizeOrgNumber(value) : "";
+  return type === "business" && digits ? { orgNumber: digits } : {};
 }
 
 function text(value: unknown): string {
@@ -125,9 +136,11 @@ function stop(fields: {
 }
 
 export function buildWhiteGoodsBookingDetails(input: WhiteGoodsBookingDetailsInput): WhiteGoodsBookingDetails {
+  const type = customerType(input.customerType);
   return {
     version: 1,
-    customerType: customerType(input.customerType),
+    customerType: type,
+    ...orgNumberField(type, input.orgNumber),
     pickups: [stop(input.firstPickup), ...input.extraPickups.map((loc) => stop(loc))],
     delivery: {
       address: text(input.delivery.address),
@@ -151,10 +164,12 @@ export function parseWhiteGoodsBookingDetails(value: unknown): WhiteGoodsBooking
   if (v.version !== 1 || !Array.isArray(v.pickups)) return null;
   if (!v.delivery || typeof v.delivery !== "object" || Array.isArray(v.delivery)) return null;
   const delivery = v.delivery as Record<string, unknown>;
+  const type = customerType(v.customerType);
 
   return {
     version: 1,
-    customerType: customerType(v.customerType),
+    customerType: type,
+    ...orgNumberField(type, v.orgNumber),
     pickups: v.pickups
       .filter((raw): raw is Record<string, unknown> => !!raw && typeof raw === "object" && !Array.isArray(raw))
       .map((raw) => stop(raw as Parameters<typeof stop>[0])),

@@ -71,6 +71,16 @@ describe("parseAdminOrderDetails", () => {
     });
   });
 
+  it("keeps a business customer's org number (digits only) and checks it when filled in", () => {
+    const business = { ...valid, customer: { ...valid.customer, customerType: "business" as const } };
+    const ok = parseAdminOrderDetails({ ...business, customer: { ...business.customer, orgNumber: "974 760 673" } });
+    expect(ok.ok && ok.details.customer.orgNumber).toBe("974760673");
+    const bad = parseAdminOrderDetails({ ...business, customer: { ...business.customer, orgNumber: "123" } });
+    expect(bad.ok ? null : bad.errors).toHaveProperty("customer.orgNumber");
+    const empty = parseAdminOrderDetails({ ...business, customer: { ...business.customer, orgNumber: "" } });
+    expect(empty.ok && empty.details.customer).not.toHaveProperty("orgNumber");
+  });
+
   it("keeps which product cards each stop collects", () => {
     const result = parseAdminOrderDetails({
       ...valid,
@@ -262,6 +272,23 @@ describe("buildDetailsUpdate — orders with the old note format", () => {
     expect(next.orderData.description).not.toContain("Pickup location");
     expect(next.orderData.description).toContain("Pickup 2 - Private (Bjerke 9) - picking up: Sofa");
     expect(next.orderData.description).toContain("Porten er låst.");
+  });
+});
+
+describe("editableDetailsFromOrder — business customer", () => {
+  it("reads the org number back from the booking details", () => {
+    const business: AdminOrderDetails = {
+      ...valid,
+      customer: { ...valid.customer, customerType: "business", orgNumber: "974760673" },
+    };
+    const { bookingDetails, orderData } = buildDetailsUpdate({
+      details: business,
+      drivingDistance: "21",
+      storedBookingDetails: null,
+      storedDescription: null,
+    });
+    expect(bookingDetails.orgNumber).toBe("974760673");
+    expect(editableDetailsFromOrder({ ...orderData, websiteBookingDetails: bookingDetails })).toEqual(business);
   });
 });
 

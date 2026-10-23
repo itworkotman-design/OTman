@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   isValidEmail,
+  isValidOrgNumber,
+  normalizeOrgNumber,
+  sanitizeOrgNumberInput,
   sanitizeEmailInput,
   sanitizePhoneInput,
   sanitizeTextInput,
@@ -151,5 +154,29 @@ describe("validateEmailField (strict rules)", () => {
   it("rejects addresses the old loose check let through", () => {
     expect(validateEmailField("ola..n@gmail.com")).not.toBeNull();
     expect(validateEmailField("ola@gmail.c")).not.toBeNull();
+  });
+});
+
+describe("organisation numbers", () => {
+  it("accepts a real 9-digit Norwegian org number, with or without spaces", () => {
+    expect(isValidOrgNumber("923609016")).toBe(true);
+    expect(isValidOrgNumber("974 760 673")).toBe(true);
+  });
+
+  it("rejects the wrong length, letters, and a bad check digit", () => {
+    expect(isValidOrgNumber("")).toBe(false);
+    expect(isValidOrgNumber("92360901")).toBe(false);
+    expect(isValidOrgNumber("9236090160")).toBe(false);
+    expect(isValidOrgNumber("92360901a")).toBe(false);
+    expect(isValidOrgNumber("923609017")).toBe(false);
+  });
+
+  it("normalises to digits only", () => {
+    expect(normalizeOrgNumber(" 974 760 673 ")).toBe("974760673");
+  });
+
+  it("keeps only digits and spaces while typing, at most 11 characters", () => {
+    expect(sanitizeOrgNumberInput("974-760 673 MVA")).toBe("974760 673 ");
+    expect(sanitizeOrgNumberInput("974 760 673 123")).toBe("974 760 673");
   });
 });

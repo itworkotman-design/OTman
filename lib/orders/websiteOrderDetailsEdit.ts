@@ -1,5 +1,11 @@
 import { costliestFloor } from "@/lib/booking/floorNumber";
-import { validateEmailField, validatePhoneField, validateTextField } from "./websiteOrderValidation";
+import {
+  isValidOrgNumber,
+  normalizeOrgNumber,
+  validateEmailField,
+  validatePhoneField,
+  validateTextField,
+} from "./websiteOrderValidation";
 import { buildPickupNoteLines, buildWebsiteOrderNoteLines, buildWebsiteOrderTextFields } from "./websiteOrderNotes";
 import { buildMultiPickupDescriptionLines, type ParsedExtraPickupLocation } from "./websiteExtraPickupLocations";
 import {
@@ -40,6 +46,8 @@ export type AdminOrderDetails = {
     email: string;
     comments: string;
     customerType: BookingCustomerType | null;
+    // A business customer's org number, digits only; absent when not given.
+    orgNumber?: string;
   };
   pickups: AdminPickupStop[];
   delivery: { address: string; floor: number | null; liftAvailable: boolean };
@@ -87,13 +95,18 @@ export function parseAdminOrderDetails(raw: unknown): ParsedAdminOrderDetails {
   const errors: Record<string, string> = {};
 
   const c = record(v.customer) ?? {};
+  const type = CUSTOMER_TYPES.find((t) => t === c.customerType) ?? null;
+  // Only a business has an org number — switching to private drops it.
+  const orgNumber = type === "business" ? normalizeOrgNumber(text(c.orgNumber)) : "";
   const customer = {
     name: text(c.name),
     phone: text(c.phone),
     email: text(c.email),
     comments: text(c.comments),
-    customerType: CUSTOMER_TYPES.find((t) => t === c.customerType) ?? null,
+    customerType: type,
+    ...(orgNumber ? { orgNumber } : {}),
   };
+  if (orgNumber && !isValidOrgNumber(orgNumber)) errors["customer.orgNumber"] = "Invalid organisation number";
   // An admin can save anything — empty is fine; only what's filled in is
   // checked for format.
   if (validateTextField(customer.name)) errors["customer.name"] = "Contains disallowed characters";
@@ -170,6 +183,7 @@ function toBookingDetails(
   return {
     version: 1,
     customerType: details.customer.customerType,
+    ...(details.customer.orgNumber ? { orgNumber: details.customer.orgNumber } : {}),
     pickups: details.pickups.map((stop) => ({
       source: stop.source,
       placeName: stop.placeName,
@@ -358,6 +372,7 @@ export function editableDetailsFromOrder(order: {
       email: order.email ?? "",
       comments: order.customerComments ?? "",
       customerType: details.customerType,
+      ...(details.orgNumber ? { orgNumber: details.orgNumber } : {}),
     },
     pickups: details.pickups.map((stop) => ({
       source: stop.source,

@@ -82,6 +82,7 @@ describe("adminDetailsFromFlow", () => {
     const details = adminDetailsFromFlow({
       customerType: "business",
       name: "Ralfs",
+      orgNumber: "974760673",
       phone: "93004023",
       email: "r@example.com",
       notes: "pap",
@@ -115,7 +116,14 @@ describe("adminDetailsFromFlow", () => {
       drivingDistance: "171.12",
     });
     expect(details).toEqual({
-      customer: { name: "Ralfs", phone: "93004023", email: "r@example.com", comments: "pap", customerType: "business" },
+      customer: {
+        name: "Ralfs",
+        phone: "93004023",
+        email: "r@example.com",
+        comments: "pap",
+        customerType: "business",
+        orgNumber: "974760673",
+      },
       pickups: [
         expect.objectContaining({ address: "Smalvollveien 65", cardIds: [0], productNames: ["Vaskemaskin #1"] }),
         expect.objectContaining({ address: "Eivind Olsens vei", floor: 10, cardIds: [1, 2] }),
@@ -132,6 +140,7 @@ describe("adminDetailsFromFlow", () => {
     const details = adminDetailsFromFlow({
       customerType: null,
       name: "",
+      orgNumber: "",
       phone: "",
       email: "",
       notes: "",

@@ -96,7 +96,7 @@ export function websitePartnerReviewBlocks(view: WebsitePartnerView, locale: Boo
         preferredDate: view.details.preferredDate,
         timeWindow: view.details.timeWindow,
         drivingDistance: view.details.drivingDistance,
-        contact: view.contact,
+        contact: { ...view.contact, customerType: view.details.customerType, orgNumber: view.details.orgNumber },
       });
 }
 

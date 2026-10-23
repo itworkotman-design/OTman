@@ -28,6 +28,7 @@ import { buildWhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetail
 import { buildWebsiteOrderItems, priceWebsiteOrder } from "@/lib/booking/pricing/priceWebsiteOrder";
 import { normalizePriceListSettings } from "@/lib/products/priceListSettings";
 import {
+  isValidOrgNumber,
   validateEmailField,
   validatePhoneField,
   validateTextField,
@@ -312,6 +313,7 @@ async function createWhiteGoodsOrder(
   // WebsiteOrderModal (see websiteBookingDetails.ts).
   const websiteBookingDetails = buildWhiteGoodsBookingDetails({
     customerType: body.customerType,
+    orgNumber: body.orgNumber,
     firstPickup: {
       source: body.pickupSource,
       placeName: pickupPlaceNameStr,
@@ -505,6 +507,11 @@ export async function POST(req: Request) {
     }
   }
   if (!str(body.name)) errors.name = "Required";
+  // A business orders under its company name and org number.
+  if (body.customerType === "business") {
+    if (!str(body.orgNumber)) errors.orgNumber = "Required";
+    else if (!isValidOrgNumber(s(body.orgNumber))) errors.orgNumber = "Invalid organisation number";
+  }
   // The booking calendar's rules, held on the server too.
   if (!isBookableDeliveryDate(str(body.preferredDate) ?? "")) errors.preferredDate = "Choose a delivery date from tomorrow (not Sundays or public holidays)";
   if (!("timeWindow" in errors) && !isTimeWindowComplete(str(body.timeWindow) ?? "")) errors.timeWindow = "Choose a time window";

@@ -18,4 +18,7 @@ Shared input rules for the public, unauthenticated booking forms (white goods, m
 | `sanitizeEmailInput` | Client filter for email inputs: drops whitespace and every character no address can contain, keeps only the first `@`. |
 | `validateTextField` | Server check: rejects any disallowed character. |
 | `sanitizePhoneInput` | Client filter: keeps digits and `-`, plus one leading `+` (also when pasted text has a `+` before the first digit). Drops letters, spaces and every other symbol. |
+| `normalizeOrgNumber` | Strips whitespace from an org number (stored as its 9 digits). |
+| `isValidOrgNumber` | A Norwegian organisation number: 9 digits whose last is the Brønnøysund mod-11 check digit (weights 3,2,7,6,5,4,3,2). Spaces are allowed. |
+| `sanitizeOrgNumberInput` | Client filter for the org-number input: keeps digits and spaces, at most 11 characters. |
 | `sanitizeTextInput` | Client filter: drops the disallowed characters and stray control characters; keeps line breaks for notes. |

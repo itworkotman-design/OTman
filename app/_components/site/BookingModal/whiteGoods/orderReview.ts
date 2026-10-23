@@ -1,6 +1,6 @@
 import { formatOrderDate } from "@/lib/orders/formatOrderDate";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
-import type { BookingPickupStop } from "@/lib/orders/websiteBookingDetails";
+import type { BookingCustomerType, BookingPickupStop } from "@/lib/orders/websiteBookingDetails";
 import type { PickupSource } from "./PickupSourceStep";
 
 // The text half of the white-goods review page (the modal's final step): the
@@ -23,8 +23,22 @@ export type ReviewInput = {
   preferredDate: string;
   timeWindow: string;
   drivingDistance: string;
-  contact: { name: string; phone: string; email: string; notes: string };
+  contact: {
+    name: string;
+    phone: string;
+    email: string;
+    notes: string;
+    // Labels the name "Full name" / "Company name"; a business adds its org number.
+    customerType?: BookingCustomerType | null;
+    orgNumber?: string;
+  };
 };
+
+// "974760673" → "974 760 673", the way org numbers are usually written.
+export function formatOrgNumber(orgNumber: string): string {
+  const digits = orgNumber.replace(/\s/g, "");
+  return /^\d{9}$/.test(digits) ? digits.replace(/(\d{3})(\d{3})(\d{3})/, "$1 $2 $3") : orgNumber;
+}
 
 export function buildOrderReviewBlocks(locale: Locale, input: ReviewInput): ReviewBlock[] {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
@@ -38,6 +52,13 @@ export function buildOrderReviewBlocks(locale: Locale, input: ReviewInput): Revi
   // Leaves out a row whose answer is blank, so optional fields don't show up empty.
   const present = (rows: [string, string | null | undefined][]): ReviewRow[] =>
     rows.filter((row): row is [string, string] => !!row[1]?.trim()).map(([label, value]) => ({ label, value }));
+
+  const isBusiness = input.contact.customerType === "business";
+  const nameLabel = isBusiness
+    ? t("Company name", "Firmanavn")
+    : input.contact.customerType === "private"
+      ? t("Full name", "Fullt navn")
+      : t("Name", "Navn");
 
   const numbered = input.pickups.length > 1;
   const pickupBlocks = input.pickups.map((pickup, i): ReviewBlock => ({
@@ -70,7 +91,8 @@ export function buildOrderReviewBlocks(locale: Locale, input: ReviewInput): Revi
       kind: "contact",
       title: t("Your details", "Dine opplysninger"),
       rows: present([
-        [t("Name", "Navn"), input.contact.name],
+        [nameLabel, input.contact.name],
+        [t("Org. no.", "Org.nr."), isBusiness && input.contact.orgNumber ? formatOrgNumber(input.contact.orgNumber) : null],
         [t("Phone", "Telefon"), input.contact.phone],
         [t("Email", "E-post"), input.contact.email],
         [t("Notes", "Merknader"), input.contact.notes],

@@ -192,6 +192,17 @@ describe("POST /api/site/white-goods-order", () => {
     expect(json.errors.pickupContactPhone).toBeUndefined();
   });
 
+  it("requires a valid org number when ordering as a business, and none as a private customer", async () => {
+    const missing = await (await post({ ...validBody, customerType: "business", email: "" })).json();
+    expect(missing.errors.orgNumber).toBe("Required");
+    const bad = await (await post({ ...validBody, customerType: "business", orgNumber: "123456789", email: "" })).json();
+    expect(bad.errors.orgNumber).toBe("Invalid organisation number");
+    const ok = await (await post({ ...validBody, customerType: "business", orgNumber: "974 760 673", email: "" })).json();
+    expect(ok.errors.orgNumber).toBeUndefined();
+    const privateCustomer = await (await post({ ...validBody, customerType: "private", email: "" })).json();
+    expect(privateCustomer.errors.orgNumber).toBeUndefined();
+  });
+
   it("returns 422 when no product cards are provided", async () => {
     const res = await post({ ...validBody, productCards: [] });
 
