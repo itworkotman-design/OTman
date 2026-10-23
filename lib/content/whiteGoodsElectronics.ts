@@ -237,6 +237,23 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         subcontractorPrice: 1135.2,
         combinedWithIndoorInstall: { customerPrice: 3260.088, subcontractorPrice: 1599.6 },
       },
+      // Same stacking jobs (and prices) as the tumble dryer's, seen from the washer's side.
+      {
+        code: "WASHING_MACHINE_STACK_ON_DRYER",
+        category: "install",
+        labelEn: "Place washing machine on top of tumble dryer",
+        labelNo: "Vaskemaskin legges ovenpå tørketrommelen",
+        customerPrice: 205.368,
+        subcontractorPrice: 103.2,
+      },
+      {
+        code: "WASHING_MACHINE_STACK_FRAME",
+        category: "install",
+        labelEn: "Install flat-packed stacking frame",
+        labelNo: "Montering av flatpakket søylesett",
+        customerPrice: 505.68,
+        subcontractorPrice: 299.28,
+      },
       ...standardAddOns(),
     ],
   },

@@ -183,3 +183,21 @@ describe("WHITE_GOODS_ELECTRONICS_PRODUCTS", () => {
     }
   });
 });
+
+describe("washer/dryer stacking", () => {
+  function stackingOptions(code: string) {
+    const product = WHITE_GOODS_ELECTRONICS_PRODUCTS.find((p) => p.code === code);
+    if (!product) throw new Error(`missing ${code}`);
+    return product.options
+      .filter((option) => option.category === "install" && !option.exclusiveGroup)
+      .map(({ code: _code, labelEn: _en, labelNo: _no, ...rest }) => rest);
+  }
+
+  it("offers the washing machine the same stack-on-top and stacking-frame installs as the tumble dryer", () => {
+    const washer = WHITE_GOODS_ELECTRONICS_PRODUCTS.find((p) => p.code === "WG_WASHING_MACHINE");
+    expect(washer?.options.map((o) => o.code)).toEqual(
+      expect.arrayContaining(["WASHING_MACHINE_STACK_ON_DRYER", "WASHING_MACHINE_STACK_FRAME"]),
+    );
+    expect(stackingOptions("WG_WASHING_MACHINE")).toEqual(stackingOptions("WG_TUMBLE_DRYER"));
+  });
+});
