@@ -2,6 +2,7 @@
 import type { Order, OrderItem } from "@prisma/client";
 import { buildLegacyOrderSummaryGroups, buildOrderSummaryGroups, formatOrderSummaryText } from "@/lib/orders/orderSummary";
 import { filterImpreciseAddressNotesForTask } from "@/lib/orders/addressPrecision";
+import type { PickupDocumentLink } from "@/lib/orders/pickupDocumentLinks";
 
 type GsmContact = {
   name?: string;
@@ -33,6 +34,9 @@ type GsmOrderPayload = {
 
 export type GsmOrderInput = Order & {
   items?: OrderItem[] | null;
+  // Store pickup documents (lib/orders/pickupDocumentLinks.ts) — each one's
+  // link goes on the pickup task of its own stop.
+  pickupDocuments?: PickupDocumentLink[] | null;
 };
 
 const NO_PICKUP_ADDRESS = "no shop pickup address";
@@ -401,6 +405,18 @@ function getDeliveryTaskCategory(order: GsmOrderInput): GsmTask["category"] {
   return "drop_off";
 }
 
+// Appends the store pickup documents' links so the driver can show the
+// cashier the receipt / order confirmation. Without a link (not configured)
+// the driver still learns there is one.
+function appendPickupDocumentNote(description: string, documents: PickupDocumentLink[]): string {
+  if (documents.length === 0) return description;
+
+  const lines = documents.map((doc) => (doc.url ? `${doc.filename}: ${doc.url}` : `${doc.filename} (se ordren i OTman)`));
+  return [description, `Hentedokument (vis til kassen):\n${lines.join("\n")}`]
+    .filter((value) => value.length > 0)
+    .join("\n\n");
+}
+
 export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
   const account = process.env.GSM_ACCOUNT_URL;
 
@@ -463,12 +479,29 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
   const deliveryTaskDescription = filterImpreciseAddressNotesForTask(description, "deliveryAddress");
   const returnTaskDescription = filterImpreciseAddressNotesForTask(description, "returnAddress");
 
+  // Pickup stops are numbered like the homepage order numbers them: 0 = the
+  // first pickup, i + 1 = extraPickupAddress[i]. A document whose stop has no
+  // task (stops edited since, or an unknown stop) goes on the first pickup
+  // task instead of getting lost.
+  const pickupDocuments = order.pickupDocuments ?? [];
+  const pickupStops = [
+    ...(pickupAddress ? [0] : []),
+    ...order.extraPickupAddress.flatMap((address, index) => (normalizePickupAddress(address) ? [index + 1] : [])),
+  ];
+  const documentsForStop = (stop: number) =>
+    pickupDocuments.filter(
+      (doc) => doc.stopIndex === stop || (stop === pickupStops[0] && (doc.stopIndex === null || !pickupStops.includes(doc.stopIndex))),
+    );
+
   if (pickupAddress) {
     tasks.push(
       makeTask("pick_up", pickupAddress, {
         contact: cashierContact,
         location: toGsmLocation(order.pickupLatitude, order.pickupLongitude),
-        description: appendWarehouseContactNote(pickupTaskDescription, order.customPickupAddressName, order.customPickupAddressPhone),
+        description: appendPickupDocumentNote(
+          appendWarehouseContactNote(pickupTaskDescription, order.customPickupAddressName, order.customPickupAddressPhone),
+          documentsForStop(0),
+        ),
       }),
     );
   }
@@ -481,10 +514,13 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
         makeTask("pick_up", value, {
           contact: cashierContact,
           location: toGsmLocation(coordinate?.latitude, coordinate?.longitude),
-          description: appendWarehouseContactNote(
-            pickupTaskDescription,
-            coordinate?.customPickupAddressName,
-            coordinate?.customPickupAddressPhone,
+          description: appendPickupDocumentNote(
+            appendWarehouseContactNote(
+              pickupTaskDescription,
+              coordinate?.customPickupAddressName,
+              coordinate?.customPickupAddressPhone,
+            ),
+            documentsForStop(index + 1),
           ),
         }),
       );

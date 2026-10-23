@@ -13,3 +13,5 @@ Validates the caller, loads the selected orders with their `items`, sends them t
 | Function | Description |
 | --- | --- |
 | `POST` | Validates access, skips already-synced orders unless `force` is enabled, loads each order with `items`, sends it to GSM, persists the returned GSM order/task ids, updates last-edited metadata, and writes a GSM send action into order history. |
+
+Loads each order's store pickup documents (`OrderAttachment.source = "pickup-document"`) and passes them to `sendOrderToGsm` as `pickupDocuments` (stable links from `buildPickupDocumentLinks`).

@@ -19,6 +19,10 @@ Other validation errors are `422 VALIDATION_FAILED` with `errors`. Among them: `
 
 The product cards are checked with `validateWebsiteOrderCards` (the same rules a later "My order" edit gets). Once the order is saved, `welcomeWebsiteOrderCustomer` links or creates the customer's "My order" account and sends the order-received email, plus the password email for a new account. See `docs/documentation/lib/customer-accounts.md`.
 
+## Store pickup documents
+
+**Required for every store stop.** `pickupDocumentToken` (a UUID, else `422` with `errors.pickupDocumentToken`) is the token the documents were uploaded under via `POST /api/site/white-goods-order/pickup-document` (see `site-white-goods-order-pickup-document.md`). Once everything else validates, the route reads the staged `PendingQuoteAttachment` names for the token; if any store stop (first pickup = 0, then `extraPickupLocations` in order) has no `Pickup N - …` file (`storePickupStopIndexes` + `stopsMissingPickupDocument`), it returns `422` with `errors.pickupDocument`. After the price check and before the order is created, `promotePendingQuoteAttachments` moves them from `tmp/` to `orders/` (a failed copy → `500`, no order); after the order is created `linkPendingQuoteAttachments` turns them into `OrderAttachment`s (`ATTACHMENT`, `source: "pickup-document"`, named `Pickup N - <file>`) — listed in the admin website-order modal's attachments, and linked on the GSM pickup tasks. A `PRICE_CHANGED` refusal leaves them staged, so a resubmit with the same token still links them.
+
 ## Pickup assignment
 
 When the order is split across pickups (`extraPickupLocations`), every product card must be on exactly one stop (`pickupCardIds` for the first, `cardIds` for the rest), checked with `findCardsWithoutPickup`. Otherwise the route returns `422 VALIDATION_FAILED` with `errors.pickups`.

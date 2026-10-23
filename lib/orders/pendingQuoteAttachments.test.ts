@@ -247,4 +247,21 @@ describe("linkPendingQuoteAttachments", () => {
     expect(deleteMany).not.toHaveBeenCalled();
     expect(count).toBe(0);
   });
+
+  it("tags the created attachments with the given source (store pickup documents)", async () => {
+    const create = vi.fn().mockResolvedValue({});
+    const client = {
+      pendingQuoteAttachment: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: "pa1", quoteToken: "tok", filename: "Pickup 1 - a.pdf", mimeType: "application/pdf", sizeBytes: 1, storagePath: "s3://orders/a.pdf" },
+        ]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      orderAttachment: { create },
+    };
+
+    await linkPendingQuoteAttachments(client as never, { orderId: "o1", quoteToken: "tok", source: "pickup-document" });
+
+    expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({ source: "pickup-document" }) });
+  });
 });

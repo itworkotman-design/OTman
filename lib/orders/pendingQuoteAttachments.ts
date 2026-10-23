@@ -112,7 +112,8 @@ export async function promotePendingQuoteAttachments(
 
 const CLEANUP_BATCH_SIZE = 500;
 
-// Removes staged photos that were never attached to an order (visitor left,
+// Removes staged photos (and store pickup documents, which share this table —
+// see lib/orders/pickupDocuments.ts) that were never attached to an order (visitor left,
 // bot hit the upload endpoint directly, order creation failed): deletes the
 // S3 object, then the row. Backstop to the S3 lifecycle rule on tmp/ — that
 // rule can't touch these DB rows. A row whose path an OrderAttachment already
@@ -157,7 +158,9 @@ export async function cleanupExpiredPendingQuoteAttachments(
 // differently. Returns how many were linked.
 export async function linkPendingQuoteAttachments(
   client: QuoteAttachmentClient,
-  params: { orderId: string; quoteToken: string },
+  // `source` marks what the files are (e.g. "pickup-document", which the GSM
+  // dispatch and the public pickup-document link look for).
+  params: { orderId: string; quoteToken: string; source?: string },
 ): Promise<number> {
   const pending = await client.pendingQuoteAttachment.findMany({
     where: { quoteToken: params.quoteToken },
@@ -176,6 +179,7 @@ export async function linkPendingQuoteAttachments(
         sizeBytes: attachment.sizeBytes,
         storagePath: attachment.storagePath,
         category: "ATTACHMENT",
+        ...(params.source ? { source: params.source } : {}),
       },
     });
   }

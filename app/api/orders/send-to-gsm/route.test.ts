@@ -129,6 +129,47 @@ describe("POST /api/orders/send-to-gsm", () => {
     );
   });
 
+  it("sends the order's store pickup documents as stable links", async () => {
+    process.env.ATTACHMENT_LINK_SECRET = "test-secret";
+    process.env.ORDER_ACTION_BASE_URL = "https://otman.no";
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "user-1", activeCompanyId: "company-1" });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "OWNER",
+      user: { username: "Owner", email: "owner@example.com" },
+    });
+    mocks.orderFindManyMock.mockResolvedValue([
+      { id: "order-1", gsmOrderId: null, orderAttachments: [{ id: "att-1", filename: "Pickup 1 - kvittering.pdf" }] },
+    ]);
+    mocks.sendOrderToGsmMock.mockResolvedValue({ gsmOrderId: "gsm-1", tasks: [] });
+
+    await POST(
+      new Request("http://localhost/api/orders/send-to-gsm", {
+        method: "POST",
+        body: JSON.stringify({ orderIds: ["order-1"] }),
+      }),
+    );
+
+    expect(mocks.orderFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          orderAttachments: expect.objectContaining({ where: { source: "pickup-document" } }),
+        }),
+      }),
+    );
+    const sent = mocks.sendOrderToGsmMock.mock.calls[0]![0];
+    expect(sent.pickupDocuments).toEqual([
+      {
+        stopIndex: 0,
+        filename: "Pickup 1 - kvittering.pdf",
+        url: expect.stringMatching(/^https:\/\/otman\.no\/api\/public\/pickup-documents\/att-1\?s=/),
+      },
+    ]);
+
+    delete process.env.ATTACHMENT_LINK_SECRET;
+    delete process.env.ORDER_ACTION_BASE_URL;
+  });
+
   it("updates last edited state and writes an action event when GSM send succeeds", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",

@@ -38,6 +38,13 @@ import {
   extraPickupFloorsForPricing,
   parseExtraPickupLocations,
 } from "@/lib/orders/websiteExtraPickupLocations";
+import { promoteTempAttachmentToOrders } from "@/lib/orders/orderAttachmentStorage";
+import {
+  isValidQuoteToken,
+  linkPendingQuoteAttachments,
+  promotePendingQuoteAttachments,
+} from "@/lib/orders/pendingQuoteAttachments";
+import { PICKUP_DOCUMENT_SOURCE, stopsMissingPickupDocument, storePickupStopIndexes } from "@/lib/orders/pickupDocuments";
 
 // Independent from transport-request's rate limiter by design — a separate
 // public order-creation flow gets its own budget rather than sharing state
@@ -270,6 +277,18 @@ async function createWhiteGoodsOrder(
     customerTotalIncVat: customerTotals.totalIncVat,
   });
 
+  // Store pickup documents are staged under tmp/ (auto-expiring) until now.
+  // Moved to their permanent keys BEFORE the order exists, so a failed copy
+  // aborts cleanly (no order, no order number burned) and a retry with the
+  // same token picks up where this left off — see special-goods-quote.
+  const pickupDocumentToken = str(body.pickupDocumentToken);
+  if (pickupDocumentToken) {
+    await promotePendingQuoteAttachments(prisma, {
+      quoteToken: pickupDocumentToken,
+      promote: promoteTempAttachmentToOrders,
+    });
+  }
+
   const displayId = await reserveNextManualOrderNumber(membership.companyId);
   // The random number customers see; displayId stays internal/sequential.
   const orderNumber = await reservePublicOrderNumber(prisma, membership.companyId);
@@ -380,6 +399,15 @@ async function createWhiteGoodsOrder(
       ...summaries,
     },
   });
+
+  if (pickupDocumentToken) {
+    await linkPendingQuoteAttachments(prisma, {
+      orderId: order.id,
+      quoteToken: pickupDocumentToken,
+      // Marks them for the GSM pickup task links (lib/orders/pickupDocumentLinks.ts).
+      source: PICKUP_DOCUMENT_SOURCE,
+    });
+  }
 
   if (builtItems.length > 0) {
     await prisma.orderItem.createMany({
@@ -506,6 +534,9 @@ export async function POST(req: Request) {
       if (contactPhoneErr) errors.pickupContactPhone = contactPhoneErr;
     }
   }
+  // Required (checked below) once any pickup stop is a store.
+  const pickupDocumentToken = str(body.pickupDocumentToken);
+  if (pickupDocumentToken && !isValidQuoteToken(pickupDocumentToken)) errors.pickupDocumentToken = "Invalid";
   if (!str(body.name)) errors.name = "Required";
   // A business orders under its company name and org number.
   if (body.customerType === "business") {
@@ -537,6 +568,30 @@ export async function POST(req: Request) {
       { ok: false, reason: "VALIDATION_FAILED", errors },
       { status: 422 },
     );
+  }
+
+  // Every store stop needs its receipt / order confirmation, uploaded
+  // beforehand through ./pickup-document under this token. The staged names
+  // ("Pickup N - …") say which stop each one belongs to. Checked only once
+  // everything else is valid, since it costs a query.
+  const storeStops = storePickupStopIndexes([pickupSourceValue, ...extraStops.map((stop) => stop.source)]);
+  if (storeStops.length > 0) {
+    const staged = pickupDocumentToken
+      ? await prisma.pendingQuoteAttachment.findMany({
+          where: { quoteToken: pickupDocumentToken },
+          select: { filename: true },
+        })
+      : [];
+    if (stopsMissingPickupDocument(storeStops, staged.map((doc) => doc.filename)).length > 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          reason: "VALIDATION_FAILED",
+          errors: { pickupDocument: "Upload the receipt or order confirmation for each store pickup" },
+        },
+        { status: 422 },
+      );
+    }
   }
 
   try {

@@ -6,7 +6,7 @@ describe("serviceModalKind", () => {
   it("routes each homepage card to its own modal", () => {
     const kinds = Object.fromEntries(serviceWindowContent.items.map((item) => [item.title.en, serviceModalKind(item.id)]));
     expect(kinds).toEqual({
-      Delivery: "white-goods",
+      "Delivery or assembly": "white-goods",
       Services: "services",
       Moving: "moving",
     });

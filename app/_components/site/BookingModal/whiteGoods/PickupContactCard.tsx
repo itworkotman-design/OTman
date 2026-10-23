@@ -9,6 +9,7 @@ import { PersonIcon, PhoneIcon } from "./orderDetailsIcons";
 import { AddressLabel, FieldLabel, fieldClass } from "./formFieldStyles";
 import { FloorLiftField } from "./floorLiftField";
 import { ProductIcon } from "./productIcons";
+import { PickupDocumentField } from "./PickupDocumentField";
 import type { PickupSource } from "./PickupSourceStep";
 import { sanitizePhoneInput, sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
 
@@ -69,6 +70,11 @@ type Props = {
   // surcharge next to the floor, same as the delivery floor (see
   // getChargeableFloors).
   floorSurchargePerFloor: number;
+  // Required store receipt / order confirmation — only asked on a new
+  // homepage order (omitted by the admin/customer editors) and only for a
+  // store pickup. See PickupDocumentField.
+  pickupDocument?: File | null;
+  setPickupDocument?: (file: File | null) => void;
 };
 
 export function PickupContactCard({
@@ -96,6 +102,8 @@ export function PickupContactCard({
   setSelectedCardIds,
   allRemainingLabel,
   floorSurchargePerFloor,
+  pickupDocument = null,
+  setPickupDocument,
 }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
 
@@ -112,6 +120,7 @@ export function PickupContactCard({
     contactName: false,
     contactPhone: false,
     floor: false,
+    document: false,
   });
   const markTouched = (field: keyof typeof touched) => setTouched((prev) => ({ ...prev, [field]: true }));
 
@@ -155,7 +164,7 @@ export function PickupContactCard({
       // sees it glow red.
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-          setTouched({ placeName: true, address: true, contactName: true, contactPhone: true, floor: true });
+          setTouched({ placeName: true, address: true, contactName: true, contactPhone: true, floor: true, document: true });
         }
       }}
     >
@@ -204,6 +213,15 @@ export function PickupContactCard({
             </p>
           )}
         </div>
+
+        {pickupSource === "store" && setPickupDocument && (
+          <PickupDocumentField
+            locale={locale}
+            file={pickupDocument}
+            onChange={setPickupDocument}
+            showMissing={touched.document && !pickupDocument}
+          />
+        )}
 
         {showPickupFloor && (
           <FloorLiftField

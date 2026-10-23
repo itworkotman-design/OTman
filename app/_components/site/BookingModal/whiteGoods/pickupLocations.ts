@@ -28,6 +28,9 @@ export type PickupLocationState = {
   // locations, same as the order summary shows them as separate "#1"/"#2"
   // entries.
   selectedCardIds: number[];
+  // Required store receipt / order confirmation on a new homepage order — held
+  // in memory until submit (see pickupDocumentUploads.ts).
+  document?: File | null;
 };
 
 export function createPickupLocation(id: number): PickupLocationState {

@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { sendOrderToGsm } from "@/lib/integrations/gsm/sendOrder";
+import { buildPickupDocumentLinks } from "@/lib/orders/pickupDocumentLinks";
+import { PICKUP_DOCUMENT_SOURCE } from "@/lib/orders/pickupDocuments";
 import { createOrderActionEvent } from "@/lib/orders/orderEvents";
 
 export async function POST(req: Request) {
@@ -81,6 +83,13 @@ export async function POST(req: Request) {
     },
     include: {
       items: true,
+      // Store pickup documents — linked on each GSM pickup task so the driver
+      // can show the cashier the receipt / order confirmation.
+      orderAttachments: {
+        where: { source: PICKUP_DOCUMENT_SOURCE },
+        select: { id: true, filename: true },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
 
@@ -104,7 +113,10 @@ export async function POST(req: Request) {
     try {
       const wasAlreadySent = !!order.gsmOrderId;
 
-      const response = await sendOrderToGsm(order);
+      const response = await sendOrderToGsm({
+        ...order,
+        pickupDocuments: buildPickupDocumentLinks(order.orderAttachments ?? []),
+      });
 
       const syncedAt = new Date();
 

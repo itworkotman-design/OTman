@@ -4,7 +4,8 @@ import { deleteAttachmentFile } from "@/lib/orders/orderAttachmentStorage";
 import { cleanupExpiredPendingQuoteAttachments } from "@/lib/orders/pendingQuoteAttachments";
 
 // Backstop to the S3 lifecycle rule on tmp/: deletes special-goods quote
-// photos staged more than a day ago that never got attached to an order, plus
+// photos and white-goods store pickup documents (both staged in
+// PendingQuoteAttachment) staged more than a day ago that never got attached to an order, plus
 // their PendingQuoteAttachment rows (which the lifecycle rule can't reach).
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 

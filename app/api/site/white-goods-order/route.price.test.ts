@@ -8,11 +8,15 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/customerAccounts/welcomeWebsiteOrderCustomer", () => ({ welcomeWebsiteOrderCustomer: vi.fn() }));
+// A store pickup needs its pickup document staged under the token.
+const STAGED_PICKUP_DOCUMENT = vi.hoisted(() => ({ id: "d1", filename: "Pickup 1 - kvittering.pdf", mimeType: "application/pdf", sizeBytes: 1, storagePath: "s3://orders/kvittering.pdf" }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     membership: { findUnique: mocks.membershipFindUnique },
     order: { create: mocks.orderCreate },
     orderItem: { createMany: mocks.orderItemCreateMany },
+    pendingQuoteAttachment: { findMany: async () => [STAGED_PICKUP_DOCUMENT], update: async () => ({}), deleteMany: async () => ({ count: 1 }) },
+    orderAttachment: { create: async () => ({}) },
   },
 }));
 vi.mock("@/lib/content/websiteOrderCatalog", () => ({ getWebsiteOrderCatalog: mocks.getWebsiteOrderCatalog }));
@@ -106,6 +110,7 @@ function body(overrides: Record<string, unknown> = {}) {
   return {
     productCards: cards,
     pickupSource: "store",
+    pickupDocumentToken: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     pickupPlaceName: "Power",
     pickupAddress: "Smalvollveien 65, Oslo",
     deliveryAddress: "Otto Blehrs vei 25c, Nesøya",

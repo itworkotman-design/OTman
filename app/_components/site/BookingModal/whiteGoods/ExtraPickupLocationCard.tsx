@@ -18,6 +18,7 @@ export function ExtraPickupLocationCard({
   location,
   productPoolSections,
   floorSurchargePerFloor,
+  allowDocument = false,
   onChange,
 }: {
   locale: Locale;
@@ -27,6 +28,8 @@ export function ExtraPickupLocationCard({
   location: PickupLocationState;
   productPoolSections: PickupProductPoolSection[];
   floorSurchargePerFloor: number;
+  // Offer the store pickup-document upload (new homepage orders only).
+  allowDocument?: boolean;
   onChange:(patch: Partial<PickupLocationState>) => void;
 }) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
@@ -70,6 +73,8 @@ export function ExtraPickupLocationCard({
                 "Alle de resterende varene hentes her",
               )}
               floorSurchargePerFloor={floorSurchargePerFloor}
+              pickupDocument={location.document ?? null}
+              setPickupDocument={allowDocument ? (file) => onChange({ document: file }) : undefined}
             />
           </div>
         )}

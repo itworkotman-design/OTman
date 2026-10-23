@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Renders the address/contact fields for one pickup location in the homepage white-goods flow (place name, address, floor/lift, contact person — which of these show depends on `pickupSource`), plus, when there's more than one product card on the order, a checkbox + product checklist deciding which cards this location claims. Used both for the first ("pickup-contact") location, driven by `WhiteGoodsBookingFlow`'s own top-level state, and for every location after it via `ExtraPickupLocationCard`. The checklist itself is generic over whatever pool it's handed (`productPoolSections`) — see `pickupLocations.ts` for the claim/remaining-pool logic that computes that pool.
+Renders the address/contact fields for one pickup location in the homepage white-goods flow (place name, address, floor/lift, contact person — which of these show depends on `pickupSource`), plus, when there's more than one product card on the order, a checkbox + product checklist deciding which cards this location claims. For a store pickup it also shows the required `PickupDocumentField` (receipt / order confirmation, PDF/JPG/PNG up to 10 MB, type and size checked on pick; red once the card is left without one) when `setPickupDocument` is passed — only on a new homepage order, not in the admin/customer editors. Used both for the first ("pickup-contact") location, driven by `WhiteGoodsBookingFlow`'s own top-level state, and for every location after it via `ExtraPickupLocationCard`. The checklist itself is generic over whatever pool it's handed (`productPoolSections`) — see `pickupLocations.ts` for the claim/remaining-pool logic that computes that pool.
 
 ## Types
 

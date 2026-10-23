@@ -10,6 +10,12 @@ import { PickupSourceStep, pickupAddressPlaceholder, type PickupSource } from ".
 import { PickupContactCard, isPickupContactStepReady, type PickupProductPoolSection } from "./PickupContactCard";
 import { ExtraPickupLocationCard } from "./ExtraPickupLocationCard";
 import {
+  collectPickupDocuments,
+  hasEveryStorePickupDocument,
+  planPickupDocumentUploads,
+  type PickupDocumentUpload,
+} from "./pickupDocumentUploads";
+import {
   claimedCardIds,
   groupByCategory,
   hasEnteredOrderOrContactDetails,
@@ -71,6 +77,7 @@ import { categorizeWhiteGoodsLineCode } from "@/lib/content/whiteGoodsLineCatego
 import { OrderDetailsCard } from "./OrderDetailsCard";
 import { isOrderDetailsStepReady } from "./orderDetailsReady";
 import { isValidEmail, isValidOrgNumber } from "@/lib/orders/websiteOrderValidation";
+import { MAX_PICKUP_DOCUMENT_SIZE_MB } from "@/lib/orders/pickupDocuments";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import {
   type CatalogProduct,
@@ -226,6 +233,13 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   const [pickupPlaceName, setPickupPlaceName] = useState("");
   const [pickupContactName, setPickupContactName] = useState("");
   const [pickupContactPhone, setPickupContactPhone] = useState("");
+  // Required store receipt / order confirmation for the first pickup (extra
+  // stops keep theirs on PickupLocationState.document). Uploaded on submit
+  // under one token; what was already sent survives a failed submit so a
+  // retry doesn't upload it twice (see pickupDocumentUploads.ts).
+  const [pickupDocument, setPickupDocument] = useState<File | null>(null);
+  const pickupDocumentTokenRef = useRef<string | null>(null);
+  const sentPickupDocumentsRef = useRef<PickupDocumentUpload[]>([]);
   // Unchecking this asks which product CARDS come from THIS address
   // (selected below) — whatever's left over gets asked about again, as its
   // own pickup location, until every card has a home. See pickupLocations.ts
@@ -358,9 +372,15 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     pickupFloor,
     pickupContactName,
     pickupContactPhone,
-  });
+  }) && (!!customer || hasEveryStorePickupDocument([{ source: pickupSource, document: pickupDocument }]));
+  // A store stop isn't done until its pickup document is picked (new orders
+  // only — the admin/customer editors never upload one).
+  const extraPickupDocumentsReady =
+    !!customer ||
+    hasEveryStorePickupDocument(extraPickupLocations.map((loc) => ({ source: loc.source, document: loc.document ?? null })));
   const allPickupLocationsReady =
     firstPickupReady &&
+    extraPickupDocumentsReady &&
     (poolCardIds.length <= 1 || allProductsPickedUpHere || pickupCardIds.length > 0) &&
     extraPickupLocations.every((loc, i) => isPickupLocationReady(loc, extraPickupPools[i] ?? [])) &&
     unassignedCardIds.length === 0;
@@ -841,10 +861,76 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     canContinueOrderDetails &&
     !submitLoading;
 
+  // Uploads every store stop's document not sent yet. Returns the token to
+  // send with the order (null when there are no documents), or false with
+  // submitError set when an upload failed — the order is then not sent, so
+  // it never goes through missing a document the customer picked.
+  async function uploadPickupDocuments(): Promise<string | null | false> {
+    const wanted = collectPickupDocuments([
+      { source: pickupSource, document: pickupDocument },
+      ...extraPickupLocations.map((loc) => ({ source: loc.source, document: loc.document ?? null })),
+    ]);
+    const plan = planPickupDocumentUploads(wanted, sentPickupDocumentsRef.current);
+    if (plan.freshToken || !pickupDocumentTokenRef.current) {
+      pickupDocumentTokenRef.current = crypto.randomUUID();
+      sentPickupDocumentsRef.current = [];
+    }
+    if (wanted.length === 0) return null;
+
+    for (const doc of plan.toUpload) {
+      const form = new FormData();
+      form.append("file", doc.file);
+      form.append("uploadToken", pickupDocumentTokenRef.current);
+      form.append("stopIndex", String(doc.stopIndex));
+      let reason: string | null = "NETWORK";
+      try {
+        const res = await fetch("/api/site/white-goods-order/pickup-document", { method: "POST", body: form });
+        const json = await res.json().catch(() => ({}));
+        reason = res.ok && json.ok ? null : String(json.reason ?? res.status);
+      } catch {
+        // reason stays NETWORK
+      }
+      if (reason) {
+        setSubmitError(pickupDocumentUploadError(doc.file.name, reason));
+        return false;
+      }
+      sentPickupDocumentsRef.current.push(doc);
+    }
+    return pickupDocumentTokenRef.current;
+  }
+
+  function pickupDocumentUploadError(filename: string, reason: string): string {
+    switch (reason) {
+      case "FILE_TOO_LARGE":
+        return t(
+          `"${filename}" is too large. The maximum size is ${MAX_PICKUP_DOCUMENT_SIZE_MB} MB.`,
+          `"${filename}" er for stor. Maks størrelse er ${MAX_PICKUP_DOCUMENT_SIZE_MB} MB.`,
+        );
+      case "INVALID_FILE_TYPE":
+        return t(
+          `"${filename}" is not a valid PDF, JPG or PNG file. Please choose another file.`,
+          `"${filename}" er ikke en gyldig PDF-, JPG- eller PNG-fil. Velg en annen fil.`,
+        );
+      case "RATE_LIMITED":
+      case "TOO_MANY_FILES":
+        return t(
+          "Too many files have been uploaded. Please try again later, or send the order without the document.",
+          "For mange filer er lastet opp. Prøv igjen senere, eller send bestillingen uten dokumentet.",
+        );
+      default:
+        return t(
+          `Could not upload "${filename}". Please check your connection and try again.`,
+          `Kunne ikke laste opp "${filename}". Sjekk tilkoblingen og prøv igjen.`,
+        );
+    }
+  }
+
   async function handleSubmit() {
     setSubmitLoading(true);
     setSubmitError(null);
     try {
+      const pickupDocumentToken = await uploadPickupDocuments();
+      if (pickupDocumentToken === false) return;
       const res = await fetch("/api/site/white-goods-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -854,6 +940,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
           pickupPlaceName,
           pickupContactName,
           pickupContactPhone,
+          ...(pickupDocumentToken ? { pickupDocumentToken } : {}),
           pickupAddress,
           deliveryAddress,
           pickupFloor: pickupFloor ?? 0,
@@ -909,6 +996,15 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
           t(
             `The price has changed to ${total.toLocaleString("nb-NO")} kr since you started. Please reload the page to see the updated price before ordering.`,
             `Prisen er endret til ${total.toLocaleString("nb-NO")} kr siden du startet. Last inn siden på nytt for å se oppdatert pris før du bestiller.`,
+          ),
+        );
+        return;
+      }
+      if (!json.ok && json.errors?.pickupDocument) {
+        setSubmitError(
+          t(
+            "The receipt or order confirmation for a store pickup is missing. Please upload it and try again.",
+            "Kvittering eller ordrebekreftelse for en butikkhenting mangler. Last den opp og prøv igjen.",
           ),
         );
         return;
@@ -1226,6 +1322,9 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
               setSelectedCardIds={setPickupCardIds}
               allRemainingLabel={t("All products are picked up here", "Alle varene hentes her")}
               floorSurchargePerFloor={floorSurchargePerFloor}
+              // New orders only — the admin/customer editors don't upload.
+              pickupDocument={pickupDocument}
+              setPickupDocument={customer ? undefined : setPickupDocument}
             />
 
             <AnimatedStack
@@ -1240,6 +1339,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
                     location={location}
                     productPoolSections={pickupPoolSections(extraPickupPools[i] ?? [])}
                     floorSurchargePerFloor={floorSurchargePerFloor}
+                    allowDocument={!customer}
                     onChange={(patch) => updateExtraPickupLocation(location.id, patch)}
                   />
                 ),

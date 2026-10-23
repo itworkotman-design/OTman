@@ -36,3 +36,7 @@ Builds the GSM order payload from an OTman order, omits blank or placeholder pic
 | `hasMontering` | Detects selected install work through `INSTALL_OPTION` items or raw category `install` for assignment override. |
 | `getDeliveryTaskCategory` | Chooses GSM delivery task category using selected install options first, then explicit delivery type mappings for `INSTALL_ONLY`, `RETURNIN`/return-only, `FIRST_STEP`, and `INDOOR`. |
 | `buildOrderPayload` | Validates GSM prerequisites, filters unusable pickup addresses out of the task list, and builds the final GSM order payload with tasks and metafields. |
+
+## Store pickup documents
+
+`GsmOrderInput.pickupDocuments` (built by `buildPickupDocumentLinks`, see `docs/documentation/lib/pickup-document-links.md`) are appended to the pickup tasks as `Hentedokument (vis til kassen):` lines, `<filename>: <link>`. Each document goes on the task of its own stop (0 = `pickupAddress`, `i + 1` = `extraPickupAddress[i]`); one whose stop has no task (or no known stop) goes on the first pickup task. Without a link (secret/base URL not configured) the line says `(se ordren i OTman)` instead.
