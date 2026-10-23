@@ -24,6 +24,7 @@ import {
 } from "@/lib/booking/pricing/rules";
 import { resolveSizeBracketCharge, splitSizeBracketOptionIds } from "@/lib/booking/pricing/sizeBrackets";
 import { otherManufacturerLabel } from "@/lib/booking/otherManufacturer";
+import { tvSetupLabel } from "@/lib/booking/tvSetup";
 
 const PALLET_EXTRA_CODE = "PALLXTRAS1";
 const PALLET_EXTRA_LABEL = "Ekstra pall";
@@ -588,10 +589,14 @@ function buildItemsForCard(
 
   if (showExtras) {
     for (const id of otherIds) {
+      // TV setup names the customer's TV provider.
+      const option = product.options.find((o) => o.id === id);
+      const label = option ? tvSetupLabel(option.label, option.code, card.tvSetup) : undefined;
       items.push({
         kind: "productOption",
         productOptionId: id,
         qty: amount,
+        ...(option && label !== option.label ? { label } : {}),
       });
     }
   }

@@ -46,7 +46,7 @@ export function localizeWebsiteLineLabel(label: string, locale: Locale): string 
   const renamed = RENAMED_SEEDED_LABEL[label.trim()];
   if (locale !== "no") return renamed ?? label;
   const trimmed = renamed ?? label.trim();
-  return NORWEGIAN_BY_SEEDED_LABEL[trimmed] ?? norwegianOptionLabel(trimmed) ?? companyAssemblyLabel(trimmed) ?? label;
+  return NORWEGIAN_BY_SEEDED_LABEL[trimmed] ?? norwegianOptionLabel(trimmed) ?? companyAssemblyLabel(trimmed) ?? namedSuffixLabel(trimmed) ?? label;
 }
 
 // "Single bed — Hästens": an "— Other manufacturer" assembly carrying the
@@ -60,6 +60,15 @@ function companyAssemblyLabel(label: string): string | undefined {
   const typeDash = norwegian?.lastIndexOf(" — ") ?? -1;
   if (!norwegian || typeDash < 0) return undefined;
   return `${norwegian.slice(0, typeDash)} — ${label.slice(dash + 3)}`;
+}
+
+// "TV setup — Altibox": an option carrying a name the customer chose (the TV
+// provider, lib/booking/tvSetup.ts). The option is translated; the name stays.
+function namedSuffixLabel(label: string): string | undefined {
+  const dash = label.lastIndexOf(" — ");
+  if (dash < 0) return undefined;
+  const norwegian = norwegianOptionLabel(label.slice(0, dash));
+  return norwegian ? `${norwegian} — ${label.slice(dash + 3)}` : undefined;
 }
 
 // Stored order text (productsSummary, calculator snapshots) names website

@@ -114,6 +114,12 @@ class InstallAddOnNotAllowedError extends Error {
   }
 }
 
+class TvSetupConfirmationError extends Error {
+  constructor() {
+    super("TV setup was chosen without confirming the checklist");
+  }
+}
+
 class ShownTotalRequiredError extends Error {
   constructor() {
     super("The order must say which total the customer was shown");
@@ -171,6 +177,7 @@ async function createWhiteGoodsOrder(
     if (cardsCheck.reason === "INSTALL_OPTION_REQUIRED") throw new InstallOptionRequiredError();
     if (cardsCheck.reason === "INSTALL_ADDON_NOT_ALLOWED") throw new InstallAddOnNotAllowedError();
     if (cardsCheck.reason === "EXTRA_OPTION_NOT_ALLOWED") throw new ExtraOptionNotAllowedError();
+    if (cardsCheck.reason === "TV_SETUP_CONFIRMATION_REQUIRED") throw new TvSetupConfirmationError();
     throw new ItemNameError();
   }
   const productCards = cardsCheck.cards;
@@ -639,6 +646,12 @@ export async function POST(req: Request) {
     if (err instanceof InstallAddOnNotAllowedError) {
       return NextResponse.json(
         { ok: false, reason: "VALIDATION_FAILED", errors: { productCards: "That add-on can only be combined with a different installation — please review the installation choices" } },
+        { status: 422 },
+      );
+    }
+    if (err instanceof TvSetupConfirmationError) {
+      return NextResponse.json(
+        { ok: false, reason: "VALIDATION_FAILED", errors: { productCards: "For TV setup, choose your TV provider and confirm you have everything on the checklist" } },
         { status: 422 },
       );
     }

@@ -38,6 +38,7 @@ describe("isAssemblyCompatibleExtraCode", () => {
     expect(isAssemblyCompatibleExtraCode("DISMANTLE_DISP_STD")).toBe(true);
     expect(isAssemblyCompatibleExtraCode("DISMANTLE_CAR_LG")).toBe(true);
     expect(isAssemblyCompatibleExtraCode("WALL_ANCHORING")).toBe(true);
+    expect(isAssemblyCompatibleExtraCode("TV_SETUP")).toBe(true);
     expect(isAssemblyCompatibleExtraCode("UNPACKING")).toBe(false);
     expect(isAssemblyCompatibleExtraCode("DEMONT")).toBe(false);
   });

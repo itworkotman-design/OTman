@@ -13,9 +13,10 @@ The product-card rules every customer-made homepage order must follow. Both the 
 - An installation-only item must have an installation option chosen.
 - A size-priced item must have a plain-text name, which is stored trimmed.
 - An assembly for "another manufacturer" must name the company (in `modelNumber`), under the same rules. See [other-manufacturer.md](other-manufacturer.md).
+- TV setup needs a TV provider and the whole checklist confirmed (`tvSetup`), else `TV_SETUP_CONFIRMATION_REQUIRED`. See [tv-setup.md](tv-setup.md).
 
 ## Functions
 
 | Function | Purpose |
 |---|---|
-| `validateWebsiteOrderCards` | Returns `{ ok: true, cards }` with the cards as they should be stored, or `{ ok: false, reason }`. The reason is one of `UNKNOWN_PRODUCT`, `SIZE_BRACKETS_REQUIRED`, `INSTALL_OPTION_REQUIRED`, `INSTALL_ADDON_NOT_ALLOWED` (see [install-add-on-requirements.md](install-add-on-requirements.md)), `EXTRA_OPTION_NOT_ALLOWED` (see [extra-option-requirements.md](extra-option-requirements.md)) or `ITEM_NAME_REQUIRED`. Optional `previousCards` (a "My order" change) lets a card keep install choices or extras it already had. |
+| `validateWebsiteOrderCards` | Returns `{ ok: true, cards }` with the cards as they should be stored, or `{ ok: false, reason }`. The reason is one of `UNKNOWN_PRODUCT`, `SIZE_BRACKETS_REQUIRED`, `INSTALL_OPTION_REQUIRED`, `INSTALL_ADDON_NOT_ALLOWED` (see [install-add-on-requirements.md](install-add-on-requirements.md)), `EXTRA_OPTION_NOT_ALLOWED` (see [extra-option-requirements.md](extra-option-requirements.md)), `ITEM_NAME_REQUIRED` or `TV_SETUP_CONFIRMATION_REQUIRED`. Optional `previousCards` (a "My order" change) lets a card keep install choices or extras it already had. |

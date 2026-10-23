@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CatalogProduct, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { validateWebsiteOrderCards } from "./validateWebsiteOrderCards";
+import { TV_SETUP_CHECKLIST } from "@/lib/booking/tvSetup";
 
 function option(id: string, category: string, code = id.toUpperCase()) {
   return {
@@ -41,7 +42,7 @@ const products = [
     code: "WG_TV",
     label: "TV",
     active: true,
-    options: [option("tv-stand", "install", "TV_MOUNT_STAND_75_100")],
+    options: [option("tv-stand", "install", "TV_MOUNT_STAND_75_100"), option("tv-setup", "extra", "TV_SETUP")],
   },
   {
     id: "pallet",
@@ -145,6 +146,30 @@ describe("validateWebsiteOrderCards", () => {
     const palletCard = (cardId: number, ids: string[]) => card({ cardId, productId: "pallet", selectedExtraOptionIds: ids });
     const before = [palletCard(1, ["pallet-pickup"])];
     expect(validateWebsiteOrderCards([palletCard(1, ["pallet-pickup"])], products, { previousCards: before }).ok).toBe(true);
+  });
+
+  it("refuses TV setup until the customer confirms the checklist, and trims the provider name it keeps", () => {
+    const allItems = TV_SETUP_CHECKLIST.map((item) => item.key);
+    const tvCard = (tvSetup: SavedProductCard["tvSetup"]) =>
+      card({ productId: "tv", deliveryType: "INDOOR", selectedInstallOptionIds: ["tv-stand"], selectedExtraOptionIds: ["tv-setup"], tvSetup });
+    const refused = { ok: false, reason: "TV_SETUP_CONFIRMATION_REQUIRED" };
+    expect(validateWebsiteOrderCards([tvCard(undefined)], products)).toEqual(refused);
+    expect(validateWebsiteOrderCards([tvCard({ provider: "ALTIBOX", providerName: "", confirmedItems: ["WIFI"] })], products)).toEqual(refused);
+    expect(validateWebsiteOrderCards([tvCard({ provider: "OTHER", providerName: "<b>x</b>", confirmedItems: allItems })], products)).toEqual(refused);
+
+    const ok = validateWebsiteOrderCards([tvCard({ provider: "OTHER", providerName: "  RiksTV ", confirmedItems: allItems })], products);
+    expect(ok.ok && ok.cards[0].tvSetup).toEqual({ provider: "OTHER", providerName: "RiksTV", confirmedItems: allItems });
+  });
+
+  it("drops TV setup details from a card without TV setup", () => {
+    const tvCard = card({
+      productId: "tv",
+      deliveryType: "INDOOR",
+      selectedInstallOptionIds: ["tv-stand"],
+      tvSetup: { provider: "GO3", providerName: "", confirmedItems: [] },
+    });
+    const ok = validateWebsiteOrderCards([tvCard], products);
+    expect(ok.ok && ok.cards[0].tvSetup).toBeNull();
   });
 
   it("accepts a TV on a stand on its own (its own install type, not an add-on)", () => {

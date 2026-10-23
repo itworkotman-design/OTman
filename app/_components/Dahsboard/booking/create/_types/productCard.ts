@@ -3,6 +3,7 @@ import type { OrderPricingSnapshot } from "@/lib/booking/pricing/snapshot";
 import type { SizeDimensionsCm } from "@/lib/booking/pricing/sizeDimensions";
 import type { ProductCustomSection } from "@/lib/products/customSections";
 import type { ProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
+import type { TvSetupDetails } from "@/lib/booking/tvSetup";
 import {
   normalizeDeliveryTypeKey,
   type ProductDeliveryType,
@@ -59,6 +60,9 @@ export type SavedProductCard = {
   // customer chose. The volume bracket is derived from these (server-side too) —
   // see lib/booking/pricing/sizeDimensions.ts.
   sizeDimensionsCm?: Partial<SizeDimensionsCm> | null;
+  // TV setup (website TV): the customer's TV provider and the checklist items
+  // they confirmed having ready — see lib/booking/tvSetup.ts.
+  tvSetup?: TvSetupDetails | null;
   pricingSnapshot?: OrderPricingSnapshot | null;
   wordpressImportReadOnly?: WordpressImportReadOnlySnapshot | null;
   nulledLineKeysForCustomer?: string[];

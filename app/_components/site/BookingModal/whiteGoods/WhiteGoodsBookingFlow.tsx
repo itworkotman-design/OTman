@@ -106,6 +106,7 @@ import {
   isSizePricedProduct,
 } from "@/lib/booking/pricing/sizeBrackets";
 import { findOtherManufacturerCardsMissingName } from "@/lib/booking/otherManufacturer";
+import { findTvSetupCardsIncomplete } from "@/lib/booking/tvSetup";
 import {
   createDefaultPriceListSettings,
   normalizePriceListSettings,
@@ -848,7 +849,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   const sizeBracketsComplete =
     findCardsWithSizeBracketProblems(productCards, catalogProducts).length === 0 &&
     findSizePricedCardsMissingName(productCards, catalogProducts).length === 0 &&
-    findOtherManufacturerCardsMissingName(productCards, catalogProducts).length === 0;
+    findOtherManufacturerCardsMissingName(productCards, catalogProducts).length === 0 &&
+    findTvSetupCardsIncomplete(productCards, catalogProducts).length === 0;
   // Pickup address is required earlier, in the pickup-contact step.
   const canContinueOrderDetails = isOrderDetailsStepReady({
     deliveryAddress,

@@ -33,6 +33,8 @@ import { websiteCustomerPrice, type CustomerType } from "@/lib/booking/pricing/w
 import { MAX_ITEM_NAME_LENGTH } from "@/lib/booking/pricing/sizeBrackets";
 import { cardHasOtherManufacturer, isOtherManufacturerOptionCode } from "@/lib/booking/otherManufacturer";
 import { sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
+import { isTvSetupOptionCode } from "@/lib/booking/tvSetup";
+import { TvSetupChecklist } from "./TvSetupChecklist";
 import {
   hasExtrasStepContent,
   hasInstallStepContent,
@@ -328,6 +330,12 @@ export function WhiteGoodsProductCard({
   const anchoringOption =
     product.options.find((o) => o.active && o.code === "WALL_ANCHORING") ??
     null;
+  // TV setup: an additional service with or without mounting. Ticking it
+  // opens the checklist the customer must confirm (tvSetup.ts).
+  const tvSetupOption =
+    product.options.find((o) => o.active && isTvSetupOptionCode(o.code)) ?? null;
+  const tvSetupSelected = !!tvSetupOption && value.selectedExtraOptionIds.includes(tvSetupOption.id);
+  const tvSetupVisible = !!tvSetupOption && deliveryType !== "" && !lockedService(tvSetupOption.id);
   const furnitureAddonsVisible =
     isFurniture &&
     deliveryType !== "" &&
@@ -351,6 +359,7 @@ export function WhiteGoodsProductCard({
     dismantlingGroupCount: dismantlingGroups.length,
     hasAnchoringOption: !!anchoringOption,
     hasReturnOption: !!returnOption,
+    showTvSetup: tvSetupVisible,
   });
   const extrasStepNumber = showInstallStep ? 3 : 2;
 
@@ -495,6 +504,7 @@ export function WhiteGoodsProductCard({
           : 0)
       : 0) +
     (showReturn && value.selectedReturnOptionId ? 1 : 0) +
+    (tvSetupSelected ? 1 : 0) +
     (isFurniture
       ? product.options.filter(
           (o) =>
@@ -570,6 +580,44 @@ export function WhiteGoodsProductCard({
   // The additional-service rows; booked ones aren't listed when `booked`.
   const servicesList = (
     <div className="flex flex-col gap-2">
+      {tvSetupVisible && tvSetupOption && (
+        <div
+          className={[
+            "flex flex-col rounded-xl border",
+            tvSetupSelected
+              ? "divide-y divide-logoblue/15 border-logoblue/30 bg-logoblue/5"
+              : "border-black/10 hover:border-black/20",
+          ].join(" ")}
+        >
+          <OptionRow
+            variant="checkbox"
+            selected={tvSetupSelected}
+            title={t("TV setup", "TV-oppsett")}
+            description={t(
+              "We connect the TV to your Wi-Fi, your TV provider and your devices, and log in to your apps.",
+              "Vi kobler TV-en til Wi-Fi, TV-leverandøren og enhetene dine, og logger inn i appene dine.",
+            )}
+            price={money(tvSetupOption.customerPrice)}
+            onClick={() =>
+              emit({
+                ...value,
+                selectedExtraOptionIds: tvSetupSelected
+                  ? value.selectedExtraOptionIds.filter((id) => id !== tvSetupOption.id)
+                  : [...value.selectedExtraOptionIds, tvSetupOption.id],
+                tvSetup: tvSetupSelected ? null : value.tvSetup,
+              })
+            }
+            bare
+          />
+          {tvSetupSelected && (
+            <TvSetupChecklist
+              locale={locale}
+              value={value.tvSetup}
+              onChange={(tvSetup) => emit({ ...value, tvSetup })}
+            />
+          )}
+        </div>
+      )}
       {unpackingVisible && unpackingOption && (
         palletPickupVisible ? (
           <div className="flex flex-col divide-y divide-logoblue/15 rounded-xl border border-logoblue/30 bg-logoblue/5">

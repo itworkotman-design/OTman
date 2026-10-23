@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   deliveryTypeAfterSelectingType,
+  websiteSeedCustomerPrice,
   WHITE_GOODS_ELECTRONICS_PRODUCTS,
   type WhiteGoodsProductSeed,
 } from "./whiteGoodsElectronics";
@@ -106,6 +107,14 @@ describe("WHITE_GOODS_ELECTRONICS_PRODUCTS", () => {
       'On TV bench / table 75"–100"',
       'On a stand 75"–100"',
     ]);
+  });
+
+  it("offers TV setup as an additional service at 1000 kr incl. VAT", () => {
+    const tv = WHITE_GOODS_ELECTRONICS_PRODUCTS.find((p) => p.code === "WG_TV")!;
+    const setup = tv.options.find((o) => o.code === "TV_SETUP")!;
+    expect(setup.category).toBe("extra");
+    expect(setup.exclusiveGroup).toBeUndefined();
+    expect(websiteSeedCustomerPrice(setup.customerPrice) * 1.25).toBe(1000);
   });
 
   it("prices the TV stand as table mounting 75\"-100\" plus the former stand / feet add-on", () => {

@@ -2,6 +2,7 @@ import type { CatalogProduct, SavedProductCard } from "@/app/_components/Dahsboa
 import { findCardsWithSizeBracketProblems, findSizePricedCardsMissingName } from "@/lib/booking/pricing/sizeBrackets";
 import { findInstallOnlyCardsMissingInstall } from "@/lib/booking/installOnlyRequirement";
 import { findOtherManufacturerCardsMissingName } from "@/lib/booking/otherManufacturer";
+import { findTvSetupCardsIncomplete } from "@/lib/booking/tvSetup";
 
 // A website price list the order flow can offer, as returned by the catalog
 // API's availableLists.
@@ -55,7 +56,8 @@ export function isListConfigured(cards: SavedProductCard[], listProducts: Catalo
   const own = cardsForList(cards, listProducts);
   // Size-priced products (Other furniture) also need their size and weight
   // chosen, and a name saying what the item is, before the step counts as done.
-  // Assembly for "another manufacturer" needs the company named.
+  // Assembly for "another manufacturer" needs the company named, and TV setup
+  // its checklist confirmed.
   // An installation-only item needs its installation picked.
   return (
     own.length > 0 &&
@@ -63,6 +65,7 @@ export function isListConfigured(cards: SavedProductCard[], listProducts: Catalo
     findCardsWithSizeBracketProblems(own, listProducts).length === 0 &&
     findSizePricedCardsMissingName(own, listProducts).length === 0 &&
     findOtherManufacturerCardsMissingName(own, listProducts).length === 0 &&
+    findTvSetupCardsIncomplete(own, listProducts).length === 0 &&
     findInstallOnlyCardsMissingInstall(own, listProducts).length === 0
   );
 }

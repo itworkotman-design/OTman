@@ -6,19 +6,20 @@ import type {
 import type { ProductBreakdown } from "@/lib/booking/pricing/types";
 import type { BuiltOrderItem } from "@/lib/orders/buildOrderItemsFromCards";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
+import { tvSetupLabel, withTvSetupProvider } from "@/lib/booking/tvSetup";
 
-// Website furniture flow only. Dismantling old furniture and wall anchoring are
-// paid extras that can be booked together with assembly — but the shared
+// Website flow only. Dismantling old furniture, wall anchoring and TV setup are
+// paid extras that can be booked together with assembly / TV mounting — but the shared
 // pricing (fromProductCards / buildOrderItemsFromCards, also used by the
 // dashboard booking flow) drops every "extra" option as soon as an install
 // (assembly) option is selected, because on the dashboard those extras are
 // hidden under installation. So on the website these are priced by this
 // separate layer, applied by the website flow and order route, and the shared
 // code stays untouched. Only these extras are affected: unpacking stays dropped
-// (it is included in assembly) and white goods, whose UI never offers extras
-// under installation, are unchanged.
+// (it is included in assembly) and white goods' other extras, which the UI
+// never offers under installation, are unchanged.
 
-const ASSEMBLY_COMPATIBLE_EXTRA = /^(DISMANTLE_|WALL_ANCHORING$)/;
+const ASSEMBLY_COMPATIBLE_EXTRA = /^(DISMANTLE_|WALL_ANCHORING$|TV_SETUP$)/;
 
 export function isAssemblyCompatibleExtraCode(code: string): boolean {
   return ASSEMBLY_COMPATIBLE_EXTRA.test(code);
@@ -77,11 +78,16 @@ export function applyWebsiteAssemblyExtras(
       ...breakdown,
       items: [
         ...breakdown.items,
-        ...own.map((e) => ({
-          kind: "productOption" as const,
-          productOptionId: e.option.id,
-          qty: e.qty,
-        })),
+        ...own.map((e) => {
+          // TV setup names the customer's TV provider.
+          const label = tvSetupLabel(e.option.label, e.option.code, e.card.tvSetup);
+          return {
+            kind: "productOption" as const,
+            productOptionId: e.option.id,
+            qty: e.qty,
+            ...(label !== e.option.label ? { label } : {}),
+          };
+        }),
       ],
     };
   });
@@ -107,10 +113,10 @@ export function buildWebsiteAssemblyExtraOrderItems(
     itemType: "EXTRA_OPTION" as const,
     optionId: option.id,
     optionCode: option.code,
-    optionLabel: option.label,
+    optionLabel: tvSetupLabel(option.label, option.code, card.tvSetup),
     quantity: qty,
     customerPriceCents: toCents(option.effectiveCustomerPrice ?? option.customerPrice),
     subcontractorPriceCents: toCents(option.subcontractorPrice),
-    rawData: option,
+    rawData: withTvSetupProvider(option, card.tvSetup),
   }));
 }

@@ -773,6 +773,21 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         subcontractorPrice: 236.328 + 772.968,
         combinedWithIndoorInstall: { customerPrice: 1205.376 + 1546.968, subcontractorPrice: 700.728 + 772.968 },
       },
+      {
+        // Additional service, with or without mounting (priced next to a mount
+        // by websiteAssemblyExtras): connecting the TV to Wi-Fi, the TV
+        // provider and the customer's devices. Booking it needs the customer
+        // to confirm they have the passwords and cables ready
+        // (lib/booking/tvSetup.ts). 800 ex. VAT = 1000 kr incl. VAT.
+        code: "TV_SETUP",
+        category: "extra",
+        labelEn: "TV setup",
+        labelNo: "TV-oppsett",
+        descriptionEn: "We connect the TV to your Wi-Fi, your TV provider and your devices, and log in to your apps.",
+        descriptionNo: "Vi kobler TV-en til Wi-Fi, TV-leverandøren og enhetene dine, og logger inn i appene dine.",
+        customerPrice: 800,
+        subcontractorPrice: 400,
+      },
       ...standardAddOns(),
     ],
   },

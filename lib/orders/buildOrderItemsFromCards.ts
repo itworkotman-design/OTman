@@ -29,6 +29,7 @@ import { computeLineKey } from "@/lib/booking/pricing/lineKey";
 import { shouldZeroBaseDeliveryPrice } from "@/lib/booking/pricing/fromProductCards";
 import { resolveSizeBracketCharge, splitSizeBracketOptionIds } from "@/lib/booking/pricing/sizeBrackets";
 import { otherManufacturerLabel } from "@/lib/booking/otherManufacturer";
+import { withTvSetupProvider } from "@/lib/booking/tvSetup";
 
 const PALLET_EXTRA_CODE = "PALLXTRAS1";
 const PALLET_EXTRA_LABEL = "Ekstra pall";
@@ -627,7 +628,9 @@ export function buildOrderItemsFromCards(
         const specialOption =
           catalogSpecialOptions.find((o) => o.id === optionId) ?? null;
 
-        const option = productOption ?? specialOption;
+        // TV setup is stored with the customer's TV provider, like
+        // "— Other manufacturer" assembly above.
+        const option = productOption ? withTvSetupProvider(productOption, card.tvSetup) : specialOption;
 
         items.push({
           cardId: card.cardId,

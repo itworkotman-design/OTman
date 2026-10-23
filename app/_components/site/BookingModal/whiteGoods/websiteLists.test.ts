@@ -17,6 +17,7 @@ import {
   type CatalogProduct,
   type SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { TV_SETUP_CHECKLIST } from "@/lib/booking/tvSetup";
 
 const wg: WebsiteListInfo = { code: "WEBSITE_WHITE_GOODS", labelEn: "White goods", labelNo: "Hvitevarer", iconCode: "WG_WASHING_MACHINE" };
 const fn: WebsiteListInfo = { code: "WEBSITE_FURNITURE", labelEn: "Furniture", labelNo: "Møbler", iconCode: "FN_SOFA" };
@@ -82,6 +83,17 @@ describe("per-list card helpers", () => {
 
     expect(isListConfigured([bedCard], bed)).toBe(false);
     expect(isListConfigured([{ ...bedCard, modelNumber: "Hästens" }], bed)).toBe(true);
+  });
+
+  it("isListConfigured also needs the TV setup checklist confirmed", () => {
+    const tv = [
+      { id: "tv", code: "WG_TV", options: [{ id: "setup", code: "TV_SETUP", category: "extra", active: true, customerPrice: "0" }] },
+    ] as unknown as CatalogProduct[];
+    const tvCard = { ...card(0, "tv", "INDOOR"), selectedExtraOptionIds: ["setup"] } as SavedProductCard;
+    const confirmedItems = TV_SETUP_CHECKLIST.map((item) => item.key);
+
+    expect(isListConfigured([tvCard], tv)).toBe(false);
+    expect(isListConfigured([{ ...tvCard, tvSetup: { provider: "ALTIBOX", providerName: "", confirmedItems } }], tv)).toBe(true);
   });
 });
 

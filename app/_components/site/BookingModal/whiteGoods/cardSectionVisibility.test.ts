@@ -88,7 +88,12 @@ describe("hasExtrasStepContent", () => {
     dismantlingGroupCount: 0,
     hasAnchoringOption: false,
     hasReturnOption: false,
+    showTvSetup: false,
   };
+
+  it("is true for TV setup, even next to a mount (when the other extras are hidden)", () => {
+    expect(hasExtrasStepContent({ ...base, installSelected: true, showTvSetup: true })).toBe(true);
+  });
 
   it("is false for a product with a delivery type picked but no extras/return options at all (pakke/pall)", () => {
     expect(hasExtrasStepContent({ ...base, showExtras: true })).toBe(false);

@@ -44,6 +44,8 @@ export function hasExtrasStepContent(params: {
   dismantlingGroupCount: number;
   hasAnchoringOption: boolean;
   hasReturnOption: boolean;
+  // TV setup is offered with or without a mount (lib/booking/tvSetup.ts).
+  showTvSetup: boolean;
 }): boolean {
   const {
     showExtras,
@@ -57,6 +59,7 @@ export function hasExtrasStepContent(params: {
     dismantlingGroupCount,
     hasAnchoringOption,
     hasReturnOption,
+    showTvSetup,
   } = params;
 
   return (
@@ -66,7 +69,8 @@ export function hasExtrasStepContent(params: {
     (showExtras && hasPalletPickupOption) ||
     (dismantlingGroupCount > 0 && furnitureAddonsVisible) ||
     (hasAnchoringOption && furnitureAddonsVisible) ||
-    (showReturn && hasReturnOption)
+    (showReturn && hasReturnOption) ||
+    showTvSetup
   );
 }
 

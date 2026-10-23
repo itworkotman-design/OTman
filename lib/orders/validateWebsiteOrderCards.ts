@@ -10,6 +10,7 @@ import { findInstallOnlyCardsMissingInstall } from "@/lib/booking/installOnlyReq
 import { findCardsWithDisallowedInstallAddOns } from "@/lib/content/installAddOnRequirements";
 import { findCardsWithDisallowedExtraOptions } from "@/lib/content/extraOptionRequirements";
 import { cardHasOtherManufacturer, findOtherManufacturerCardsMissingName } from "@/lib/booking/otherManufacturer";
+import { TV_SETUP_CHECKLIST, cardHasTvSetup, findTvSetupCardsIncomplete } from "@/lib/booking/tvSetup";
 import { validateTextField } from "./websiteOrderValidation";
 
 // The product-card rules every customer-made homepage order is held to — at
@@ -19,7 +20,7 @@ import { validateTextField } from "./websiteOrderValidation";
 // dimensions, size-priced item names trimmed.
 export type WebsiteOrderCardsValidation =
   | { ok: true; cards: SavedProductCard[] }
-  | { ok: false; reason: "UNKNOWN_PRODUCT" | "SIZE_BRACKETS_REQUIRED" | "INSTALL_OPTION_REQUIRED" | "INSTALL_ADDON_NOT_ALLOWED" | "EXTRA_OPTION_NOT_ALLOWED" | "ITEM_NAME_REQUIRED" };
+  | { ok: false; reason: "UNKNOWN_PRODUCT" | "SIZE_BRACKETS_REQUIRED" | "INSTALL_OPTION_REQUIRED" | "INSTALL_ADDON_NOT_ALLOWED" | "EXTRA_OPTION_NOT_ALLOWED" | "ITEM_NAME_REQUIRED" | "TV_SETUP_CONFIRMATION_REQUIRED" };
 
 // `previousCards` (a "My order" change): a card that keeps exactly the
 // installation choices it already had is not re-checked against the add-on
@@ -78,6 +79,26 @@ export function validateWebsiteOrderCards(
   const typedName = (card: SavedProductCard) => sizePriced(card) || cardHasOtherManufacturer(card, products);
   if (cards.some((card) => typedName(card) && validateTextField(card.modelNumber))) return { ok: false, reason: "ITEM_NAME_REQUIRED" };
   cards = cards.map((card) => (typedName(card) ? { ...card, modelNumber: card.modelNumber.trim() } : card));
+
+  // TV setup only goes ahead once the customer confirmed having the
+  // passwords and cables ready (tvSetup.ts). Stored as just what was asked —
+  // and dropped from a card without TV setup.
+  if (findTvSetupCardsIncomplete(cards, products).length > 0) return { ok: false, reason: "TV_SETUP_CONFIRMATION_REQUIRED" };
+  const otherProvider = (card: SavedProductCard) => card.tvSetup?.provider === "OTHER";
+  if (cards.some((card) => cardHasTvSetup(card, products) && otherProvider(card) && validateTextField(card.tvSetup!.providerName)))
+    return { ok: false, reason: "TV_SETUP_CONFIRMATION_REQUIRED" };
+  cards = cards.map((card) => {
+    if (!cardHasTvSetup(card, products)) return { ...card, tvSetup: null };
+    const { provider, providerName } = card.tvSetup!;
+    return {
+      ...card,
+      tvSetup: {
+        provider,
+        providerName: provider === "OTHER" ? providerName.trim() : "",
+        confirmedItems: TV_SETUP_CHECKLIST.map((item) => item.key),
+      },
+    };
+  });
 
   return { ok: true, cards };
 }

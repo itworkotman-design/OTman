@@ -90,6 +90,10 @@ export default function CustomerOrderEditFooter({
       "We can only take the empty pallet if we also take the goods off it.",
       "Vi kan bare ta med den tomme pallen hvis vi også tar varene av den.",
     ),
+    TV_SETUP_CONFIRMATION_REQUIRED: t(
+      "For TV setup, choose your TV provider and confirm you have everything on the checklist.",
+      "For TV-oppsett, velg TV-leverandør og bekreft at du har alt på sjekklisten.",
+    ),
     UNKNOWN_PRODUCT: t("One of the products can't be ordered on the website.", "En av varene kan ikke bestilles på nettsiden."),
     UNAUTHORIZED: t("You have been logged out. Log in again.", "Du er logget ut. Logg inn igjen."),
     PRODUCT_WITHOUT_PICKUP: t(
