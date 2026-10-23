@@ -27,3 +27,11 @@ describe("buildDeliveryTypesJson — installation only", () => {
     expect(installOnly("FN_SOFA")?.price).toBe("608");
   });
 });
+
+describe("buildDeliveryTypesJson — labels", () => {
+  it("labels the cheapest delivery type 'Delivery to first obstacle'", () => {
+    const seed = findWebsiteProductSeed("WG_DISHWASHER");
+    if (!seed) throw new Error("missing seed WG_DISHWASHER");
+    expect(buildDeliveryTypesJson(seed).find((t) => t.key === "FIRST_STEP")?.label).toBe("Delivery to first obstacle");
+  });
+});

@@ -806,11 +806,11 @@ export function WhiteGoodsProductCard({
                   title={
                     deliveryPreview.firstStep.isExtra
                       ? t("Extra delivery", "Ekstra levering")
-                      : t("Doorstep delivery", "Levering til ytterdør")
+                      : t("Delivery to first obstacle", "Levering til første hindring")
                   }
                   description={t(
-                    "We deliver to your doorstep.",
-                    "Vi leverer til din dør.",
+                    "We deliver to the first obstacle, such as a door or stairs.",
+                    "Vi leverer til første hindring, f.eks. en dør eller trapp.",
                   )}
                   price={money(String(deliveryPreview.firstStep.price))}
                   onClick={() => setDeliveryType("FIRST_STEP")}

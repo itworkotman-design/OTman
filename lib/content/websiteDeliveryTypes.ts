@@ -20,7 +20,7 @@ export function buildDeliveryTypesJson(product: Pick<WhiteGoodsProductSeed, "del
       key: DELIVERY_TYPES.FIRST_STEP,
       enabled: true,
       code: "FIRST_STEP",
-      label: "Delivery to doorstep",
+      label: "Delivery to first obstacle",
       price: String(websiteSeedCustomerPrice(firstStep.customerPrice)),
       subcontractorPrice: String(roundToNearest5(firstStep.subcontractorPrice)),
       xtraPrice: String(websiteSeedCustomerPrice(firstStep.xtraPrice)),

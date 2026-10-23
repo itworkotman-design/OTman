@@ -11,7 +11,7 @@ describe("buildCardSummaryChips", () => {
         showInstallChip: true,
         addonCount: 2,
       }),
-    ).toEqual(["Levering: Ytterdør", "Montering: Ingen", "2 tillegg"]);
+    ).toEqual(["Levering: Første hindring", "Montering: Ingen", "2 tillegg"]);
   });
 
   it("uses carry-in, install label and singular add-on (en)", () => {
@@ -47,7 +47,7 @@ describe("buildCardSummaryChips", () => {
         showInstallChip: false,
         addonCount: 0,
       }),
-    ).toEqual(["Levering: Ytterdør"]);
+    ).toEqual(["Levering: Første hindring"]);
   });
 
   it("leads with the max-weight/dimensions chip when the product has one (pakke/pall)", () => {
@@ -60,7 +60,7 @@ describe("buildCardSummaryChips", () => {
         addonCount: 0,
         sizeInfo: { maxWeightKg: 15, dimensionsCm: { w: 20, h: 30, d: 40 } },
       }),
-    ).toEqual(["Opptil 15 kg · 20×30×40 cm", "Levering: Ytterdør"]);
+    ).toEqual(["Opptil 15 kg · 20×30×40 cm", "Levering: Første hindring"]);
   });
 
   it("omits the size chip when the product has no sizeInfo", () => {
@@ -72,7 +72,7 @@ describe("buildCardSummaryChips", () => {
         showInstallChip: false,
         addonCount: 0,
       }),
-    ).toEqual(["Delivery: Doorstep"]);
+    ).toEqual(["Delivery: First obstacle"]);
   });
 });
 

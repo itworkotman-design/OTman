@@ -1,7 +1,7 @@
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 
 const DELIVERY_LABELS: Record<string, { en: string; no: string }> = {
-  FIRST_STEP: { en: "Doorstep", no: "Ytterdør" },
+  FIRST_STEP: { en: "First obstacle", no: "Første hindring" },
   INDOOR: { en: "Carry-in", no: "Innbæring" },
   INSTALL_ONLY: { en: "Installation only", no: "Kun montering" },
 };

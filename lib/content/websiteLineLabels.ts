@@ -5,8 +5,14 @@ import { WEBSITE_CATALOGS } from "@/lib/content/websiteCatalogs";
 // with (lib/content/websiteDeliveryTypes.ts, seedWebsiteCatalog.ts). The
 // Norwegian site shows those known labels translated; anything else (a label
 // staff edited, option labels that are already Norwegian) is shown as-is.
+// Seeded labels that were renamed since: products and orders saved before the
+// rename still store the old one, shown under its new name in both languages.
+const RENAMED_SEEDED_LABEL: Record<string, string> = {
+  "Delivery to doorstep": "Delivery to first obstacle",
+};
+
 const NORWEGIAN_BY_SEEDED_LABEL: Record<string, string> = {
-  "Delivery to doorstep": "Levering til ytterdør",
+  "Delivery to first obstacle": "Levering til første hindring",
   "Delivery with carry-in": "Levering med innbæring",
   "Installation only": "Kun montering",
   "Return only": "Kun retur",
@@ -36,8 +42,9 @@ function norwegianOptionLabel(label: string): string | undefined {
 }
 
 export function localizeWebsiteLineLabel(label: string, locale: Locale): string {
-  if (locale !== "no") return label;
-  const trimmed = label.trim();
+  const renamed = RENAMED_SEEDED_LABEL[label.trim()];
+  if (locale !== "no") return renamed ?? label;
+  const trimmed = renamed ?? label.trim();
   return NORWEGIAN_BY_SEEDED_LABEL[trimmed] ?? norwegianOptionLabel(trimmed) ?? label;
 }
 
@@ -84,7 +91,7 @@ export function localizeProductsSummary(summary: string | null, locale: Locale):
 // A stored comma list of line labels (deliveryTypeSummary "Delivery with
 // carry-in x2, …", servicesSummary) label by label, keeping an "xN" count.
 export function localizeWebsiteLineLabelList(list: string | null, locale: Locale): string | null {
-  if (!list || locale !== "no") return list;
+  if (!list) return list;
   return list
     .split(", ")
     .map((item) => {

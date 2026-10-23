@@ -3,7 +3,7 @@ import { localizeProductsSummary, localizeWebsiteLineLabel, localizeWebsiteLineL
 
 describe("localizeWebsiteLineLabel", () => {
   it("translates the seeded delivery-type labels to Norwegian", () => {
-    expect(localizeWebsiteLineLabel("Delivery to doorstep", "no")).toBe("Levering til ytterdør");
+    expect(localizeWebsiteLineLabel("Delivery to doorstep", "no")).toBe("Levering til første hindring");
     expect(localizeWebsiteLineLabel("Delivery with carry-in", "no")).toBe("Levering med innbæring");
     expect(localizeWebsiteLineLabel("Installation only", "no")).toBe("Kun montering");
   });
@@ -16,11 +16,17 @@ describe("localizeWebsiteLineLabel", () => {
   });
 
   it("ignores surrounding whitespace", () => {
-    expect(localizeWebsiteLineLabel("  Delivery to doorstep ", "no")).toBe("Levering til ytterdør");
+    expect(localizeWebsiteLineLabel("  Delivery to doorstep ", "no")).toBe("Levering til første hindring");
+  });
+
+  it("translates the renamed doorstep label, and shows the old stored one under its new name", () => {
+    expect(localizeWebsiteLineLabel("Delivery to first obstacle", "no")).toBe("Levering til første hindring");
+    expect(localizeWebsiteLineLabel("Delivery to first obstacle", "en")).toBe("Delivery to first obstacle");
+    expect(localizeWebsiteLineLabel("Delivery to doorstep", "en")).toBe("Delivery to first obstacle");
   });
 
   it("keeps the label as-is in English, and keeps labels it doesn't know (staff-edited, already Norwegian)", () => {
-    expect(localizeWebsiteLineLabel("Delivery to doorstep", "en")).toBe("Delivery to doorstep");
+    expect(localizeWebsiteLineLabel("Delivery with carry-in", "en")).toBe("Delivery with carry-in");
     expect(localizeWebsiteLineLabel("Montering – integrert", "no")).toBe("Montering – integrert");
     expect(localizeWebsiteLineLabel("Our own custom km fee", "no")).toBe("Our own custom km fee");
   });
@@ -64,7 +70,7 @@ describe("localizeWebsiteLineLabel — catalog option labels", () => {
 describe("localizeWebsiteLineLabelList", () => {
   it("translates each label of a stored comma list, keeping an xN count", () => {
     expect(localizeWebsiteLineLabelList("Delivery with carry-in x2, Delivery to doorstep", "no")).toBe(
-      "Levering med innbæring x2, Levering til ytterdør",
+      "Levering med innbæring x2, Levering til første hindring",
     );
     expect(localizeWebsiteLineLabelList("Unpacking and disposal of packaging, Some staff text", "no")).toBe(
       "Utpakking og kasting av emballasje, Some staff text",
@@ -73,6 +79,6 @@ describe("localizeWebsiteLineLabelList", () => {
 
   it("passes empty and English lists through", () => {
     expect(localizeWebsiteLineLabelList(null, "no")).toBeNull();
-    expect(localizeWebsiteLineLabelList("Delivery to doorstep", "en")).toBe("Delivery to doorstep");
+    expect(localizeWebsiteLineLabelList("Delivery to doorstep", "en")).toBe("Delivery to first obstacle");
   });
 });

@@ -11,7 +11,9 @@ Translates English text stored on homepage orders for the Norwegian site.
 - **Delivery-type and order-extra labels** are seeded in English (e.g. "Delivery with carry-in", "Floor surcharge per chargeable floor, no lift").
 - **Product names** are stored by their English catalog name (`productsSummary`, calculator snapshots).
 
-Only known seeded text is translated. A label staff have edited is shown as-is, and English is never changed.
+Only known seeded text is translated. A label staff have edited is shown as-is, and English is otherwise never changed.
+
+**Renamed seeded labels** (`RENAMED_SEEDED_LABEL`): products and orders saved before a rename still store the old label, which is shown under its new name in both languages. "Delivery to doorstep" → "Delivery to first obstacle" / "Levering til første hindring".
 
 ## Functions
 

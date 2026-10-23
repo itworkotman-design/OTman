@@ -239,7 +239,7 @@ describe("buildOrderReceivedEmail", () => {
       orderDetails: { ...details, deliveryTypeSummary: "Delivery with carry-in x2, Delivery to doorstep" },
     });
 
-    expect(html).toContain("Levering med innbæring x2, Levering til ytterdør x1");
+    expect(html).toContain("Levering med innbæring x2, Levering til første hindring x1");
   });
 
   describe("with the booked pickup stops and delivery", () => {

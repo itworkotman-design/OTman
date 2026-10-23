@@ -71,7 +71,7 @@ describe("describeLineChange in Norwegian", () => {
 
   it("translates the website product name and the seeded delivery label", () => {
     expect(describeLineChange({ ...base, kind: "added", group: "Microwave oven", label: "Delivery to doorstep" }, "no")).toBe(
-      "Lagt til: Mikrobølgeovn — Levering til ytterdør (+155 kr)",
+      "Lagt til: Mikrobølgeovn — Levering til første hindring (+155 kr)",
     );
   });
 
@@ -81,9 +81,9 @@ describe("describeLineChange in Norwegian", () => {
     ).toContain("Etasjetillegg per etasje uten heis");
   });
 
-  it("leaves English as it is", () => {
+  it("leaves English as it is, apart from renamed seeded labels", () => {
     expect(describeLineChange({ ...base, kind: "added", group: "Microwave oven", label: "Delivery to doorstep" }, "en")).toBe(
-      "Added: Microwave oven — Delivery to doorstep (+155 kr)",
+      "Added: Microwave oven — Delivery to first obstacle (+155 kr)",
     );
   });
 });
