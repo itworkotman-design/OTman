@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   groupAssemblyOptions,
   groupDismantlingOptions,
+  toggleDismantlingSelection,
+  toggleDismantlingEnabled,
   buildOptionSeedMap,
   pickDefaultInstallOptionId,
 } from "./optionGroups";
@@ -74,39 +76,63 @@ describe("groupDismantlingOptions", () => {
 
   it("pairs options still stored under the old long codes (before a reseed) the same way", () => {
     const longCodes: Record<string, string> = {
-      DISMANTLE_DISP_SGL_BED: "DISMANTLE_DISPOSAL_SINGLE_BED",
-      DISMANTLE_CAR_SGL_BED: "DISMANTLE_CAREFUL_SINGLE_BED",
+      DISMANTLE_DISP_STD: "DISMANTLE_DISPOSAL_STANDARD",
+      DISMANTLE_CAR_STD: "DISMANTLE_CAREFUL_STANDARD",
     };
     const old = bed.options.map((o) => ({ ...o, code: longCodes[o.code] ?? o.code }));
-    const single = groupDismantlingOptions(old, "en")[0];
-    expect(single?.disposal?.code).toBe("DISMANTLE_DISPOSAL_SINGLE_BED");
-    expect(single?.careful?.code).toBe("DISMANTLE_CAREFUL_SINGLE_BED");
+    const pair = groupDismantlingOptions(old, "en")[0];
+    expect(pair?.disposal?.code).toBe("DISMANTLE_DISPOSAL_STANDARD");
+    expect(pair?.careful?.code).toBe("DISMANTLE_CAREFUL_STANDARD");
 
     const oldAssembly = bed.options.map((o) => (o.code === "ASM_SGL_BED_IKEA" ? { ...o, code: "ASM_SINGLE_BED_IKEA" } : o));
     expect(groupAssemblyOptions(oldAssembly, seeds, "en")[0]?.options[0]?.option.code).toBe("ASM_SINGLE_BED_IKEA");
   });
 
-  it("pairs the for-disposal and careful-for-reuse variants per type", () => {
-    expect(groups.map((g) => g.label)).toEqual([
-      "Single bed",
-      "Double bed",
-      "Continental bed",
-      "Bunk / family bed",
-      "Daybed",
-    ]);
-    const single = groups[0];
-    expect(single.disposal?.id).toBe("DISMANTLE_DISP_SGL_BED");
-    expect(single.careful?.id).toBe("DISMANTLE_CAR_SGL_BED");
-    expect(single.disposal?.customerPrice).toBe("200");
-    expect(single.careful?.customerPrice).toBe("328");
+  it("pairs the one for-disposal and one for-reuse option", () => {
+    expect(groups).toHaveLength(1);
+    const [pair] = groups;
+    expect(pair.disposal?.id).toBe("DISMANTLE_DISP_STD");
+    expect(pair.careful?.id).toBe("DISMANTLE_CAR_STD");
+    expect(pair.disposal?.customerPrice).toBe("480");
+    expect(pair.careful?.customerPrice).toBe("720");
   });
 
   it("returns nothing for a product without dismantling, e.g. a chair", () => {
     expect(groupDismantlingOptions(catalogProductFromSeed("FN_CHAIR").options, "en")).toEqual([]);
   });
+});
 
-  it("uses Norwegian type labels in no", () => {
-    expect(groupDismantlingOptions(bed.options, "no")[0].label).toBe("Enkeltseng");
+describe("toggleDismantlingSelection", () => {
+  const groups = groupDismantlingOptions(bed.options, "en");
+
+  it("allows one dismantling choice per item: picking the other variant replaces it", () => {
+    expect(toggleDismantlingSelection(["WALL_ANCHORING"], groups, "DISMANTLE_DISP_STD")).toEqual([
+      "WALL_ANCHORING",
+      "DISMANTLE_DISP_STD",
+    ]);
+    expect(toggleDismantlingSelection(["DISMANTLE_DISP_STD", "WALL_ANCHORING"], groups, "DISMANTLE_CAR_STD")).toEqual([
+      "WALL_ANCHORING",
+      "DISMANTLE_CAR_STD",
+    ]);
+  });
+
+  it("clears the choice when it is picked again", () => {
+    expect(toggleDismantlingSelection(["DISMANTLE_CAR_STD", "WALL_ANCHORING"], groups, "DISMANTLE_CAR_STD")).toEqual([
+      "WALL_ANCHORING",
+    ]);
+  });
+});
+
+describe("toggleDismantlingEnabled", () => {
+  const groups = groupDismantlingOptions(bed.options, "en");
+
+  it("ticking the dismantling checkbox starts on for disposal", () => {
+    expect(toggleDismantlingEnabled(["WALL_ANCHORING"], groups)).toEqual(["WALL_ANCHORING", "DISMANTLE_DISP_STD"]);
+    expect(toggleDismantlingEnabled([], [])).toEqual([]);
+  });
+
+  it("unticking it clears whichever variant is picked", () => {
+    expect(toggleDismantlingEnabled(["DISMANTLE_CAR_STD", "WALL_ANCHORING"], groups)).toEqual(["WALL_ANCHORING"]);
   });
 });
 

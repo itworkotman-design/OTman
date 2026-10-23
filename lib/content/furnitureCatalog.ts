@@ -18,8 +18,9 @@ import { OTHER_FURNITURE_PRODUCT_CODE, OTHER_FURNITURE_SIZE_OPTIONS } from "@/li
 //   the UI group them into a two-step pick. As with white goods, the option
 //   price is the *assembly-only* number and delivery + assembly = carry-in + it
 //   (`combinedWithIndoorInstall` is kept only so a test can prove that).
-// - Dismantling comes in two paid variants per type (for disposal / careful for
-//   reuse) and is stackable alongside any main option, assembly included.
+// - Dismantling comes as two shared choices (for disposal / for reuse — see
+//   FURNITURE_DISMANTLING_OPTIONS) and is stackable
+//   alongside any main option, assembly included.
 // - Dining set, Sofa and Sofa bed use large/heavy "Side-by-Side" delivery
 //   prices. A second heavy item is NOT discounted (xtraPrice = full price).
 
@@ -45,18 +46,14 @@ export type FurnitureProductSeed = Omit<WhiteGoodsProductSeed, "options"> & {
   needsImplementation?: { labelEn: string; labelNo: string };
 };
 
-// Dismantling (both variants) and the recycling return are sold at half the
-// source workbook's price, partner price included (decided 2026-10-23). Done
-// here rather than in the generated data file so a regeneration keeps it.
+// The recycling return is sold at half the source workbook's price, partner
+// price included (decided 2026-10-23). Done here rather than in the generated
+// data file so a regeneration keeps it.
 const HALF_PRICE_FACTOR = 0.5;
 
-function isHalfPriceOption(code: string) {
-  return code.startsWith("DISMANTLE_") || code === "RETURN_RECYCLING";
-}
-
-function withHalfPriceOptions(options: FurnitureOptionSeed[]): FurnitureOptionSeed[] {
+function withHalfPriceReturn(options: FurnitureOptionSeed[]): FurnitureOptionSeed[] {
   return options.map((option) =>
-    isHalfPriceOption(option.code)
+    option.code === "RETURN_RECYCLING"
       ? {
           ...option,
           customerPrice: option.customerPrice * HALF_PRICE_FACTOR,
@@ -66,10 +63,30 @@ function withHalfPriceOptions(options: FurnitureOptionSeed[]): FurnitureOptionSe
   );
 }
 
+// The source's per-type dismantling list (Single bed, Double bed, …, each for
+// disposal and careful for reuse) is replaced by the same two choices on every
+// product that offers dismantling: for disposal or for reuse, no sizes
+// (decided 2026-10-23). Ex. VAT, multiples of 8 so incl. VAT ends in 0 (600 /
+// 900 for the customer). The DISP/CAR codes are what groupDismantlingOptions
+// pairs on.
+export const FURNITURE_DISMANTLING_OPTIONS: FurnitureOptionSeed[] = [
+  { code: "DISMANTLE_DISP_STD", category: "extra", labelEn: "Dismantling for disposal", labelNo: "Demontering for avhending", customerPrice: 480, subcontractorPrice: 335 },
+  { code: "DISMANTLE_CAR_STD", category: "extra", labelEn: "Dismantling for reuse", labelNo: "Demontering for gjenbruk", customerPrice: 720, subcontractorPrice: 505 },
+];
+
+// Swaps the source's dismantling options for the two shared ones, where the
+// first of them stood.
+function withSharedDismantling(options: FurnitureOptionSeed[]): FurnitureOptionSeed[] {
+  const first = options.findIndex((o) => o.code.startsWith("DISMANTLE_"));
+  if (first < 0) return options;
+  const rest = options.filter((o) => !o.code.startsWith("DISMANTLE_"));
+  return [...rest.slice(0, first), ...FURNITURE_DISMANTLING_OPTIONS, ...rest.slice(first)];
+}
+
 // "Other furniture" additionally gets its volume/weight size brackets (kept out
 // of the generated data file — see otherFurnitureSizeOptions.ts).
 export const FURNITURE_PRODUCTS: FurnitureProductSeed[] = FURNITURE_PRODUCTS_DATA.map((product) => {
-  const options = withHalfPriceOptions(product.options);
+  const options = withSharedDismantling(withHalfPriceReturn(product.options));
   return product.code === OTHER_FURNITURE_PRODUCT_CODE
     ? { ...product, options: [...options, ...OTHER_FURNITURE_SIZE_OPTIONS] }
     : { ...product, options };

@@ -65,6 +65,7 @@ export async function seedWebsiteCatalog({
   products,
   preservePricesOnReseed = false,
   deliveryOnly = false,
+  retireMissingOptionsWithPrefix,
 }: {
   priceListCode: string;
   priceListName: string;
@@ -80,6 +81,10 @@ export async function seedWebsiteCatalog({
   // seedParcelPalletCatalog.ts) must never have a reseed silently reset
   // those back to this seed's own (placeholder) values.
   preservePricesOnReseed?: boolean;
+  // Options with this code prefix that are no longer in a product's seed are
+  // deactivated (not deleted — saved orders still point at them). Furniture
+  // uses it for the per-type dismantling options the shared four replaced.
+  retireMissingOptionsWithPrefix?: string;
 }) {
   const description = serializePriceListSettings(buildPriceListSettings(deliveryOnly));
 
@@ -183,6 +188,14 @@ export async function seedWebsiteCatalog({
         create: { ...prices, priceListId: priceList.id, productOptionId: option.id },
       });
       optionsUpserted += 1;
+    }
+
+    if (retireMissingOptionsWithPrefix) {
+      const kept = productSeed.options.map((o) => o.code).filter((code) => code.startsWith(retireMissingOptionsWithPrefix));
+      await prisma.productOption.updateMany({
+        where: { productId: product.id, code: { startsWith: retireMissingOptionsWithPrefix, notIn: kept } },
+        data: { isActive: false },
+      });
     }
   }
 

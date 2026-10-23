@@ -18,7 +18,8 @@ import {
   groupAssemblyOptions,
   groupDismantlingOptions,
   pickDefaultInstallOptionId,
-  type DismantlingGroup,
+  toggleDismantlingSelection,
+  toggleDismantlingEnabled,
 } from "./optionGroups";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { ProductIcon } from "./productIcons";
@@ -294,10 +295,35 @@ export function WhiteGoodsProductCard({
     locale,
   );
   const dismantlingGroups = groupDismantlingOptions(product.options, locale);
-  // A dismantling type with either variant booked is done — the other can't
-  // replace it.
-  const visibleDismantlingGroups = dismantlingGroups.filter(
-    (group) => ![group.disposal, group.careful].some((o) => !!o && lockedService(o.id)),
+  // Once any dismantling choice is booked it's done — no other can replace it.
+  const dismantlingBooked = dismantlingGroups.some((group) =>
+    [group.disposal, group.careful].some((o) => !!o && lockedService(o.id)),
+  );
+  const visibleDismantlingGroups = dismantlingBooked ? [] : dismantlingGroups;
+  // One "Dismantling" checkbox; once ticked, its variants (for disposal / for
+  // reuse) as nested choices. Only one dismantling choice per item.
+  const dismantlingChoices = visibleDismantlingGroups.flatMap((group) =>
+    [
+      {
+        option: group.disposal,
+        title: t("For disposal", "For avhending"),
+        description: t("Quick removal of the old furniture.", "Rask fjerning av de gamle møblene."),
+      },
+      {
+        option: group.careful,
+        title: t("For reuse", "For gjenbruk"),
+        description: t(
+          "Careful dismantling that keeps the parts intact for reassembly.",
+          "Forsiktig demontering der delene tas vare på for montering.",
+        ),
+      },
+    ].flatMap(({ option, ...rest }) => (option ? [{ option, ...rest }] : [])),
+  );
+  const dismantlingSelected = dismantlingChoices.some(({ option }) =>
+    value.selectedExtraOptionIds.includes(option.id),
+  );
+  const dismantlingFromPrice = Math.min(
+    ...dismantlingChoices.map(({ option }) => Number(option.customerPrice) || 0),
   );
   const anchoringOption =
     product.options.find((o) => o.active && o.code === "WALL_ANCHORING") ??
@@ -420,19 +446,16 @@ export function WhiteGoodsProductCard({
     });
   }
 
-  // "For disposal" and "careful, for reuse" are alternatives for the same
-  // type: choosing one replaces the other, choosing it again clears it.
-  function selectDismantling(group: DismantlingGroup, option: CatalogOption) {
-    const counterpartId = [group.disposal, group.careful].find(
-      (o) => o && o.id !== option.id,
-    )?.id;
-    const has = value.selectedExtraOptionIds.includes(option.id);
-    const rest = value.selectedExtraOptionIds.filter(
-      (id) => id !== option.id && id !== counterpartId,
-    );
+  // Small/large × for disposal/for reuse are alternatives: choosing one
+  // replaces any other, choosing it again clears it.
+  function selectDismantling(option: CatalogOption) {
     emit({
       ...value,
-      selectedExtraOptionIds: has ? rest : [...rest, option.id],
+      selectedExtraOptionIds: toggleDismantlingSelection(
+        value.selectedExtraOptionIds,
+        dismantlingGroups,
+        option.id,
+      ),
     });
   }
 
@@ -618,95 +641,57 @@ export function WhiteGoodsProductCard({
           }
         />
       )}
-      {visibleDismantlingGroups.length > 0 && furnitureAddonsVisible && (
-        // Not overflow-hidden (its header and rows round their own corners),
-        // so the header's HoverTip isn't cut off.
-        <div className="rounded-xl border border-black/10">
-          <div tabIndex={0} className="group/tip relative rounded-t-xl border-b border-black/10 bg-black/2 px-4 py-3 outline-none">
-            <div className="text-sm font-semibold text-black/85">
-              {t(
-                "Dismantle old furniture",
-                "Demontering av gamle møbler",
-              )}
-            </div>
-            <HoverTip
-              label={t(
-                "For disposal is quick removal. For reuse keeps the parts intact for reassembly.",
-                "For avhending er rask fjerning. For gjenbruk tas delene vare på for montering.",
-              )}
-            />
-          </div>
-          <div className="flex flex-col divide-y divide-black/10">
-            {visibleDismantlingGroups.map((group) => {
-              const groupSelected = [
-                group.disposal,
-                group.careful,
-              ].some(
-                (o) =>
-                  !!o &&
-                  value.selectedExtraOptionIds.includes(o.id),
-              );
-              return (
-                <div
-                  key={group.key}
-                  className={[
-                    "flex flex-col gap-2 px-4 py-3 transition last:rounded-b-xl sm:flex-row sm:items-center sm:justify-between sm:gap-4",
-                    groupSelected ? "bg-logoblue/5" : "",
-                  ].join(" ")}
-                >
-                  <span className="text-sm font-semibold text-black/85">
-                    {group.label}
-                  </span>
-                  <span className="grid grid-cols-2 gap-2 sm:w-80 sm:shrink-0">
-                    {[
-                      {
-                        option: group.disposal,
-                        label: t("For disposal", "For avhending"),
-                      },
-                      {
-                        option: group.careful,
-                        label: t("For reuse", "For gjenbruk"),
-                      },
-                    ].map(({ option, label }) => {
-                      if (!option) return null;
-                      const isSelected =
-                        value.selectedExtraOptionIds.includes(
-                          option.id,
-                        );
-                      return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          aria-pressed={isSelected}
-                          onClick={() =>
-                            selectDismantling(group, option)
-                          }
-                          className={[
-                            "flex flex-col gap-0.5 rounded-lg border px-3 py-2 text-left transition",
-                            isSelected
-                              ? "border-logoblue bg-logoblue text-white"
-                              : "border-black/15 bg-white text-black/80 hover:border-logoblue/50",
-                          ].join(" ")}
-                        >
-                          <span className="flex items-center justify-between gap-2 text-xs font-semibold">
-                            <span>{label}</span>
-                            {isSelected && (
-                              <span className="text-[11px] leading-none">
-                                ✓
-                              </span>
-                            )}
-                          </span>
-                          <span className="whitespace-nowrap text-sm font-semibold">
-                            {money(option.customerPrice)}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+      {furnitureAddonsVisible && dismantlingChoices.length > 0 && (
+        // Like unpacking + pallet pickup: a checkbox row, and once it's
+        // ticked the variants as nested rows in the same box.
+        <div
+          className={[
+            "flex flex-col rounded-xl border",
+            dismantlingSelected
+              ? "divide-y divide-logoblue/15 border-logoblue/30 bg-logoblue/5"
+              : "border-black/10 hover:border-black/20",
+          ].join(" ")}
+        >
+          <OptionRow
+            variant="checkbox"
+            selected={dismantlingSelected}
+            title={t("Dismantling", "Demontering")}
+            description={t(
+              "We dismantle your old furniture. For disposal is quick removal; for reuse keeps the parts intact for reassembly.",
+              "Vi demonterer de gamle møblene dine. For avhending er rask fjerning; for gjenbruk tas delene vare på for montering.",
+            )}
+            price={
+              dismantlingSelected
+                ? undefined
+                : `${t("from", "fra")} ${money(String(dismantlingFromPrice))}`
+            }
+            onClick={() =>
+              emit({
+                ...value,
+                selectedExtraOptionIds: toggleDismantlingEnabled(
+                  value.selectedExtraOptionIds,
+                  dismantlingGroups,
+                ),
+              })
+            }
+            bare
+          />
+          {dismantlingSelected &&
+            dismantlingChoices.map(({ option, title, description }) => (
+              <OptionRow
+                key={option.id}
+                variant="radio"
+                selected={value.selectedExtraOptionIds.includes(option.id)}
+                title={title}
+                description={description}
+                price={money(option.customerPrice)}
+                onClick={() => {
+                  if (!value.selectedExtraOptionIds.includes(option.id)) selectDismantling(option);
+                }}
+                bare
+                nested
+              />
+            ))}
         </div>
       )}
       {anchoringOption && furnitureAddonsVisible && !lockedService(anchoringOption.id) && (

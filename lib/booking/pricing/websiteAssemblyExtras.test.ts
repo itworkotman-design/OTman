@@ -35,8 +35,8 @@ const assembledBed = (extra: string[]) => ({
 
 describe("isAssemblyCompatibleExtraCode", () => {
   it("allows dismantling and wall anchoring, but not unpacking or white-goods demont", () => {
-    expect(isAssemblyCompatibleExtraCode("DISMANTLE_DISP_SGL_BED")).toBe(true);
-    expect(isAssemblyCompatibleExtraCode("DISMANTLE_CAR_DAYBED")).toBe(true);
+    expect(isAssemblyCompatibleExtraCode("DISMANTLE_DISP_STD")).toBe(true);
+    expect(isAssemblyCompatibleExtraCode("DISMANTLE_CAR_LG")).toBe(true);
     expect(isAssemblyCompatibleExtraCode("WALL_ANCHORING")).toBe(true);
     expect(isAssemblyCompatibleExtraCode("UNPACKING")).toBe(false);
     expect(isAssemblyCompatibleExtraCode("DEMONT")).toBe(false);
@@ -45,20 +45,20 @@ describe("isAssemblyCompatibleExtraCode", () => {
 
 describe("applyWebsiteAssemblyExtras", () => {
   it("shows the gap it fills: the shared pricing alone leaves dismantling unpriced next to assembly", () => {
-    const card = assembledBed(["DISMANTLE_DISP_SGL_BED"]);
-    // 696 carry-in + 856 assembly, dismantling (200) silently dropped.
+    const card = assembledBed(["DISMANTLE_DISP_STD"]);
+    // 696 carry-in + 856 assembly, dismantling (480) silently dropped.
     expect(price([card], [bed], false)).toBe(1552);
   });
 
   it("prices dismantling + wall anchoring on top of delivery + assembly", () => {
-    const card = assembledBed(["DISMANTLE_DISP_SGL_BED", "WALL_ANCHORING"]);
-    // 696 + 856 + 200 + 472 (463.368 → 465 → raised to a multiple of 8)
-    expect(price([card])).toBe(2224);
+    const card = assembledBed(["DISMANTLE_DISP_STD", "WALL_ANCHORING"]);
+    // 696 + 856 + 480 + 472 (463.368 → 465 → raised to a multiple of 8)
+    expect(price([card])).toBe(2504);
   });
 
   it("scales the extras with the quantity", () => {
-    const card = { ...assembledBed(["DISMANTLE_CAR_SGL_BED"]), amount: 2 };
-    const oneUnit = price([assembledBed(["DISMANTLE_CAR_SGL_BED"])]);
+    const card = { ...assembledBed(["DISMANTLE_CAR_STD"]), amount: 2 };
+    const oneUnit = price([assembledBed(["DISMANTLE_CAR_STD"])]);
     const noExtra = price([{ ...assembledBed([]), amount: 2 }]);
     expect(price([card]) - noExtra).toBe(2 * (oneUnit - price([assembledBed([])])));
   });
@@ -68,10 +68,10 @@ describe("applyWebsiteAssemblyExtras", () => {
       ...createEmptyProductCard(0),
       productId: "FN_BED",
       deliveryType: "INDOOR" as const,
-      selectedExtraOptionIds: ["DISMANTLE_DISP_SGL_BED"],
+      selectedExtraOptionIds: ["DISMANTLE_DISP_STD"],
     };
     expect(price([card])).toBe(price([card], [bed], false));
-    expect(price([card])).toBe(696 + 200);
+    expect(price([card])).toBe(696 + 480);
   });
 
   it("does not resurrect unpacking that the shared pricing drops under assembly (it's included)", () => {
@@ -92,20 +92,20 @@ describe("applyWebsiteAssemblyExtras", () => {
 
 describe("buildWebsiteAssemblyExtraOrderItems", () => {
   it("produces the saved order lines for the same extras, priced per unit in cents", () => {
-    const card = { ...assembledBed(["DISMANTLE_DISP_SGL_BED", "WALL_ANCHORING", "UNPACKING"]), amount: 2 };
+    const card = { ...assembledBed(["DISMANTLE_DISP_STD", "WALL_ANCHORING", "UNPACKING"]), amount: 2 };
     const items = buildWebsiteAssemblyExtraOrderItems([card], [bed]);
-    expect(items.map((i) => i.optionCode)).toEqual(["DISMANTLE_DISP_SGL_BED", "WALL_ANCHORING"]);
+    expect(items.map((i) => i.optionCode)).toEqual(["DISMANTLE_DISP_STD", "WALL_ANCHORING"]);
     expect(items[0]).toMatchObject({
       cardId: 0,
       itemType: "EXTRA_OPTION",
       quantity: 2,
-      customerPriceCents: 20000,
-      subcontractorPriceCents: 12500,
+      customerPriceCents: 48000,
+      subcontractorPriceCents: 33500,
     });
   });
 
   it("produces none without an assembly option", () => {
-    const card = { ...assembledBed(["DISMANTLE_DISP_SGL_BED"]), selectedInstallOptionIds: [] };
+    const card = { ...assembledBed(["DISMANTLE_DISP_STD"]), selectedInstallOptionIds: [] };
     expect(buildWebsiteAssemblyExtraOrderItems([card], [bed])).toEqual([]);
   });
 });

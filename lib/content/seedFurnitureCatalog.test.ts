@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   priceListUpsert: vi.fn(),
   productUpsert: vi.fn(),
   productOptionUpsert: vi.fn(),
+  productOptionUpdateMany: vi.fn(),
   priceListItemUpsert: vi.fn(),
 }));
 
@@ -11,7 +12,12 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     priceList: { upsert: mocks.priceListUpsert },
     product: { upsert: mocks.productUpsert },
-    productOption: { upsert: mocks.productOptionUpsert, findMany: async () => [], update: async () => ({}) },
+    productOption: {
+      upsert: mocks.productOptionUpsert,
+      updateMany: mocks.productOptionUpdateMany,
+      findMany: async () => [],
+      update: async () => ({}),
+    },
     priceListItem: { upsert: mocks.priceListItemUpsert },
   },
 }));
@@ -37,6 +43,7 @@ describe("seedFurnitureCatalog", () => {
     mocks.productUpsert.mockResolvedValue({ id: "p" });
     mocks.productOptionUpsert.mockResolvedValue({ id: "o" });
     mocks.priceListItemUpsert.mockResolvedValue({});
+    mocks.productOptionUpdateMany.mockResolvedValue({ count: 0 });
   });
 
   it("creates the WEBSITE_FURNITURE price list, separate from white goods, with the shared order-level fees", async () => {
@@ -109,5 +116,19 @@ describe("seedFurnitureCatalog", () => {
     expect(call.create.description).toMatch(/IKEA/);
     expect(call.create.descriptionEn).toBe("Single bed — IKEA");
     expect(call.create.category).toBe("install");
+  });
+
+  it("deactivates the old per-type dismantling options that the two shared ones replace", async () => {
+    mocks.productUpsert.mockImplementation(async ({ create }) => ({ id: `p-${create.code}` }));
+    await seedFurnitureCatalog();
+
+    const call = mocks.productOptionUpdateMany.mock.calls.map(([arg]) => arg).find((arg) => arg.where.productId === "p-FN_BED");
+    expect(call).toEqual({
+      where: {
+        productId: "p-FN_BED",
+        code: { startsWith: "DISMANTLE_", notIn: ["DISMANTLE_DISP_STD", "DISMANTLE_CAR_STD"] },
+      },
+      data: { isActive: false },
+    });
   });
 });

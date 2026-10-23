@@ -130,19 +130,32 @@ describe("add-ons", () => {
     expect(opt("FN_BED", "RETURN_RECYCLING").category).toBe("return");
   });
 
-  it("has two paid dismantling variants per relevant type — for disposal and careful for reuse — at half the source price", () => {
-    expect(opt("FN_BED", "DISMANTLE_DISP_SGL_BED").customerPrice).toBe(200);
-    expect(opt("FN_BED", "DISMANTLE_DISP_SGL_BED").subcontractorPrice).toBe(125);
-    expect(opt("FN_BED", "DISMANTLE_CAR_SGL_BED").customerPrice).toBe(325);
-    expect(opt("FN_BED", "DISMANTLE_CAR_SGL_BED").subcontractorPrice).toBe(225);
-    expect(opt("FN_BED", "DISMANTLE_DISP_BUNK_FAM_BED").customerPrice).toBe(575);
+  // Every product with dismantling offers the same two choices instead of the
+  // source's per-type list (decided 2026-10-23).
+  const dismantlingProducts = FURNITURE_PRODUCTS_DATA.filter((p) => p.options.some((o) => o.code.startsWith("DISMANTLE_")));
+
+  it("replaces the per-type dismantling list with one for-disposal and one for-reuse option", () => {
+    expect(dismantlingProducts.length).toBeGreaterThan(5);
+    for (const source of dismantlingProducts) {
+      const codes = byCode(source.code).options.filter((o) => o.code.startsWith("DISMANTLE_")).map((o) => o.code);
+      expect(codes, source.code).toEqual(["DISMANTLE_DISP_STD", "DISMANTLE_CAR_STD"]);
+    }
   });
 
-  it("halves every dismantling and recycling-return price from the source data, and nothing else", () => {
+  it("prices the two dismantling choices the same on every product", () => {
+    for (const source of dismantlingProducts) {
+      expect(opt(source.code, "DISMANTLE_DISP_STD"), source.code).toMatchObject({ customerPrice: 480, subcontractorPrice: 335, category: "extra" });
+      expect(opt(source.code, "DISMANTLE_CAR_STD"), source.code).toMatchObject({ customerPrice: 720, subcontractorPrice: 505, category: "extra" });
+    }
+    expect(opt("FN_BED", "DISMANTLE_DISP_STD").labelNo).toBe("Demontering for avhending");
+    expect(opt("FN_BED", "DISMANTLE_CAR_STD").labelEn).toBe("Dismantling for reuse");
+  });
+
+  it("halves the recycling-return price from the source data and leaves every other option as is", () => {
     for (const source of FURNITURE_PRODUCTS_DATA) {
       for (const sourceOption of source.options) {
-        const halved = sourceOption.code.startsWith("DISMANTLE_") || sourceOption.code === "RETURN_RECYCLING";
-        const factor = halved ? 0.5 : 1;
+        if (sourceOption.code.startsWith("DISMANTLE_")) continue;
+        const factor = sourceOption.code === "RETURN_RECYCLING" ? 0.5 : 1;
         const option = opt(source.code, sourceOption.code);
         expect(option.customerPrice, `${source.code}/${sourceOption.code}`).toBeCloseTo(sourceOption.customerPrice * factor, 6);
         expect(option.subcontractorPrice, `${source.code}/${sourceOption.code}`).toBeCloseTo(sourceOption.subcontractorPrice * factor, 6);

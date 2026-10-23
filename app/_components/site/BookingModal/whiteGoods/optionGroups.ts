@@ -5,8 +5,8 @@ import { findWebsiteProductSeed } from "@/lib/content/websiteCatalogs";
 import { shortenCatalogCode } from "@/lib/content/shortCatalogCode";
 
 // Grouping helpers for the website product card. Furniture's assembly is a
-// "type + manufacturer" choice and its dismantling comes in two variants per
-// type; both are stored as flat product options, and the card shows them as a
+// "type + manufacturer" choice and its dismantling comes in two variants (for
+// disposal / for reuse); both are stored as flat product options, and the card shows them as a
 // two-step pick / a paired choice, so it groups them here.
 
 export function buildOptionSeedMap(productCode: string): Map<string, FurnitureOptionSeed> {
@@ -75,7 +75,8 @@ function afterDash(text: string | null) {
   return i < 0 ? value : value.slice(i + 3);
 }
 
-// Pairs "for disposal" and "careful for reuse" per type. Labels come from the
+// Pairs "for disposal" and "careful for reuse" (one pair today; older
+// catalogs had one per type or size). Labels come from the
 // option's own text (label = English, description = Norwegian, as seeded).
 export function groupDismantlingOptions(options: CatalogOption[], locale: Locale): DismantlingGroup[] {
   const groups = new Map<string, DismantlingGroup>();
@@ -95,6 +96,32 @@ export function groupDismantlingOptions(options: CatalogOption[], locale: Locale
   }
 
   return [...groups.values()];
+}
+
+function dismantlingOptionIds(groups: DismantlingGroup[]) {
+  return new Set(groups.flatMap((g) => [g.disposal?.id, g.careful?.id]).filter((id): id is string => !!id));
+}
+
+// One dismantling choice per item: picking either variant replaces the one
+// already picked, picking it again clears it. Other extras are kept.
+export function toggleDismantlingSelection(
+  selectedIds: string[],
+  groups: DismantlingGroup[],
+  optionId: string,
+): string[] {
+  const dismantlingIds = dismantlingOptionIds(groups);
+  const rest = selectedIds.filter((id) => !dismantlingIds.has(id));
+  return selectedIds.includes(optionId) ? rest : [...rest, optionId];
+}
+
+// The card's "Dismantling" checkbox: ticking it starts on for disposal,
+// unticking it clears whichever variant is picked.
+export function toggleDismantlingEnabled(selectedIds: string[], groups: DismantlingGroup[]): string[] {
+  const dismantlingIds = dismantlingOptionIds(groups);
+  const rest = selectedIds.filter((id) => !dismantlingIds.has(id));
+  if (rest.length < selectedIds.length) return rest;
+  const first = groups[0]?.disposal ?? groups[0]?.careful;
+  return first ? [...selectedIds, first.id] : selectedIds;
 }
 
 // The installation option "Installation only" starts with: the first one the

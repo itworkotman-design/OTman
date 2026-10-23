@@ -83,16 +83,16 @@ describe("an order mixing white goods and furniture", () => {
 
   it("adds furniture assembly plus dismantling on top of carry-in, next to a white-goods delivery", () => {
     // Bed carry-in 696 is the order's dearest delivery, so the dishwasher pays 160.
-    // Bed: 696 + IKEA single-bed assembly 856 + dismantling for disposal 200.
+    // Bed: 696 + IKEA single-bed assembly 856 + dismantling for disposal 480.
     expect(
       total([
         card(0, "WG_DISHWASHER", { deliveryType: "FIRST_STEP" }),
         card(1, "FN_BED", {
           deliveryType: "INDOOR",
           selectedInstallOptionIds: ["ASM_SGL_BED_IKEA"],
-          selectedExtraOptionIds: ["DISMANTLE_DISP_SGL_BED"],
+          selectedExtraOptionIds: ["DISMANTLE_DISP_STD"],
         }),
       ]),
-    ).toBe(160 + 696 + 856 + 200);
+    ).toBe(160 + 696 + 856 + 480);
   });
 });
