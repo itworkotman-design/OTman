@@ -245,8 +245,8 @@ export function WhiteGoodsProductCard({
     const seed = seedByCode.get(o.code);
     if (!seed || seed.category !== "install" || seed.exclusiveGroup)
       return false;
-    // Some add-ons only go with one install type (TV stand / feet 75"-100"
-    // only with table mounting) — see installAddOnRequirements. One already
+    // Some add-ons never go with certain install types (integrated front
+    // panel on a freestanding fridge) — see installAddOnRequirements. One already
     // selected stays visible so it can be unticked (orders booked before the
     // rule may still hold it).
     return isInstallAddOnAllowed(o.code, selectedTypeCode) || value.selectedInstallOptionIds.includes(o.id);
@@ -353,8 +353,8 @@ export function WhiteGoodsProductCard({
   function selectType(optionId: string) {
     const option = product.options.find((o) => o.id === optionId);
     const seed = option ? seedByCode.get(option.code) : undefined;
-    // Kept add-ons must still fit the newly chosen type (switching to wall
-    // mounting drops the TV stand / feet add-on).
+    // Kept add-ons must still fit the newly chosen type (switching to
+    // freestanding drops the integrated front panel).
     const stackableSelected = value.selectedInstallOptionIds.filter((id) =>
       stackableInstallOptions.some((o) => o.id === id && isInstallAddOnAllowed(o.code, option?.code)),
     );
@@ -904,7 +904,7 @@ export function WhiteGoodsProductCard({
                       );
 
                       // A type nobody picked yet is one row (from-price); picking
-                      // it opens its manufacturers inside one shared container.
+                      // it opens its manufacturers / sizes inside one shared container.
                       if (!hasSelection) {
                         return (
                           <OptionRow
@@ -929,22 +929,23 @@ export function WhiteGoodsProductCard({
                             variant="radio"
                             selected
                             title={group.label}
-                            description={t(
-                              "Choose the manufacturer:",
-                              "Velg produsent:",
-                            )}
+                            description={
+                              group.choiceKind === "size"
+                                ? t("Choose the TV size:", "Velg TV-størrelse:")
+                                : t("Choose the manufacturer:", "Velg produsent:")
+                            }
                             onClick={clearInstallation}
                             bare
                           />
                           {group.options.map(
-                            ({ option, manufacturerLabel }) => (
+                            ({ option, choiceLabel }) => (
                               <OptionRow
                                 key={option.id}
                                 variant="radio"
                                 selected={value.selectedInstallOptionIds.includes(
                                   option.id,
                                 )}
-                                title={manufacturerLabel}
+                                title={choiceLabel}
                                 price={money(option.customerPrice)}
                                 onClick={() => selectType(option.id)}
                                 bare

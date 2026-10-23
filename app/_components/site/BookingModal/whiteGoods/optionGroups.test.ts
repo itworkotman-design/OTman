@@ -26,7 +26,7 @@ describe("groupAssemblyOptions", () => {
 
   it("lists the manufacturers within a type with their own option and price", () => {
     const single = groups[0];
-    expect(single.options.map((o) => o.manufacturerLabel)).toEqual([
+    expect(single.options.map((o) => o.choiceLabel)).toEqual([
       "IKEA",
       "JYSK",
       "Bohus",
@@ -44,7 +44,21 @@ describe("groupAssemblyOptions", () => {
   it("uses Norwegian labels for the type and manufacturer in no", () => {
     const no = groupAssemblyOptions(bed.options, seeds, "no");
     expect(no[0].label).toBe("Enkeltseng");
-    expect(no[0].options.at(-1)!.manufacturerLabel).not.toBe("Other manufacturer");
+    expect(no[0].options.at(-1)!.choiceLabel).not.toBe("Other manufacturer");
+  });
+
+  it("groups the TV's install types by where it goes, each offering its sizes", () => {
+    const tv = catalogProductFromSeed("WG_TV");
+    const tvGroups = groupAssemblyOptions(tv.options, buildOptionSeedMap("WG_TV"), "en");
+    expect(tvGroups.map((g) => g.label)).toEqual(["Wall mount", "On TV bench / table", "On a stand"]);
+    expect(tvGroups.map((g) => g.choiceKind)).toEqual(["size", "size", "size"]);
+    expect(tvGroups[0].options.map((o) => o.choiceLabel)).toEqual(['Under 55"', '55"–74"', '75"–100"']);
+    expect(tvGroups[2].options.map((o) => o.option.code)).toEqual(["TV_MOUNT_STAND_75_100"]);
+    expect(groupAssemblyOptions(tv.options, buildOptionSeedMap("WG_TV"), "no").map((g) => g.label)).toEqual([
+      "Veggmontering",
+      "På TV-benk / bord",
+      "På stativ",
+    ]);
   });
 
   it("returns nothing for a product without type/manufacturer options (white goods, Other furniture)", () => {

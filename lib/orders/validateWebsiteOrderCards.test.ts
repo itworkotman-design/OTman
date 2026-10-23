@@ -34,10 +34,17 @@ const products = [
     code: "WG_TV",
     label: "TV",
     active: true,
+    options: [option("tv-stand", "install", "TV_MOUNT_STAND_75_100")],
+  },
+  {
+    id: "fridge",
+    code: "WG_FRIDGE_FREEZER",
+    label: "Fridge",
+    active: true,
     options: [
-      option("tv-table", "install", "TV_TABLE_75_100"),
-      option("tv-wall", "install", "TV_WALL_75_100"),
-      option("tv-stand", "install", "TV_MOUNT_STAND_75_100"),
+      option("fridge-fs", "install", "FRIDGE_FREEZER_FS"),
+      option("fridge-int", "install", "FRIDGE_FREEZER_INT_NOFP"),
+      option("fridge-fp", "install", "FRIDGE_FREEZER_INT_FP"),
     ],
   },
 ] as unknown as CatalogProduct[];
@@ -87,24 +94,29 @@ describe("validateWebsiteOrderCards", () => {
     expect(ok.ok && ok.cards[0].modelNumber).toBe("Clock");
   });
 
-  it("refuses the TV stand / feet add-on unless table mounting 75\"-100\" is chosen", () => {
-    const tvCard = (ids: string[]) => card({ productId: "tv", deliveryType: "INDOOR", selectedInstallOptionIds: ids });
-    expect(validateWebsiteOrderCards([tvCard(["tv-wall", "tv-stand"])], products)).toEqual({
+  it("refuses the integrated front panel with a freestanding fridge-freezer", () => {
+    const fridgeCard = (ids: string[]) => card({ productId: "fridge", deliveryType: "INDOOR", selectedInstallOptionIds: ids });
+    expect(validateWebsiteOrderCards([fridgeCard(["fridge-fs", "fridge-fp"])], products)).toEqual({
       ok: false,
       reason: "INSTALL_ADDON_NOT_ALLOWED",
     });
-    expect(validateWebsiteOrderCards([tvCard(["tv-table", "tv-stand"])], products).ok).toBe(true);
+    expect(validateWebsiteOrderCards([fridgeCard(["fridge-int", "fridge-fp"])], products).ok).toBe(true);
+  });
+
+  it("accepts a TV on a stand on its own (its own install type, not an add-on)", () => {
+    const tvCard = card({ productId: "tv", deliveryType: "INDOOR", selectedInstallOptionIds: ["tv-stand"] });
+    expect(validateWebsiteOrderCards([tvCard], products).ok).toBe(true);
   });
 
   it("lets an order keep a combination it already had (booked before the rule), but not add it", () => {
-    const tvCard = (cardId: number, ids: string[]) =>
-      card({ cardId, productId: "tv", deliveryType: "INDOOR", selectedInstallOptionIds: ids });
-    const before = [tvCard(1, ["tv-wall", "tv-stand"]), tvCard(2, ["tv-wall"])];
+    const fridgeCard = (cardId: number, ids: string[]) =>
+      card({ cardId, productId: "fridge", deliveryType: "INDOOR", selectedInstallOptionIds: ids });
+    const before = [fridgeCard(1, ["fridge-fs", "fridge-fp"]), fridgeCard(2, ["fridge-fs"])];
 
     // Card 1 unchanged (order of ids doesn't matter) — fine.
-    expect(validateWebsiteOrderCards([tvCard(1, ["tv-stand", "tv-wall"])], products, { previousCards: before }).ok).toBe(true);
-    // Card 2 newly gets the stand — refused.
-    expect(validateWebsiteOrderCards([tvCard(2, ["tv-wall", "tv-stand"])], products, { previousCards: before })).toEqual({
+    expect(validateWebsiteOrderCards([fridgeCard(1, ["fridge-fp", "fridge-fs"])], products, { previousCards: before }).ok).toBe(true);
+    // Card 2 newly gets the front panel — refused.
+    expect(validateWebsiteOrderCards([fridgeCard(2, ["fridge-fs", "fridge-fp"])], products, { previousCards: before })).toEqual({
       ok: false,
       reason: "INSTALL_ADDON_NOT_ALLOWED",
     });

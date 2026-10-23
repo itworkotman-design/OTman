@@ -77,6 +77,15 @@ export type WhiteGoodsOptionSeed = Money & {
    * never overwrites a price that already exists.
    */
   staffPriced?: boolean;
+  /**
+   * Type options only: the first half of a two-step pick, e.g. "Wall mount"
+   * (TV) or "Single bed" (furniture assembly). The card groups the type
+   * options by it; the second half is `size` here or furniture's manufacturer.
+   */
+  typeEn?: string;
+  typeNo?: string;
+  /** TV install types: the size half of "Wall mount — 55"–74"". */
+  size?: string;
 };
 
 /**
@@ -654,21 +663,17 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
     nameNo: "TV",
     sortOrder: 14,
     deliveryTypes: STANDARD_DELIVERY_TYPES,
+    // Grouped on the card as a two-step pick: where the TV goes (typeEn), then
+    // its size. Wall mount and TV bench / table come in every size; a stand is
+    // for the big TVs (75"–100") only.
     options: [
-      {
-        code: "TV_TABLE_UNDER_55",
-        category: "install",
-        exclusiveGroup: "type",
-        labelEn: "Table mount – Under 55\"",
-        labelNo: "Bordmontering – Under 55\"",
-        customerPrice: 256.968,
-        subcontractorPrice: 153.768,
-        combinedWithIndoorInstall: { customerPrice: 947.376, subcontractorPrice: 618.168 },
-      },
       {
         code: "TV_WALL_UNDER_55",
         category: "install",
         exclusiveGroup: "type",
+        typeEn: "Wall mount",
+        typeNo: "Veggmontering",
+        size: "Under 55\"",
         labelEn: "Wall mount – Under 55\"",
         labelNo: "Veggmontering – Under 55\"",
         customerPrice: 1546.968,
@@ -676,19 +681,12 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         combinedWithIndoorInstall: { customerPrice: 2237.376, subcontractorPrice: 1237.368 },
       },
       {
-        code: "TV_TABLE_55_74",
-        category: "install",
-        exclusiveGroup: "type",
-        labelEn: "Table mount – 55\"–74\"",
-        labelNo: "Bordmontering – 55\"–74\"",
-        customerPrice: 514.968,
-        subcontractorPrice: 236.328,
-        combinedWithIndoorInstall: { customerPrice: 1205.376, subcontractorPrice: 700.728 },
-      },
-      {
         code: "TV_WALL_55_74",
         category: "install",
         exclusiveGroup: "type",
+        typeEn: "Wall mount",
+        typeNo: "Veggmontering",
+        size: "55\"–74\"",
         labelEn: "Wall mount – 55\"–74\"",
         labelNo: "Veggmontering – 55\"–74\"",
         customerPrice: 2062.968,
@@ -696,19 +694,12 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         combinedWithIndoorInstall: { customerPrice: 2753.376, subcontractorPrice: 1496.4 },
       },
       {
-        code: "TV_TABLE_75_100",
-        category: "install",
-        exclusiveGroup: "type",
-        labelEn: "Table mount – 75\"–100\"",
-        labelNo: "Bordmontering – 75\"–100\"",
-        customerPrice: 514.968,
-        subcontractorPrice: 236.328,
-        combinedWithIndoorInstall: { customerPrice: 1205.376, subcontractorPrice: 700.728 },
-      },
-      {
         code: "TV_WALL_75_100",
         category: "install",
         exclusiveGroup: "type",
+        typeEn: "Wall mount",
+        typeNo: "Veggmontering",
+        size: "75\"–100\"",
         labelEn: "Wall mount – 75\"–100\"",
         labelNo: "Veggmontering – 75\"–100\"",
         customerPrice: 2578.968,
@@ -716,15 +707,58 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
         combinedWithIndoorInstall: { customerPrice: 3269.376, subcontractorPrice: 1753.368 },
       },
       {
-        // Only relevant alongside the 75"-100" mounting types — the UI scopes
-        // this add-on's visibility to those two type codes (not encoded in the
-        // seed data itself, no schema field for it; see WhiteGoodsProductCard).
+        code: "TV_TABLE_UNDER_55",
+        category: "install",
+        exclusiveGroup: "type",
+        typeEn: "On TV bench / table",
+        typeNo: "På TV-benk / bord",
+        size: "Under 55\"",
+        labelEn: "Table mount – Under 55\"",
+        labelNo: "Bordmontering – Under 55\"",
+        customerPrice: 256.968,
+        subcontractorPrice: 153.768,
+        combinedWithIndoorInstall: { customerPrice: 947.376, subcontractorPrice: 618.168 },
+      },
+      {
+        code: "TV_TABLE_55_74",
+        category: "install",
+        exclusiveGroup: "type",
+        typeEn: "On TV bench / table",
+        typeNo: "På TV-benk / bord",
+        size: "55\"–74\"",
+        labelEn: "Table mount – 55\"–74\"",
+        labelNo: "Bordmontering – 55\"–74\"",
+        customerPrice: 514.968,
+        subcontractorPrice: 236.328,
+        combinedWithIndoorInstall: { customerPrice: 1205.376, subcontractorPrice: 700.728 },
+      },
+      {
+        code: "TV_TABLE_75_100",
+        category: "install",
+        exclusiveGroup: "type",
+        typeEn: "On TV bench / table",
+        typeNo: "På TV-benk / bord",
+        size: "75\"–100\"",
+        labelEn: "Table mount – 75\"–100\"",
+        labelNo: "Bordmontering – 75\"–100\"",
+        customerPrice: 514.968,
+        subcontractorPrice: 236.328,
+        combinedWithIndoorInstall: { customerPrice: 1205.376, subcontractorPrice: 700.728 },
+      },
+      {
+        // Was a stackable add-on on top of table mounting 75"–100"; now its own
+        // type, priced as the two together (table mount + stand / feet).
         code: "TV_MOUNT_STAND_75_100",
         category: "install",
+        exclusiveGroup: "type",
+        typeEn: "On a stand",
+        typeNo: "På stativ",
+        size: "75\"–100\"",
         labelEn: "Mount on stand / feet – 75\"–100\"",
         labelNo: "Montering på stativ / føtter – 75\"–100\"",
-        customerPrice: 1546.968,
-        subcontractorPrice: 772.968,
+        customerPrice: 514.968 + 1546.968,
+        subcontractorPrice: 236.328 + 772.968,
+        combinedWithIndoorInstall: { customerPrice: 1205.376 + 1546.968, subcontractorPrice: 700.728 + 772.968 },
       },
       ...standardAddOns(),
     ],

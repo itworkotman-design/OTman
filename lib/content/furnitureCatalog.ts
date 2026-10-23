@@ -27,10 +27,8 @@ import { FURNITURE_PRICE_LIST_CODE } from "@/lib/content/websitePriceListCodes";
 
 export { FURNITURE_PRICE_LIST_CODE };
 
+// typeEn/typeNo (the type half of "Single bed — IKEA") come from WhiteGoodsOptionSeed.
 export type FurnitureOptionSeed = WhiteGoodsOptionSeed & {
-  /** Assembly options only: the type half of "Single bed — IKEA". */
-  typeEn?: string;
-  typeNo?: string;
   /** Assembly options only: the manufacturer half of "Single bed — IKEA". */
   manufacturer?: string;
   manufacturerNo?: string;

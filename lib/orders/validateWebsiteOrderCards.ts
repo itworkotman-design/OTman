@@ -42,8 +42,8 @@ export function validateWebsiteOrderCards(
   // nothing (the client auto-selects one — this is the backstop).
   if (findInstallOnlyCardsMissingInstall(cards, products).length > 0) return { ok: false, reason: "INSTALL_OPTION_REQUIRED" };
 
-  // An install add-on tied to one install type (TV stand / feet only with
-  // table mounting) — the card hides it otherwise; this is the backstop.
+  // An install add-on that never goes with the chosen install type (integrated
+  // front panel on a freestanding fridge) — the card hides it; this is the backstop.
   const installKey = (card: SavedProductCard) => [...card.selectedInstallOptionIds].sort().join(",");
   const unchangedInstall = (card: SavedProductCard) =>
     previousCards.some((prev) => prev.cardId === card.cardId && prev.productId === card.productId && installKey(prev) === installKey(card));

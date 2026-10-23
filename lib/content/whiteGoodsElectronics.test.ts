@@ -93,9 +93,26 @@ describe("WHITE_GOODS_ELECTRONICS_PRODUCTS", () => {
     }
   });
 
-  it("TV has exactly 6 mutually-exclusive mount/size type options", () => {
+  it("TV has 7 mutually-exclusive mount/size type options: wall and TV bench in 3 sizes, stand for 75\"-100\"", () => {
     const tv = WHITE_GOODS_ELECTRONICS_PRODUCTS.find((p) => p.code === "WG_TV")!;
-    expect(typeOptions(tv)).toHaveLength(6);
+    const types = typeOptions(tv) as Array<(typeof tv.options)[number] & { typeEn?: string; size?: string }>;
+    expect(types).toHaveLength(7);
+    expect(types.map((o) => `${o.typeEn} ${o.size}`)).toEqual([
+      'Wall mount Under 55"',
+      'Wall mount 55"–74"',
+      'Wall mount 75"–100"',
+      'On TV bench / table Under 55"',
+      'On TV bench / table 55"–74"',
+      'On TV bench / table 75"–100"',
+      'On a stand 75"–100"',
+    ]);
+  });
+
+  it("prices the TV stand as table mounting 75\"-100\" plus the former stand / feet add-on", () => {
+    const tv = WHITE_GOODS_ELECTRONICS_PRODUCTS.find((p) => p.code === "WG_TV")!;
+    const stand = tv.options.find((o) => o.code === "TV_MOUNT_STAND_75_100")!;
+    expect(stand.customerPrice).toBeCloseTo(514.968 + 1546.968, 3);
+    expect(stand.subcontractorPrice).toBeCloseTo(236.328 + 772.968, 3);
   });
 
   it("every type option's install-only price satisfies the additive-pricing identity", () => {
