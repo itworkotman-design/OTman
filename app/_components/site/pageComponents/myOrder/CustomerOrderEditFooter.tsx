@@ -83,6 +83,10 @@ export default function CustomerOrderEditFooter({
       "One of the installation add-ons doesn't go with the installation you chose. Check the installation choices.",
       "Et av monteringstilleggene passer ikke med monteringen du har valgt. Sjekk monteringsvalgene.",
     ),
+    EXTRA_OPTION_NOT_ALLOWED: t(
+      "We can only take the empty pallet if we also take the goods off it.",
+      "Vi kan bare ta med den tomme pallen hvis vi også tar varene av den.",
+    ),
     UNKNOWN_PRODUCT: t("One of the products can't be ordered on the website.", "En av varene kan ikke bestilles på nettsiden."),
     UNAUTHORIZED: t("You have been logged out. Log in again.", "Du er logget ut. Logg inn igjen."),
     PRODUCT_WITHOUT_PICKUP: t(

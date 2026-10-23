@@ -84,6 +84,13 @@ export type WhiteGoodsOptionSeed = Money & {
    */
   exactCustomerPrice?: boolean;
   /**
+   * Customer-facing explanation under the option's title on the product card,
+   * where the label alone could be misread (a pallet's "unpacking" only takes
+   * the goods off the pallet). Omitted = the card's default text.
+   */
+  descriptionEn?: string;
+  descriptionNo?: string;
+  /**
    * Type options only: the first half of a two-step pick, e.g. "Wall mount"
    * (TV) or "Single bed" (furniture assembly). The card groups the type
    * options by it; the second half is `size` here or furniture's manufacturer.

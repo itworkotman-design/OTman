@@ -37,6 +37,13 @@ const products = [
     options: [option("tv-stand", "install", "TV_MOUNT_STAND_75_100")],
   },
   {
+    id: "pallet",
+    code: "PKG_PALL",
+    label: "Pallet",
+    active: true,
+    options: [option("pallet-unload", "extra", "UNPACKING"), option("pallet-pickup", "extra", "PALLET_PICKUP")],
+  },
+  {
     id: "fridge",
     code: "WG_FRIDGE_FREEZER",
     label: "Fridge",
@@ -101,6 +108,21 @@ describe("validateWebsiteOrderCards", () => {
       reason: "INSTALL_ADDON_NOT_ALLOWED",
     });
     expect(validateWebsiteOrderCards([fridgeCard(["fridge-int", "fridge-fp"])], products).ok).toBe(true);
+  });
+
+  it("refuses taking the empty pallet unless the goods are taken off the pallet too", () => {
+    const palletCard = (ids: string[]) => card({ productId: "pallet", selectedExtraOptionIds: ids });
+    expect(validateWebsiteOrderCards([palletCard(["pallet-pickup"])], products)).toEqual({
+      ok: false,
+      reason: "EXTRA_OPTION_NOT_ALLOWED",
+    });
+    expect(validateWebsiteOrderCards([palletCard(["pallet-unload", "pallet-pickup"])], products).ok).toBe(true);
+  });
+
+  it("lets a My-order change keep an empty-pallet pickup booked before that rule", () => {
+    const palletCard = (cardId: number, ids: string[]) => card({ cardId, productId: "pallet", selectedExtraOptionIds: ids });
+    const before = [palletCard(1, ["pallet-pickup"])];
+    expect(validateWebsiteOrderCards([palletCard(1, ["pallet-pickup"])], products, { previousCards: before }).ok).toBe(true);
   });
 
   it("accepts a TV on a stand on its own (its own install type, not an add-on)", () => {

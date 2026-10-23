@@ -8,6 +8,7 @@ import {
 import { applyDimensionDerivedVolumeBrackets } from "@/lib/booking/pricing/sizeDimensions";
 import { findInstallOnlyCardsMissingInstall } from "@/lib/booking/installOnlyRequirement";
 import { findCardsWithDisallowedInstallAddOns } from "@/lib/content/installAddOnRequirements";
+import { findCardsWithDisallowedExtraOptions } from "@/lib/content/extraOptionRequirements";
 import { validateTextField } from "./websiteOrderValidation";
 
 // The product-card rules every customer-made homepage order is held to — at
@@ -17,7 +18,7 @@ import { validateTextField } from "./websiteOrderValidation";
 // dimensions, size-priced item names trimmed.
 export type WebsiteOrderCardsValidation =
   | { ok: true; cards: SavedProductCard[] }
-  | { ok: false; reason: "UNKNOWN_PRODUCT" | "SIZE_BRACKETS_REQUIRED" | "INSTALL_OPTION_REQUIRED" | "INSTALL_ADDON_NOT_ALLOWED" | "ITEM_NAME_REQUIRED" };
+  | { ok: false; reason: "UNKNOWN_PRODUCT" | "SIZE_BRACKETS_REQUIRED" | "INSTALL_OPTION_REQUIRED" | "INSTALL_ADDON_NOT_ALLOWED" | "EXTRA_OPTION_NOT_ALLOWED" | "ITEM_NAME_REQUIRED" };
 
 // `previousCards` (a "My order" change): a card that keeps exactly the
 // installation choices it already had is not re-checked against the add-on
@@ -51,6 +52,17 @@ export function validateWebsiteOrderCards(
     (cardId) => !unchangedInstall(cards.find((c) => c.cardId === cardId)!),
   );
   if (addOnProblems.length > 0) return { ok: false, reason: "INSTALL_ADDON_NOT_ALLOWED" };
+
+  // Same for an extra that needs another extra (taking the empty pallet only
+  // with taking the goods off it), with the same allowance for a card whose
+  // extras are kept exactly as booked.
+  const extrasKey = (card: SavedProductCard) => [...card.selectedExtraOptionIds].sort().join(",");
+  const unchangedExtras = (card: SavedProductCard) =>
+    previousCards.some((prev) => prev.cardId === card.cardId && prev.productId === card.productId && extrasKey(prev) === extrasKey(card));
+  const extraProblems = findCardsWithDisallowedExtraOptions(cards, products).filter(
+    (cardId) => !unchangedExtras(cards.find((c) => c.cardId === cardId)!),
+  );
+  if (extraProblems.length > 0) return { ok: false, reason: "EXTRA_OPTION_NOT_ALLOWED" };
 
   // ...and say what the item is: a short name in the same plain-text rules as
   // every other public free-text field. Stored trimmed.

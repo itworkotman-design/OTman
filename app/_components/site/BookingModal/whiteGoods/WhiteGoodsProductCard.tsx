@@ -9,6 +9,7 @@ import type {
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { deliveryTypeAfterSelectingType } from "@/lib/content/whiteGoodsElectronics";
 import { isInstallAddOnAllowed } from "@/lib/content/installAddOnRequirements";
+import { dropExtrasMissingRequirement, isExtraOptionAllowed } from "@/lib/content/extraOptionRequirements";
 import type { FurnitureOptionSeed } from "@/lib/content/furnitureCatalog";
 import { findWebsiteProductSeed } from "@/lib/content/websiteCatalogs";
 import { isAssemblyCompatibleExtraCode } from "@/lib/booking/pricing/websiteAssemblyExtras";
@@ -387,8 +388,12 @@ export function WhiteGoodsProductCard({
     const has = value.selectedExtraOptionIds.includes(unpackingOption.id);
     emit({
       ...value,
+      // Unticking it on a pallet also unticks taking the empty pallet.
       selectedExtraOptionIds: has
-        ? value.selectedExtraOptionIds.filter((id) => id !== unpackingOption.id)
+        ? dropExtrasMissingRequirement(
+            value.selectedExtraOptionIds.filter((id) => id !== unpackingOption.id),
+            product.options,
+          )
         : [...value.selectedExtraOptionIds, unpackingOption.id],
     });
   }
@@ -478,27 +483,86 @@ export function WhiteGoodsProductCard({
     sizeInfo: seedProduct?.sizeInfo ?? null,
   });
 
+  // A seed with its own description words the row itself (a pallet's
+  // "unpacking" is taking the goods off the pallet); otherwise the plain
+  // unpack-and-remove-packaging text.
+  const unpackingSeed = unpackingOption ? seedByCode.get(unpackingOption.code) : undefined;
+  const unpackingWorded = !!unpackingSeed?.descriptionEn;
+  const unpackingTitle = unpackingWorded
+    ? seedLabel(locale, unpackingSeed!)
+    : t("Unpack & remove packaging", "Utpakking og kasting av emballasje");
+  const unpackingDescription = unpackingWorded
+    ? t(unpackingSeed!.descriptionEn!, unpackingSeed!.descriptionNo ?? unpackingSeed!.descriptionEn!)
+    : t(
+        "We unpack the product and take the packaging with us.",
+        "Vi pakker ut varen og tar med emballasjen.",
+      );
+
+  // Taking the empty pallet needs taking the goods off it
+  // (extraOptionRequirements), so it only appears once that is ticked — nested
+  // under it in one bordered card, like an install type's add-ons. One already
+  // selected without it (booked before the rule) stays so it can be unticked.
+  const palletPickupSelected = !!palletPickupOption && value.selectedExtraOptionIds.includes(palletPickupOption.id);
+  const palletPickupAllowed =
+    !!palletPickupOption &&
+    isExtraOptionAllowed(
+      palletPickupOption.code,
+      value.selectedExtraOptionIds
+        .map((id) => product.options.find((o) => o.id === id)?.code)
+        .filter((code): code is string => !!code),
+    );
+  const unpackingVisible = showExtras && !!unpackingOption && !lockedService(unpackingOption.id);
+  const palletPickupVisible =
+    showExtras &&
+    !!palletPickupOption &&
+    !lockedService(palletPickupOption.id) &&
+    (palletPickupAllowed || palletPickupSelected);
+
+  const palletPickupRow = (bare: boolean) =>
+    palletPickupOption && (
+      <OptionRow
+        variant="checkbox"
+        selected={palletPickupSelected}
+        title={t("Take the empty pallet", "Ta med tom pall")}
+        description={t("We take the empty pallet with us.", "Vi tar med oss den tomme pallen.")}
+        price={money(palletPickupOption.customerPrice)}
+        onClick={() => toggleExtraOption(palletPickupOption.id)}
+        bare={bare}
+        nested={bare}
+      />
+    );
+
   // The additional-service rows; booked ones aren't listed when `booked`.
   const servicesList = (
     <div className="flex flex-col gap-2">
-      {showExtras && unpackingOption && !lockedService(unpackingOption.id) && (
-        <OptionRow
-          variant="checkbox"
-          selected={value.selectedExtraOptionIds.includes(
-            unpackingOption.id,
-          )}
-          title={t(
-            "Unpack & remove packaging",
-            "Utpakking og kasting av emballasje",
-          )}
-          description={t(
-            "We unpack the product and take the packaging with us.",
-            "Vi pakker ut varen og tar med emballasjen.",
-          )}
-          price={money(unpackingOption.customerPrice)}
-          onClick={toggleUnpacking}
-        />
+      {unpackingVisible && unpackingOption && (
+        palletPickupVisible ? (
+          <div className="flex flex-col divide-y divide-logoblue/15 rounded-xl border border-logoblue/30 bg-logoblue/5">
+            <OptionRow
+              variant="checkbox"
+              selected={value.selectedExtraOptionIds.includes(unpackingOption.id)}
+              title={unpackingTitle}
+              description={unpackingDescription}
+              price={money(unpackingOption.customerPrice)}
+              onClick={toggleUnpacking}
+              bare
+            />
+            {palletPickupRow(true)}
+          </div>
+        ) : (
+          <OptionRow
+            variant="checkbox"
+            selected={value.selectedExtraOptionIds.includes(unpackingOption.id)}
+            title={unpackingTitle}
+            description={unpackingDescription}
+            price={money(unpackingOption.customerPrice)}
+            onClick={toggleUnpacking}
+          />
+        )
       )}
+      {/* Unloading already booked ("My order"), so its row isn't listed: the
+          pickup stands on its own. */}
+      {!unpackingVisible && palletPickupVisible && palletPickupRow(false)}
       {!booked &&
         isFurniture &&
         !showExtras &&
@@ -540,21 +604,6 @@ export function WhiteGoodsProductCard({
               demontEnabled: !value.demontEnabled,
             })
           }
-        />
-      )}
-      {showExtras && palletPickupOption && !lockedService(palletPickupOption.id) && (
-        <OptionRow
-          variant="checkbox"
-          selected={value.selectedExtraOptionIds.includes(
-            palletPickupOption.id,
-          )}
-          title={t("Take the empty pallet", "Ta med tom pall")}
-          description={t(
-            "We take the empty pallet with us.",
-            "Vi tar med oss den tomme pallen.",
-          )}
-          price={money(palletPickupOption.customerPrice)}
-          onClick={() => toggleExtraOption(palletPickupOption.id)}
         />
       )}
       {visibleDismantlingGroups.length > 0 && furnitureAddonsVisible && (

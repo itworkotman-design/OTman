@@ -94,6 +94,12 @@ class InstallOptionRequiredError extends Error {
   }
 }
 
+class ExtraOptionNotAllowedError extends Error {
+  constructor() {
+    super("An extra was chosen without the extra it requires");
+  }
+}
+
 class InstallAddOnNotAllowedError extends Error {
   constructor() {
     super("An install add-on was chosen without the install type it belongs to");
@@ -156,6 +162,7 @@ async function createWhiteGoodsOrder(
     if (cardsCheck.reason === "SIZE_BRACKETS_REQUIRED") throw new SizeBracketSelectionError();
     if (cardsCheck.reason === "INSTALL_OPTION_REQUIRED") throw new InstallOptionRequiredError();
     if (cardsCheck.reason === "INSTALL_ADDON_NOT_ALLOWED") throw new InstallAddOnNotAllowedError();
+    if (cardsCheck.reason === "EXTRA_OPTION_NOT_ALLOWED") throw new ExtraOptionNotAllowedError();
     throw new ItemNameError();
   }
   const productCards = cardsCheck.cards;
@@ -558,6 +565,12 @@ export async function POST(req: Request) {
     if (err instanceof InstallOptionRequiredError) {
       return NextResponse.json(
         { ok: false, reason: "VALIDATION_FAILED", errors: { productCards: "Choose which installation you need" } },
+        { status: 422 },
+      );
+    }
+    if (err instanceof ExtraOptionNotAllowedError) {
+      return NextResponse.json(
+        { ok: false, reason: "VALIDATION_FAILED", errors: { productCards: "We can only take the empty pallet if we also take the goods off it" } },
         { status: 422 },
       );
     }

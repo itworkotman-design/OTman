@@ -67,6 +67,16 @@ const UNPACKING_OPTION: WhiteGoodsOptionSeed = {
   subcontractorPrice: 51.6,
 };
 
+// Same code and price as UNPACKING_OPTION, but for a pallet it means taking
+// the goods off the pallet — not unpacking everything that's on it.
+const PALLET_UNLOADING_OPTION: WhiteGoodsOptionSeed = {
+  ...UNPACKING_OPTION,
+  labelEn: "Take the goods off the pallet",
+  labelNo: "Avlasting av varene fra pallen",
+  descriptionEn: "We lift the goods off the pallet and set them down. The goods themselves are not unpacked.",
+  descriptionNo: "Vi løfter varene av pallen og setter dem ned. Selve varene pakkes ikke ut.",
+};
+
 // Pallet sizes only — offers to take the now-empty pallet away after
 // delivery. A plain "extra" (not "return"): that category renders with
 // hardcoded white-goods-recycling copy in WhiteGoodsProductCard, which
@@ -115,7 +125,7 @@ export const PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[] = [
     nameNo: "Halvpall",
     sortOrder: 4,
     deliveryTypes: doorstepOnly(HALF_PALLET_FIRST_STEP),
-    options: [UNPACKING_OPTION, PALLET_PICKUP_OPTION],
+    options: [PALLET_UNLOADING_OPTION, PALLET_PICKUP_OPTION],
     sizeInfo: { maxWeightKg: 100 },
   },
   {
@@ -124,7 +134,7 @@ export const PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[] = [
     nameNo: "Pall",
     sortOrder: 5,
     deliveryTypes: doorstepOnly(PALLET_FIRST_STEP),
-    options: [UNPACKING_OPTION, PALLET_PICKUP_OPTION],
+    options: [PALLET_UNLOADING_OPTION, PALLET_PICKUP_OPTION],
     sizeInfo: { maxWeightKg: 500 },
   },
 ];

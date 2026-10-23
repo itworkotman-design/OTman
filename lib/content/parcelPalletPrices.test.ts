@@ -45,9 +45,25 @@ describe("parcel/pallet prices", () => {
     }
   });
 
+  it("words a pallet's unpacking as taking the goods off the pallet, not unpacking them; boxes keep the plain unpacking", () => {
+    for (const code of ["PKG_HALVPALL", "PKG_PALL"]) {
+      expect(option(code, "UNPACKING")).toMatchObject({
+        labelEn: "Take the goods off the pallet",
+        labelNo: "Avlasting av varene fra pallen",
+        descriptionEn: "We lift the goods off the pallet and set them down. The goods themselves are not unpacked.",
+        descriptionNo: "Vi løfter varene av pallen og setter dem ned. Selve varene pakkes ikke ut.",
+        customerPrice: 103.2,
+        subcontractorPrice: 51.6,
+      });
+    }
+    expect(option("PKG_ESKER", "UNPACKING")).toMatchObject({ labelEn: "Unpacking and disposal of packaging" });
+    expect(option("PKG_ESKER", "UNPACKING")?.descriptionEn).toBeUndefined();
+  });
+
   it("charges unpacking 103.20 and taking the empty pallet 100 ex. VAT (125 incl.), kept exact", () => {
     expect(option("PKG_ESKER", "UNPACKING")).toMatchObject({ customerPrice: 103.2, subcontractorPrice: 51.6 });
     expect(option("PKG_PALL", "PALLET_PICKUP")).toMatchObject({ customerPrice: 100, subcontractorPrice: 60, exactCustomerPrice: true });
+    expect(option("PKG_HALVPALL", "PALLET_PICKUP")).toMatchObject({ customerPrice: 100, subcontractorPrice: 60, exactCustomerPrice: true });
   });
 });
 

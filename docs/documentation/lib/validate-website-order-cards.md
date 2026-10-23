@@ -17,4 +17,4 @@ The product-card rules every customer-made homepage order must follow. Both the 
 
 | Function | Purpose |
 |---|---|
-| `validateWebsiteOrderCards` | Returns `{ ok: true, cards }` with the cards as they should be stored, or `{ ok: false, reason }`. The reason is one of `UNKNOWN_PRODUCT`, `SIZE_BRACKETS_REQUIRED`, `INSTALL_OPTION_REQUIRED`, `INSTALL_ADDON_NOT_ALLOWED` (see [install-add-on-requirements.md](install-add-on-requirements.md)) or `ITEM_NAME_REQUIRED`. Optional `previousCards` (a "My order" change) lets a card keep install choices it already had. |
+| `validateWebsiteOrderCards` | Returns `{ ok: true, cards }` with the cards as they should be stored, or `{ ok: false, reason }`. The reason is one of `UNKNOWN_PRODUCT`, `SIZE_BRACKETS_REQUIRED`, `INSTALL_OPTION_REQUIRED`, `INSTALL_ADDON_NOT_ALLOWED` (see [install-add-on-requirements.md](install-add-on-requirements.md)), `EXTRA_OPTION_NOT_ALLOWED` (see [extra-option-requirements.md](extra-option-requirements.md)) or `ITEM_NAME_REQUIRED`. Optional `previousCards` (a "My order" change) lets a card keep install choices or extras it already had. |
