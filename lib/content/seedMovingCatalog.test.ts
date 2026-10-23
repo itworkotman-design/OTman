@@ -213,19 +213,21 @@ describe("seedMovingCatalog — starting prices", () => {
     mocks.productOptionUpdateMany.mockResolvedValue({ count: 0 });
   });
 
-  it("offers the size brackets up to under 150 m², then over 150 m² (no more 'over 100')", () => {
+  it("offers the size brackets up to under 140 m², then over 140 m² (no more 'under/over 150')", () => {
     expect(MOVING_SIZE_OPTIONS.map((o) => [o.code, o.labelNo])).toEqual([
       ["SIZE_UNDER_20", "Under 20 m²"],
       ["SIZE_UNDER_40", "Under 40 m²"],
       ["SIZE_UNDER_60", "Under 60 m²"],
+      ["SIZE_UNDER_80", "Under 80 m²"],
       ["SIZE_UNDER_100", "Under 100 m²"],
-      ["SIZE_UNDER_150", "Under 150 m²"],
-      ["SIZE_OVER_150", "Over 150 m²"],
+      ["SIZE_UNDER_120", "Under 120 m²"],
+      ["SIZE_UNDER_140", "Under 140 m²"],
+      ["SIZE_OVER_140", "Over 140 m²"],
     ]);
   });
 
   it("has real starting prices (ex. VAT) for every size, service and the floor surcharge", () => {
-    expect(MOVING_SIZE_OPTIONS.map((o) => o.customerPrice)).toEqual([3200, 5000, 7500, 12000, 17000, 23000]);
+    expect(MOVING_SIZE_OPTIONS.map((o) => o.customerPrice)).toEqual([3200, 5000, 7500, 9600, 12000, 14400, 16800, 20000]);
     expect(MOVING_SERVICE_OPTIONS.map((o) => [o.labelNo, o.customerPrice])).toEqual([
       ["Nedpakking", 4000],
       ["Flyttevask", 4800],

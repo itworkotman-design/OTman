@@ -35,7 +35,7 @@ describe("houseGeometry", () => {
 
   it("gets wider (and gets more windows) as the size bracket grows", () => {
     const small = houseGeometry("SIZE_UNDER_20", 1);
-    const large = houseGeometry("SIZE_OVER_150", 1);
+    const large = houseGeometry("SIZE_OVER_140", 1);
     expect(large.width).toBeGreaterThan(small.width);
     expect(large.windowsPerFloor).toBeGreaterThan(small.windowsPerFloor);
   });
@@ -50,7 +50,7 @@ describe("houseGeometry", () => {
       const { roof } = houseGeometry(code, 1);
       return roof.baseY - roof.peakY;
     };
-    expect(rise("SIZE_OVER_150")).toBeGreaterThan(rise("SIZE_UNDER_20"));
+    expect(rise("SIZE_OVER_140")).toBeGreaterThan(rise("SIZE_UNDER_20"));
   });
 
   it("uses a medium width when no size is picked yet or the code is unknown", () => {
@@ -78,7 +78,7 @@ describe("houseGeometry", () => {
   });
 
   it("centres a townhouse on its front face, since its side wall is hidden by the neighbour", () => {
-    const g = houseGeometry("SIZE_OVER_150", 1, "TOWNHOUSE");
+    const g = houseGeometry("SIZE_OVER_140", 1, "TOWNHOUSE");
     expect(g.x + g.width / 2).toBeCloseTo(g.viewBoxWidth / 2);
   });
 
@@ -95,7 +95,7 @@ describe("houseGeometry", () => {
   });
 
   it("fits every floor, the side wall and the roof (incl. its back ridge) inside the viewBox", () => {
-    const g = houseGeometry("SIZE_OVER_150", HOUSE_MAX_FLOORS);
+    const g = houseGeometry("SIZE_OVER_140", HOUSE_MAX_FLOORS);
     expect(g.roof.peakY - g.depth.dy).toBeGreaterThanOrEqual(0);
     expect(g.roof.leftX).toBeGreaterThanOrEqual(0);
     expect(g.roof.rightX + g.depth.dx).toBeLessThanOrEqual(g.viewBoxWidth);

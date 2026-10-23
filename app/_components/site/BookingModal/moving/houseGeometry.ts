@@ -22,10 +22,15 @@ const DEPTH = { dx: 36, dy: 20 };
 
 const SIZE_SHAPES: Record<string, { width: number; windowsPerFloor: number }> = {
   SIZE_UNDER_20: { width: 90, windowsPerFloor: 1 },
-  SIZE_UNDER_40: { width: 110, windowsPerFloor: 2 },
-  SIZE_UNDER_60: { width: 130, windowsPerFloor: 2 },
+  SIZE_UNDER_40: { width: 105, windowsPerFloor: 2 },
+  SIZE_UNDER_60: { width: 120, windowsPerFloor: 2 },
+  SIZE_UNDER_80: { width: 135, windowsPerFloor: 3 },
   SIZE_UNDER_100: { width: 150, windowsPerFloor: 3 },
-  SIZE_UNDER_150: { width: 170, windowsPerFloor: 4 },
+  SIZE_UNDER_120: { width: 162, windowsPerFloor: 4 },
+  SIZE_UNDER_140: { width: 176, windowsPerFloor: 4 },
+  SIZE_OVER_140: { width: 190, windowsPerFloor: 5 },
+  // Retired brackets, so older orders still draw at roughly their size.
+  SIZE_UNDER_150: { width: 176, windowsPerFloor: 4 },
   SIZE_OVER_150: { width: 190, windowsPerFloor: 5 },
 };
 const DEFAULT_SHAPE = SIZE_SHAPES.SIZE_UNDER_60;

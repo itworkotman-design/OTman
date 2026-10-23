@@ -27,11 +27,14 @@ export const MOVING_SIZE_OPTIONS: MovingSizeOptionSeed[] = [
   { code: "SIZE_UNDER_20", labelEn: "Under 20 m²", labelNo: "Under 20 m²", customerPrice: 3200, subcontractorPrice: 0 },
   { code: "SIZE_UNDER_40", labelEn: "Under 40 m²", labelNo: "Under 40 m²", customerPrice: 5000, subcontractorPrice: 0 },
   { code: "SIZE_UNDER_60", labelEn: "Under 60 m²", labelNo: "Under 60 m²", customerPrice: 7500, subcontractorPrice: 0 },
+  { code: "SIZE_UNDER_80", labelEn: "Under 80 m²", labelNo: "Under 80 m²", customerPrice: 9600, subcontractorPrice: 0 },
   { code: "SIZE_UNDER_100", labelEn: "Under 100 m²", labelNo: "Under 100 m²", customerPrice: 12000, subcontractorPrice: 0 },
-  { code: "SIZE_UNDER_150", labelEn: "Under 150 m²", labelNo: "Under 150 m²", customerPrice: 17000, subcontractorPrice: 0 },
-  { code: "SIZE_OVER_150", labelEn: "Over 150 m²", labelNo: "Over 150 m²", customerPrice: 23000, subcontractorPrice: 0 },
-  // SIZE_OVER_100 ("Over 100 m²") was split into the two above (2026-10);
-  // a reseed deactivates it, past orders keep pointing at it.
+  { code: "SIZE_UNDER_120", labelEn: "Under 120 m²", labelNo: "Under 120 m²", customerPrice: 14400, subcontractorPrice: 0 },
+  { code: "SIZE_UNDER_140", labelEn: "Under 140 m²", labelNo: "Under 140 m²", customerPrice: 16800, subcontractorPrice: 0 },
+  { code: "SIZE_OVER_140", labelEn: "Over 140 m²", labelNo: "Over 140 m²", customerPrice: 20000, subcontractorPrice: 0 },
+  // Retired codes — a reseed deactivates them, past orders keep pointing at
+  // them: SIZE_OVER_100 (split into under/over 150, 2026-10), then
+  // SIZE_UNDER_150/SIZE_OVER_150 (replaced by the 80/120/140 brackets, 2026-10).
 ];
 
 // Optional extras on a move, picked on their own step after the size. A

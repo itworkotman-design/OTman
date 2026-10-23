@@ -15,7 +15,7 @@ Subcontractor prices stay 0.
 ## Exports
 - `MOVING_PRICE_LIST_CODE` — re-exported from `websitePriceListCodes.ts`.
 - `MOVING_PRODUCT_CODE` — `"MOVING_BY_SIZE"`.
-- `MOVING_SIZE_OPTIONS: MovingSizeOptionSeed[]` — the 6 size brackets (Under 20/40/60/100/150 m², Over 150 m²; `SIZE_OVER_100` was split into `SIZE_UNDER_150` + `SIZE_OVER_150` in 2026-10 and is deactivated on reseed).
+- `MOVING_SIZE_OPTIONS: MovingSizeOptionSeed[]` — the 8 size brackets (Under 20/40/60/80/100/120/140 m², Over 140 m²; the retired `SIZE_OVER_100`, `SIZE_UNDER_150` and `SIZE_OVER_150` are deactivated on reseed).
 - `MOVING_SERVICES_PRODUCT_CODE` — `"MOVING_ADDITIONAL_SERVICES"`, a second
   product on the same price list for the optional extras.
 - `MOVING_SERVICE_OPTIONS: MovingServiceOptionSeed[]` — Nedpakking
