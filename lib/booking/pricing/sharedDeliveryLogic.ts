@@ -108,6 +108,10 @@ export function supportsSharedAutoDeliveryPricing(product: CatalogProduct) {
 // price wins, ties go to the earlier card" rule as deliveries (instead of the
 // dashboard's "a priced install-only visit always keeps the full-price
 // slot"). See websiteInstallOnlyVisit.ts.
+// It also makes carry-in compete at the product's doorstep price: carry-in
+// is the same visit plus a carry-in surcharge (charged on extra cards too),
+// so a later carry-in card of the same product price doesn't take the
+// full-price slot from an earlier doorstep card.
 export type SharedDeliveryOptions = {
   installOnlyVisitPricing?: boolean;
 };
@@ -119,20 +123,40 @@ type SharedDeliveryCandidate = {
   standardPrice: number;
 };
 
+function getCompetingDeliveryPrice(
+  card: SavedProductCard,
+  product: CatalogProduct,
+  options: SharedDeliveryOptions,
+) {
+  const price = getProductDeliveryTypePrice({
+    deliveryTypes: product.deliveryTypes,
+    key: card.deliveryType,
+  });
+
+  if (!options.installOnlyVisitPricing || card.deliveryType !== DELIVERY_TYPES.INDOOR) {
+    return price;
+  }
+
+  const doorstepPrice = getProductDeliveryTypePrice({
+    deliveryTypes: product.deliveryTypes,
+    key: DELIVERY_TYPES.FIRST_STEP,
+  });
+
+  return doorstepPrice > 0 ? Math.min(price, doorstepPrice) : price;
+}
+
 function getSharedDeliveryCandidate(
   card: SavedProductCard,
   product: CatalogProduct,
   index: number,
+  options: SharedDeliveryOptions,
 ): SharedDeliveryCandidate | null {
   if (usesSharedDeliveryPricing(card, product)) {
     return {
       cardId: card.cardId,
       index,
       deliveryType: card.deliveryType,
-      standardPrice: getProductDeliveryTypePrice({
-        deliveryTypes: product.deliveryTypes,
-        key: card.deliveryType,
-      }),
+      standardPrice: getCompetingDeliveryPrice(card, product, options),
     };
   }
 
@@ -227,7 +251,7 @@ export function getAutomaticXtraDeliveryCardIds(
         return null;
       }
 
-      return getSharedDeliveryCandidate(card, product, index);
+      return getSharedDeliveryCandidate(card, product, index, options);
     })
     .filter((item) => item !== null);
 

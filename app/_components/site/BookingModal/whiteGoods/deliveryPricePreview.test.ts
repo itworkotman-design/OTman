@@ -140,6 +140,21 @@ describe("previewCardDeliveryOptions", () => {
     expect(previewB.firstStep.isExtra).toBe(true);
   });
 
+  it("keeps the earlier doorstep card at full price when a later card of the same price picks carry-in", () => {
+    // Carry-in is the same visit plus a carry-in surcharge, so it competes
+    // at the product's doorstep price: the visit fee doesn't jump to the
+    // later card just because it picked carry-in.
+    const product = makeProduct("a", 600, 690);
+    const cardA = { ...createEmptyProductCard(0), productId: "a", deliveryType: "FIRST_STEP" as const };
+    const cardB = { ...createEmptyProductCard(1), productId: "a", deliveryType: "INDOOR" as const };
+
+    const previewA = previewCardDeliveryOptions([cardA, cardB], [product], cardA.cardId);
+    const previewB = previewCardDeliveryOptions([cardA, cardB], [product], cardB.cardId);
+
+    expect(previewA.firstStep).toEqual({ price: 600, subcontractorPrice: 0, isExtra: false });
+    expect(previewB.indoor).toEqual({ price: 229, subcontractorPrice: 100, isExtra: true });
+  });
+
   it("lets an install-only card take the full-price slot at its own price", () => {
     // Installation only is still a trip to the customer with its own price
     // (700 here). That outprices card A's doorstep (600), so card B is the

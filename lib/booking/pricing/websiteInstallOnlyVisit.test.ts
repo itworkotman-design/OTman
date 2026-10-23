@@ -120,14 +120,15 @@ describe("applyWebsiteInstallOnlyVisit", () => {
 describe("previewInstallOnlyVisitPrice", () => {
   it("shows the install-only price on the full-price card", () => {
     expect(previewInstallOnlyVisitPrice([card(1, "INDOOR")], products, 1)).toBe(INSTALL_ONLY_PRICE);
-    expect(previewInstallOnlyVisitPrice([card(1, "FIRST_STEP"), card(2, "INDOOR")], products, 2)).toBe(
+    // Carry-in competes at the doorstep price, so the earlier doorstep card keeps the slot.
+    expect(previewInstallOnlyVisitPrice([card(1, "FIRST_STEP"), card(2, "INDOOR")], products, 1)).toBe(
       INSTALL_ONLY_PRICE,
     );
   });
 
   it("is null (shown as nothing) on extra cards", () => {
     expect(previewInstallOnlyVisitPrice([card(1, "INSTALL_ONLY"), card(2, "")], products, 2)).toBeNull();
-    expect(previewInstallOnlyVisitPrice([card(1, "FIRST_STEP"), card(2, "INDOOR")], products, 1)).toBeNull();
+    expect(previewInstallOnlyVisitPrice([card(1, "FIRST_STEP"), card(2, "INDOOR")], products, 2)).toBeNull();
     expect(previewInstallOnlyVisitPrice([card(1, ""), card(2, "FIRST_STEP")], products, 1)).toBeNull();
   });
 });
