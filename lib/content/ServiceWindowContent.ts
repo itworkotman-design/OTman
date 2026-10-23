@@ -30,8 +30,8 @@ export const serviceWindowContent = {
     {
       id: "collection-pickup",
       title: {
-        en: "Delivery",
-        no: "Levering",
+        en: "Delivery or assembly",
+        no: "Levering eller montering",
       },
       svg: "/Service logos-01.svg",
       modalTitle: {
