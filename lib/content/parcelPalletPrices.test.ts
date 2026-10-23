@@ -22,7 +22,7 @@ describe("parcel/pallet prices", () => {
       xtraPrice: 258,
       xtraSubcontractorPrice: 154.8,
     });
-    expect(deliveryType("PKG_PALL", "FIRST_STEP")).toMatchObject({ enabled: true, price: "775", subcontractorPrice: "515", xtraPrice: "260" });
+    expect(deliveryType("PKG_PALL", "FIRST_STEP")).toMatchObject({ enabled: true, price: "776", subcontractorPrice: "515", xtraPrice: "264" });
     expect(deliveryType("PKG_PALL", "INDOOR").enabled).toBe(false);
   });
 
@@ -57,7 +57,7 @@ describe("mergePreservedDeliveryTypes (a reseed of a staff-priced catalog)", () 
   it("fills a delivery type still at the 0 kr placeholder, and turns off carry-in", () => {
     const placeholder = seeded.map((t) => ({ ...t, enabled: true, price: "0", subcontractorPrice: "0", xtraPrice: "0", xtraSubcontractorPrice: "0" }));
     const merged = mergePreservedDeliveryTypes(placeholder, seeded);
-    expect(merged.find((t) => t.key === "FIRST_STEP")).toMatchObject({ price: "775", subcontractorPrice: "515", xtraPrice: "260" });
+    expect(merged.find((t) => t.key === "FIRST_STEP")).toMatchObject({ price: "776", subcontractorPrice: "515", xtraPrice: "264" });
     expect(merged.find((t) => t.key === "INDOOR")?.enabled).toBe(false);
   });
 

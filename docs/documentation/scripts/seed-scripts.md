@@ -28,3 +28,12 @@ One-time data conversion for the switch to ex-VAT website prices (`lib/orders/we
 DOTENV_CONFIG_PATH=.env.local npx tsx --tsconfig tsconfig.json scripts/convert-website-orders-to-ex-vat.ts           # dry run
 DOTENV_CONFIG_PATH=.env.local npx tsx --tsconfig tsconfig.json scripts/convert-website-orders-to-ex-vat.ts --apply   # write
 ```
+
+## `scripts/clean-website-prices.ts`
+
+One-time price cleanup so every homepage price a private customer sees (ex. VAT + 25%) ends in 0. Every customer price on the `WEBSITE_*` price lists is raised to the next multiple of 8 kr ex. VAT (`lib/booking/pricing/websiteCleanPrice.ts`), e.g. 260 (325 incl.) → 264 (330 incl.). It covers option prices, special options, the order-level fees and deviation fees in the list settings, and each product's delivery-type prices. Installation only is lowered instead (609 → 608) so it stays under doorstep delivery. Partner prices and the per-km rates are left alone. It also leaves alone, and lists, weight/size-priced options, options with an active discount, and products also priced on a non-website list. It is a dry run by default and writes only with `--apply`, all in one transaction. Already-clean prices are untouched, so it is safe to run twice. Existing orders keep their frozen prices. The seeds produce the same numbers (`websiteSeedCustomerPrice`), so a reseed doesn't undo it.
+
+```bash
+DOTENV_CONFIG_PATH=.env.local npx tsx --tsconfig tsconfig.json scripts/clean-website-prices.ts           # dry run
+DOTENV_CONFIG_PATH=.env.local npx tsx --tsconfig tsconfig.json scripts/clean-website-prices.ts --apply   # write
+```

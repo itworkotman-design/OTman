@@ -1,14 +1,16 @@
 import { DELIVERY_TYPES } from "@/lib/booking/constants";
-import { roundToNearest5, type WhiteGoodsProductSeed } from "@/lib/content/whiteGoodsElectronics";
+import { roundToNearest5, websiteSeedCustomerPrice, type WhiteGoodsProductSeed } from "@/lib/content/whiteGoodsElectronics";
 
 // "Installation only" is still a trip to the customer: one flat price for
-// every product, deliberately not rounded to 5 kr. The subcontractor share
+// every product: 608 kr (760 incl. VAT), kept just under doorstep delivery's
+// 616 so doorstep keeps winning the full-price slot. The subcontractor share
 // follows the doorstep delivery's (402.48 → 400). Editable per product in
 // Booking → Edit prices after seeding.
-export const INSTALL_ONLY_VISIT_PRICE = { customerPrice: 609, subcontractorPrice: 400 };
+export const INSTALL_ONLY_VISIT_PRICE = { customerPrice: 608, subcontractorPrice: 400 };
 
 // The Product.deliveryTypes JSON a website catalog product is seeded with
-// (prices rounded to 5 kr). Pure — no database — so tests can build the same
+// (customer prices raised to a multiple of 8 kr so they end in 0 incl. VAT —
+// see websiteCleanPrice.ts — partner prices rounded to 5 kr). Pure — no database — so tests can build the same
 // catalog product the seed writes.
 export function buildDeliveryTypesJson(product: Pick<WhiteGoodsProductSeed, "deliveryTypes">) {
   const { firstStep, indoor, installOnlyEnabled, indoorEnabled = true } = product.deliveryTypes;
@@ -19,9 +21,9 @@ export function buildDeliveryTypesJson(product: Pick<WhiteGoodsProductSeed, "del
       enabled: true,
       code: "FIRST_STEP",
       label: "Delivery to doorstep",
-      price: String(roundToNearest5(firstStep.customerPrice)),
+      price: String(websiteSeedCustomerPrice(firstStep.customerPrice)),
       subcontractorPrice: String(roundToNearest5(firstStep.subcontractorPrice)),
-      xtraPrice: String(roundToNearest5(firstStep.xtraPrice)),
+      xtraPrice: String(websiteSeedCustomerPrice(firstStep.xtraPrice)),
       xtraSubcontractorPrice: String(roundToNearest5(firstStep.xtraSubcontractorPrice)),
       allowInstallOptions: true,
       allowExtraServices: true,
@@ -33,9 +35,9 @@ export function buildDeliveryTypesJson(product: Pick<WhiteGoodsProductSeed, "del
       enabled: indoorEnabled,
       code: "INDOOR",
       label: "Delivery with carry-in",
-      price: String(roundToNearest5(indoor.customerPrice)),
+      price: String(websiteSeedCustomerPrice(indoor.customerPrice)),
       subcontractorPrice: String(roundToNearest5(indoor.subcontractorPrice)),
-      xtraPrice: String(roundToNearest5(indoor.xtraPrice)),
+      xtraPrice: String(websiteSeedCustomerPrice(indoor.xtraPrice)),
       xtraSubcontractorPrice: String(roundToNearest5(indoor.xtraSubcontractorPrice)),
       allowInstallOptions: true,
       allowExtraServices: true,

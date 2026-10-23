@@ -60,7 +60,7 @@ describe("seedWebsiteCatalog — staff-priced options", () => {
   it("refreshes ordinary option prices from the seed on reseed (spreadsheet-sourced catalogs)", async () => {
     await seedWebsiteCatalog({ priceListCode: "WEBSITE_FURNITURE", priceListName: "Furniture", products: [product] });
 
-    expect(priceItemUpdateFor("UNPACKING").update).toEqual({ customerPriceCents: 10000, subcontractorPriceCents: 5000 });
+    expect(priceItemUpdateFor("UNPACKING").update).toEqual({ customerPriceCents: 10400, subcontractorPriceCents: 5000 });
   });
 
   it("never overwrites a staffPriced option's price on reseed, but still creates it with the placeholder", async () => {

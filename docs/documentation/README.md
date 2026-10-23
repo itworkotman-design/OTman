@@ -258,6 +258,7 @@ Each documentation file should include:
 - [Lib: attachment categories](./lib/attachment-categories.md)
 - [Lib: attachment draft](./lib/attachment-draft.md)
 - [Lib: website VAT](./lib/website-vat.md)
+- [Lib: website clean price](./lib/website-clean-price.md)
 - [Lib: website order ex-VAT conversion](./lib/website-order-ex-vat-conversion.md)
 - [Lib: moving order pricing](./lib/moving-order-pricing.md)
 - [Lib: catalog](./lib/catalog.md)

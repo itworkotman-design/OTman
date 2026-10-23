@@ -12,19 +12,19 @@ import {
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 
 // "Kun montering" is still a trip out to the customer, with its own price
-// (seeded as a flat 609 kr). It competes with the delivered items for
+// (seeded as a flat 608 kr, 760 incl. VAT). It competes with the delivered items for
 // the order's one full-price slot (highest price wins, ties go to the earlier
 // card): as the full-price card it pays its price, as an extra card it's free.
 
 const bed = catalogProductFromSeed("FN_BED");
 const products = [bed];
-// Install-only is seeded at a flat 609 kr (subcontractor 400).
-const INSTALL_ONLY_PRICE = 609;
+// Install-only is seeded at a flat 608 kr (subcontractor 400).
+const INSTALL_ONLY_PRICE = 608;
 const INSTALL_ONLY_SUB_PRICE = 400;
-// FN_BED: doorstep 608.88 → 610 kr (155 as an extra card), carry-in 690 kr.
-const DOORSTEP_PRICE = 610;
-const DOORSTEP_XTRA_PRICE = 155;
-const INDOOR_PRICE = 690;
+// FN_BED: doorstep 608.88 → 616 kr (160 as an extra card), carry-in 696 kr.
+const DOORSTEP_PRICE = 616;
+const DOORSTEP_XTRA_PRICE = 160;
+const INDOOR_PRICE = 696;
 // A bed whose doorstep price is below install-only's, so install-only wins.
 const cheapDoorstepBed: CatalogProduct = {
   ...bed,
@@ -63,7 +63,7 @@ describe("install-only pricing (installOnlyVisitPricing)", () => {
 
   it("keeps install-only free when a delivered card is the full-price card", () => {
     expect(priced([card(1, "INDOOR"), card(2, "INSTALL_ONLY")]).totals.subtotalExVat).toBe(INDOOR_PRICE);
-    // Doorstep (610) also outprices install-only (609).
+    // Doorstep (616) also outprices install-only (608).
     expect(priced([card(1, "INSTALL_ONLY"), card(2, "FIRST_STEP")]).totals.subtotalExVat).toBe(DOORSTEP_PRICE);
   });
 

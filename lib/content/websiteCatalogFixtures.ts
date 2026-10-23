@@ -2,10 +2,10 @@ import type { CatalogProduct } from "@/app/_components/Dahsboard/booking/create/
 import { createDefaultProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 import { buildDeliveryTypesJson } from "@/lib/content/websiteDeliveryTypes";
 import { findWebsiteProductSeed } from "@/lib/content/websiteCatalogs";
-import { roundToNearest5 } from "@/lib/content/whiteGoodsElectronics";
+import { roundToNearest5, websiteSeedCustomerPrice } from "@/lib/content/whiteGoodsElectronics";
 
 // Test helper: builds the CatalogProduct the website catalog API would return
-// for a seeded product (5 kr-rounded prices, ids = option codes), so pricing
+// for a seeded product (prices as the seed stores them, ids = option codes), so pricing
 // tests run against the real seed data without a database.
 export function catalogProductFromSeed(productCode: string): CatalogProduct {
   const seed = findWebsiteProductSeed(productCode);
@@ -31,7 +31,7 @@ export function catalogProductFromSeed(productCode: string): CatalogProduct {
     deliveryTypes: buildDeliveryTypesJson(seed) as CatalogProduct["deliveryTypes"],
     customSections: [],
     options: seed.options.map((option) => {
-      const price = String(roundToNearest5(option.customerPrice));
+      const price = String(websiteSeedCustomerPrice(option.customerPrice));
       return {
         id: option.code,
         code: option.code,

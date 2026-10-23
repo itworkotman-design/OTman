@@ -34,11 +34,11 @@ describe("groupAssemblyOptions", () => {
       "Other manufacturer",
     ]);
     expect(single.options[0].option.id).toBe("ASM_SGL_BED_IKEA");
-    expect(single.options[0].option.customerPrice).toBe("850");
+    expect(single.options[0].option.customerPrice).toBe("856");
   });
 
   it("gives each type a 'from' price — its cheapest manufacturer", () => {
-    expect(groups[0].fromPrice).toBe(850);
+    expect(groups[0].fromPrice).toBe(856);
   });
 
   it("uses Norwegian labels for the type and manufacturer in no", () => {
@@ -84,7 +84,7 @@ describe("groupDismantlingOptions", () => {
     expect(single.disposal?.id).toBe("DISMANTLE_DISP_SGL_BED");
     expect(single.careful?.id).toBe("DISMANTLE_CAR_SGL_BED");
     expect(single.disposal?.customerPrice).toBe("400");
-    expect(single.careful?.customerPrice).toBe("650");
+    expect(single.careful?.customerPrice).toBe("656");
   });
 
   it("returns nothing for a product without dismantling, e.g. a chair", () => {

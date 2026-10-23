@@ -3,11 +3,15 @@
 ## Purpose
 Sticky per-step order summary card shown alongside each product-list's
 "options" step in `WhiteGoodsBookingFlow` — per-product line items (from
-`orderSummaryLines.ts`'s sort order) plus a headline total. The total line
-shows whichever of ex-VAT/incl-VAT `websiteCustomerTotalDisplay`
-(`lib/booking/pricing/websiteVat.ts`) picks as primary. It takes `totalExVat` and `totalIncVat`; every line is shown as `websiteCustomerPrice` (private: incl. VAT, rounded per line), and a product's total is the sum of its shown lines (per the
+`orderSummaryLines.ts`'s sort order) plus a VAT breakdown and a headline total.
+The headline total is whichever of ex-VAT/incl-VAT `websiteCustomerTotalDisplay`
+(`lib/booking/pricing/websiteVat.ts`) picks as primary, labelled "Totalt inkl. mva"
+or "Totalt eks. mva". It takes `totalExVat` and `totalIncVat`; every line is shown as `websiteCustomerPrice` (private: incl. VAT, rounded per line), and a product's total is the sum of its shown lines (per the
 Privat/Bedrift answer from `CustomerTypeStep`, the flow's first step — see
-`customer-type-step.md`), with the other shown smaller underneath.
+`customer-type-step.md`). Above the total, small rows from `websiteVatBreakdown`
+make the VAT visible: private shows "Delsum (eks. mva)" + "MVA (25%)" above
+the incl. VAT total; business shows "MVA (25%)" + "Totalt inkl. mva" above
+the ex. VAT total.
 Individual line-item prices are always ex-VAT, unaffected by that choice
 (by design — see `docs/homepage-ordering-roadmap.md` §2).
 

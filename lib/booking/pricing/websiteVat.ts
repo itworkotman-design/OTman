@@ -48,6 +48,17 @@ export function websiteCustomerTotals(result: PricedResult): { totalExVat: numbe
   return { totalExVat, totalIncVat, vat: Math.round((totalIncVat - totalExVat) * 100) / 100 };
 }
 
+// The totals as VAT rows (ex. VAT + VAT = incl. VAT) for the order summary.
+// The incl. VAT total is summed per rounded line, so the VAT is the difference.
+export function websiteVatBreakdown(params: { totalExVat: number; totalIncVat: number }): {
+  exVat: number;
+  vat: number;
+  incVat: number;
+} {
+  const vat = Math.round((params.totalIncVat - params.totalExVat) * 100) / 100;
+  return { exVat: params.totalExVat, vat, incVat: params.totalIncVat };
+}
+
 // Which total leads for this customer, and the other one under it.
 export function websiteCustomerTotalDisplay(params: {
   totalExVat: number;

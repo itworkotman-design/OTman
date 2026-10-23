@@ -94,7 +94,7 @@ describe("seedParcelPalletCatalog", () => {
     await seedParcelPalletCatalog();
 
     const update = (code: string) => mocks.productUpsert.mock.calls.find(([arg]) => arg.create.code === code)![0].update;
-    expect(update("PKG_PALL").deliveryTypes.find((t: { key: string }) => t.key === "FIRST_STEP")).toMatchObject({ price: "775" });
+    expect(update("PKG_PALL").deliveryTypes.find((t: { key: string }) => t.key === "FIRST_STEP")).toMatchObject({ price: "776" });
     expect(update("PKG_PALL").deliveryTypes.find((t: { key: string }) => t.key === "INDOOR").enabled).toBe(false);
     expect(update("PKG_ESKER").deliveryTypes.find((t: { key: string }) => t.key === "FIRST_STEP")).toMatchObject({ price: "650" });
   });
@@ -106,7 +106,7 @@ describe("seedParcelPalletCatalog", () => {
     await seedParcelPalletCatalog();
 
     const updates = mocks.priceListItemUpsert.mock.calls.map(([arg]) => arg.update);
-    expect(updates[0]).toEqual({ customerPriceCents: 10500, subcontractorPriceCents: 5000 });
+    expect(updates[0]).toEqual({ customerPriceCents: 11200, subcontractorPriceCents: 5000 });
     expect(updates.slice(1).every((u) => JSON.stringify(u) === "{}")).toBe(true);
   });
 

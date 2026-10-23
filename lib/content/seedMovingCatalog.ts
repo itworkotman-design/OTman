@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { parsePriceSetting } from "@/lib/booking/pricing/orderCalculatorExtras";
-import { roundToNearest5, WHITE_GOODS_ORDER_LEVEL_EXTRAS } from "@/lib/content/whiteGoodsElectronics";
+import { roundToNearest5, websiteSeedCustomerPrice, WHITE_GOODS_ORDER_LEVEL_EXTRAS } from "@/lib/content/whiteGoodsElectronics";
 import { parsePriceListSettings, serializePriceListSettings } from "@/lib/products/priceListSettings";
 import {
   MOVING_CARRY_SURCHARGE_OPTIONS,
@@ -84,7 +84,7 @@ export async function seedMovingCatalog() {
 // The per-km rates (KM_FROM_21/KM_OVER_100), express delivery and the
 // deviation fees live in the price list's own settings, like every price
 // list's, copied from the website white-goods list: the km rates and express
-// from its order-level extras (express rounded to 5 kr, as seedWebsiteCatalog
+// from its order-level extras (express priced as seedWebsiteCatalog
 // stores it), each deviation fee from DEVIATION_FEE_OPTIONS (what
 // parsePriceListSettings defaults a list without them to — stored here so the
 // moving list holds them like the others). Staff change them for moving in
@@ -103,7 +103,7 @@ async function seedPriceListSettings(priceList: { id: string; description?: stri
     settings.expressDelivery = {
       code: seed.code,
       description: "Express delivery under 24h",
-      price: String(roundToNearest5(seed.customerPrice)),
+      price: String(websiteSeedCustomerPrice(seed.customerPrice)),
       subcontractorPrice: String(roundToNearest5(seed.subcontractorPrice)),
     };
   }

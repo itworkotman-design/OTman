@@ -5,7 +5,12 @@ import type { Locale } from "@/lib/content/ServiceWindowContent";
 import type { WhiteGoodsLineCategory } from "@/lib/content/whiteGoodsLineCategory";
 import { ProductIcon } from "./productIcons";
 import { HoverTip } from "./InfoHint";
-import { websiteCustomerPrice, websiteCustomerTotalDisplay, type CustomerType } from "@/lib/booking/pricing/websiteVat";
+import {
+  websiteCustomerPrice,
+  websiteCustomerTotalDisplay,
+  websiteVatBreakdown,
+  type CustomerType,
+} from "@/lib/booking/pricing/websiteVat";
 
 export type OrderSummaryLine = {
   label: string;
@@ -78,8 +83,9 @@ export function WhiteGoodsOrderSummary({
   // Every price is stored ex. VAT; a private customer sees each line incl.
   // VAT (rounded per line), and a product's total is the sum of its lines.
   const shown = (amountExVat: number) => websiteCustomerPrice(amountExVat, customerType);
-  const secondaryLabel =
-    vatDisplay.primary === "incVat" ? t("ex. VAT", "eks. mva") : t("incl. VAT", "inkl. mva");
+  const vatBreakdown = websiteVatBreakdown({ totalExVat, totalIncVat });
+  const primaryLabel =
+    vatDisplay.primary === "incVat" ? t("Total incl. VAT", "Totalt inkl. mva") : t("Total ex. VAT", "Totalt eks. mva");
 
   return (
     <div className="rounded-2xl border border-black/10 bg-white p-6">
@@ -179,28 +185,40 @@ export function WhiteGoodsOrderSummary({
       {totalFooter ? (
         <div className="mt-4 border-t border-black/10 pt-4">{totalFooter}</div>
       ) : (
-        <>
-          <div className="mt-4 border-t border-black/10 pt-3">
-            {/* The price note shows while the total row is hovered (HoverTip). */}
-            <div className="group/tip relative flex items-center justify-between">
-              <span className="text-base font-semibold text-logoblue">{t("Total", "Totalt")}</span>
-              {!hideProductHints && (
-                <HoverTip
-                  label={t(
-                    "The final price may vary based on your address and any additional items.",
-                    "Den endelige prisen kan variere basert på adressen din og eventuelle tilleggsvalg.",
-                  )}
-                />
-              )}
-              <span className="text-lg font-semibold text-logoblue">{formatKr(vatDisplay.primaryAmount)}</span>
+        <div className="mt-4 flex flex-col gap-1 border-t border-black/10 pt-3 text-sm text-black/60">
+          {/* The VAT rows, so a private customer sees the price includes VAT.
+              A business customer's lead total is the ex. VAT one, so its
+              subtotal row would just repeat it. */}
+          {vatDisplay.primary === "incVat" && (
+            <div className="flex justify-between">
+              <span>{t("Subtotal (ex. VAT)", "Delsum (eks. mva)")}</span>
+              <span className="tabular-nums">{formatKr(vatBreakdown.exVat)}</span>
             </div>
-            <div className="mt-0.5 flex items-center justify-end">
-              <span className="text-xs text-black/45">
-                {formatKr(vatDisplay.secondaryAmount)} {secondaryLabel}
-              </span>
-            </div>
+          )}
+          <div className="flex justify-between">
+            <span>{t("VAT (25%)", "MVA (25%)")}</span>
+            <span className="tabular-nums">{formatKr(vatBreakdown.vat)}</span>
           </div>
-        </>
+          {vatDisplay.primary === "exVat" && (
+            <div className="flex justify-between">
+              <span>{t("Total incl. VAT", "Totalt inkl. mva")}</span>
+              <span className="tabular-nums">{formatKr(vatBreakdown.incVat)}</span>
+            </div>
+          )}
+          {/* The price note shows while the total row is hovered (HoverTip). */}
+          <div className="group/tip relative mt-1 flex items-center justify-between">
+            <span className="text-base font-semibold text-logoblue">{primaryLabel}</span>
+            {!hideProductHints && (
+              <HoverTip
+                label={t(
+                  "The final price may vary based on your address and any additional items.",
+                  "Den endelige prisen kan variere basert på adressen din og eventuelle tilleggsvalg.",
+                )}
+              />
+            )}
+            <span className="text-lg font-semibold tabular-nums text-logoblue">{formatKr(vatDisplay.primaryAmount)}</span>
+          </div>
+        </div>
       )}
     </div>
   );

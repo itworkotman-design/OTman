@@ -46,14 +46,14 @@ describe("isAssemblyCompatibleExtraCode", () => {
 describe("applyWebsiteAssemblyExtras", () => {
   it("shows the gap it fills: the shared pricing alone leaves dismantling unpriced next to assembly", () => {
     const card = assembledBed(["DISMANTLE_DISP_SGL_BED"]);
-    // 690 carry-in + 850 assembly, dismantling (400) silently dropped.
-    expect(price([card], [bed], false)).toBe(1540);
+    // 696 carry-in + 856 assembly, dismantling (400) silently dropped.
+    expect(price([card], [bed], false)).toBe(1552);
   });
 
   it("prices dismantling + wall anchoring on top of delivery + assembly", () => {
     const card = assembledBed(["DISMANTLE_DISP_SGL_BED", "WALL_ANCHORING"]);
-    // 690 + 850 + 400 + 465 (463.368 rounded to 5)
-    expect(price([card])).toBe(2405);
+    // 696 + 856 + 400 + 472 (463.368 → 465 → raised to a multiple of 8)
+    expect(price([card])).toBe(2424);
   });
 
   it("scales the extras with the quantity", () => {
@@ -71,11 +71,11 @@ describe("applyWebsiteAssemblyExtras", () => {
       selectedExtraOptionIds: ["DISMANTLE_DISP_SGL_BED"],
     };
     expect(price([card])).toBe(price([card], [bed], false));
-    expect(price([card])).toBe(690 + 400);
+    expect(price([card])).toBe(696 + 400);
   });
 
   it("does not resurrect unpacking that the shared pricing drops under assembly (it's included)", () => {
-    expect(price([assembledBed(["UNPACKING"])])).toBe(1540);
+    expect(price([assembledBed(["UNPACKING"])])).toBe(1552);
   });
 
   it("never changes white goods: extras stay dropped under installation", () => {

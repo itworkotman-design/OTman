@@ -5,6 +5,7 @@ import {
 } from "@/lib/products/priceListSettings";
 import {
   roundToNearest5,
+  websiteSeedCustomerPrice,
   WHITE_GOODS_ORDER_LEVEL_EXTRAS,
   type WhiteGoodsProductSeed,
 } from "@/lib/content/whiteGoodsElectronics";
@@ -21,7 +22,7 @@ function buildPriceListSettings(deliveryOnly: boolean) {
   ) => ({
     code: extra.code,
     description,
-    price: String(roundToNearest5(extra.customerPrice)),
+    price: String(websiteSeedCustomerPrice(extra.customerPrice)),
     subcontractorPrice: String(roundToNearest5(extra.subcontractorPrice)),
   });
 
@@ -158,7 +159,7 @@ export async function seedWebsiteCatalog({
       });
 
       const prices = {
-        customerPriceCents: Math.round(roundToNearest5(optionSeed.customerPrice) * 100),
+        customerPriceCents: Math.round(websiteSeedCustomerPrice(optionSeed.customerPrice) * 100),
         subcontractorPriceCents: Math.round(roundToNearest5(optionSeed.subcontractorPrice) * 100),
       };
 

@@ -46,8 +46,8 @@ describe("seedFurnitureCatalog", () => {
     expect(call.where.code).toBe("WEBSITE_FURNITURE");
     expect(call.create.code).toBe("WEBSITE_FURNITURE");
     const settings = parsePriceListSettings(call.create.description);
-    expect(settings.expressDelivery.price).toBe("515");
-    expect(settings.floorSurcharge.price).toBe("70");
+    expect(settings.expressDelivery.price).toBe("520");
+    expect(settings.floorSurcharge.price).toBe("72");
     expect(result.priceListId).toBe("pl-furniture");
   });
 
@@ -63,25 +63,25 @@ describe("seedFurnitureCatalog", () => {
     ).toBe(true);
   });
 
-  it("rounds prices to 5 kr like the white-goods seed, so delivery + assembly still adds up", async () => {
+  it("cleans customer prices like the white-goods seed, so delivery + assembly still ends in 0 incl. VAT", async () => {
     await seedFurnitureCatalog();
 
-    expect(deliveryType("FN_BED", "FIRST_STEP")).toMatchObject({ price: "610", xtraPrice: "155" });
-    expect(deliveryType("FN_BED", "INDOOR")).toMatchObject({ price: "690", xtraPrice: "235" });
+    expect(deliveryType("FN_BED", "FIRST_STEP")).toMatchObject({ price: "616", xtraPrice: "160" });
+    expect(deliveryType("FN_BED", "INDOOR")).toMatchObject({ price: "696", xtraPrice: "240" });
 
     const assembly = mocks.priceListItemUpsert.mock.calls
       .map(([arg]) => arg)
-      .find((arg) => arg.create.customerPriceCents === 85000);
+      .find((arg) => arg.create.customerPriceCents === 85600);
     expect(assembly).toBeDefined();
-    // 690 (carry-in) + 850 (assembly) = 1540, the source's 1540.408 rounded.
-    expect(690 + 850).toBe(1540);
+    // 696 (carry-in) + 856 (assembly) = 1552 ex. VAT = 1940 incl. VAT.
+    expect((696 + 856) * 1.25).toBe(1940);
   });
 
   it("gives heavy products the Side-by-Side delivery price and no extra-item discount", async () => {
     await seedFurnitureCatalog();
 
-    expect(deliveryType("FN_SOFA", "FIRST_STEP")).toMatchObject({ price: "1030", xtraPrice: "1030" });
-    expect(deliveryType("FN_SOFA", "INDOOR")).toMatchObject({ price: "1340", xtraPrice: "1340" });
+    expect(deliveryType("FN_SOFA", "FIRST_STEP")).toMatchObject({ price: "1032", xtraPrice: "1032" });
+    expect(deliveryType("FN_SOFA", "INDOOR")).toMatchObject({ price: "1344", xtraPrice: "1344" });
   });
 
   it("enables assembly-only exactly where the product has assembly options", async () => {

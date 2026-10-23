@@ -57,19 +57,19 @@ const card = (cardId: number, productId: string, patch: Partial<SavedProductCard
 
 describe("an order mixing white goods and furniture", () => {
   it("prices each product from its own list", () => {
-    expect(total([card(0, "WG_DISHWASHER", { deliveryType: "FIRST_STEP" })])).toBe(610);
-    expect(total([card(0, "FN_BED", { deliveryType: "FIRST_STEP" })])).toBe(610);
-    expect(total([card(0, "FN_SOFA", { deliveryType: "FIRST_STEP" })])).toBe(1030);
+    expect(total([card(0, "WG_DISHWASHER", { deliveryType: "FIRST_STEP" })])).toBe(616);
+    expect(total([card(0, "FN_BED", { deliveryType: "FIRST_STEP" })])).toBe(616);
+    expect(total([card(0, "FN_SOFA", { deliveryType: "FIRST_STEP" })])).toBe(1032);
   });
 
   it("gives the most expensive delivery across BOTH lists full price and the other the reduced extra rate", () => {
-    // Sofa (heavy, 1030) stays full; the dishwasher drops to its 155 kr extra rate.
+    // Sofa (heavy, 1032) stays full; the dishwasher drops to its 160 kr extra rate.
     expect(
       total([
         card(0, "WG_DISHWASHER", { deliveryType: "FIRST_STEP" }),
         card(1, "FN_SOFA", { deliveryType: "FIRST_STEP" }),
       ]),
-    ).toBe(1030 + 155);
+    ).toBe(1032 + 160);
   });
 
   it("does not discount extra heavy units, but does discount a normal product next to them", () => {
@@ -78,12 +78,12 @@ describe("an order mixing white goods and furniture", () => {
         card(0, "WG_DISHWASHER", { deliveryType: "FIRST_STEP" }),
         card(1, "FN_SOFA", { deliveryType: "FIRST_STEP", amount: 2 }),
       ]),
-    ).toBe(1030 + 1030 + 155);
+    ).toBe(1032 + 1032 + 160);
   });
 
   it("adds furniture assembly plus dismantling on top of carry-in, next to a white-goods delivery", () => {
-    // Bed carry-in 690 is the order's dearest delivery, so the dishwasher pays 155.
-    // Bed: 690 + IKEA single-bed assembly 850 + dismantling for disposal 400.
+    // Bed carry-in 696 is the order's dearest delivery, so the dishwasher pays 160.
+    // Bed: 696 + IKEA single-bed assembly 856 + dismantling for disposal 400.
     expect(
       total([
         card(0, "WG_DISHWASHER", { deliveryType: "FIRST_STEP" }),
@@ -93,6 +93,6 @@ describe("an order mixing white goods and furniture", () => {
           selectedExtraOptionIds: ["DISMANTLE_DISP_SGL_BED"],
         }),
       ]),
-    ).toBe(155 + 690 + 850 + 400);
+    ).toBe(160 + 696 + 856 + 400);
   });
 });

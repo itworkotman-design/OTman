@@ -31,7 +31,7 @@ import {
   MOVING_SERVICE_OPTIONS,
   MOVING_SIZE_OPTIONS,
 } from "./movingCatalog";
-import { roundToNearest5, WHITE_GOODS_ORDER_LEVEL_EXTRAS } from "./whiteGoodsElectronics";
+import { roundToNearest5, websiteSeedCustomerPrice, WHITE_GOODS_ORDER_LEVEL_EXTRAS } from "./whiteGoodsElectronics";
 import { DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
 import { createDefaultPriceListSettings, parsePriceListSettings, serializePriceListSettings } from "@/lib/products/priceListSettings";
 
@@ -322,7 +322,7 @@ describe("seedMovingCatalog — per-km rates", () => {
     const settings = parsePriceListSettings(mocks.priceListUpdate.mock.calls[0][0].data.description);
     expect(settings.expressDelivery).toMatchObject({
       code: WHITE_GOODS_ORDER_LEVEL_EXTRAS.expressDelivery.code,
-      price: String(roundToNearest5(WHITE_GOODS_ORDER_LEVEL_EXTRAS.expressDelivery.customerPrice)),
+      price: String(websiteSeedCustomerPrice(WHITE_GOODS_ORDER_LEVEL_EXTRAS.expressDelivery.customerPrice)),
       subcontractorPrice: String(roundToNearest5(WHITE_GOODS_ORDER_LEVEL_EXTRAS.expressDelivery.subcontractorPrice)),
     });
   });

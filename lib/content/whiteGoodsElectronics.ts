@@ -20,9 +20,20 @@
 // alongside purely so a test can verify that identity against the source numbers,
 // catching transcription mistakes — it is not itself persisted anywhere.
 
+import { cleanWebsiteExVatPrice } from "@/lib/booking/pricing/websiteCleanPrice";
+
 /** Website prices are seeded in steps of 5 kr (halves round up). */
 export function roundToNearest5(value: number): number {
   return Math.round(value / 5) * 5;
+}
+
+/**
+ * A customer price: rounded to 5 kr like partner prices, then raised to a
+ * multiple of 8 so it ends in 0 incl. VAT (websiteCleanPrice.ts) — the same
+ * number scripts/clean-website-prices.ts gives an already-stored 5 kr price.
+ */
+export function websiteSeedCustomerPrice(value: number): number {
+  return cleanWebsiteExVatPrice(roundToNearest5(value));
 }
 
 export type Money = {

@@ -4,6 +4,7 @@ import {
   websiteCustomerTotalDisplay,
   websiteCustomerTotals,
   websiteInclVat,
+  websiteVatBreakdown,
 } from "./websiteVat";
 
 // Website price lists hold prices ex. VAT (like the booking app). A private
@@ -62,5 +63,21 @@ describe("websiteCustomerTotalDisplay", () => {
       primaryAmount: 572,
       secondaryAmount: 715,
     });
+  });
+});
+
+// The live order-summary card's VAT rows: ex. VAT, the VAT, incl. VAT — the
+// incl. VAT total is the per-line-rounded one, so the VAT is the difference.
+describe("websiteVatBreakdown", () => {
+  it("splits the totals into ex. VAT, VAT and incl. VAT", () => {
+    expect(websiteVatBreakdown({ totalExVat: 1000, totalIncVat: 1250 })).toEqual({ exVat: 1000, vat: 250, incVat: 1250 });
+  });
+
+  it("takes the VAT as the difference, rounded to øre", () => {
+    expect(websiteVatBreakdown({ totalExVat: 364.4, totalIncVat: 456 })).toEqual({ exVat: 364.4, vat: 91.6, incVat: 456 });
+  });
+
+  it("is all zero for an empty order", () => {
+    expect(websiteVatBreakdown({ totalExVat: 0, totalIncVat: 0 })).toEqual({ exVat: 0, vat: 0, incVat: 0 });
   });
 });
