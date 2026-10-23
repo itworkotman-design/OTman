@@ -25,3 +25,14 @@ owned here — there's no toggle to change it from this component anymore
 vary" note, rendered inside the same card below a divider. The review page
 (the modal's final step) passes its subtotal/VAT rows and the highlighted
 "Total incl. VAT" box, so products and the final price read as one card.
+
+On large screens (`lg:`) the product lines and order extras sit in their own
+scroll area, capped at `max(10rem, 92vh - 22rem)` (the modal's height minus
+its header/padding and this card's title + totals). A long order scrolls
+inside the card, and the title and total stay in view next to the steps
+instead of being pushed below the modal's fold. Smaller screens are not
+capped: there the card sits under the steps and the page scrolls normally.
+The scroll area extends into the card's right padding (`lg:-mr-6`) so the
+scrollbar sits in that white space, not over the prices; the rows inside are
+held at the card's content width (`lg:w-[100cqw]`, the card being an
+`@container`), so the layout looks the same with or without a scrollbar.

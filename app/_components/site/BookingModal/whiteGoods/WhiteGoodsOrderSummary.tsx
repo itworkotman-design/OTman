@@ -88,9 +88,19 @@ export function WhiteGoodsOrderSummary({
     vatDisplay.primary === "incVat" ? t("Total incl. VAT", "Totalt inkl. mva") : t("Total ex. VAT", "Totalt eks. mva");
 
   return (
-    <div className="rounded-2xl border border-black/10 bg-white p-6">
+    <div className="@container rounded-2xl border border-black/10 bg-white p-6">
       <h3 className="flex items-center gap-2 text-lg font-semibold text-logoblue">{t("Order summary", "Ordreoppsummering")}</h3>
 
+      {/* On large screens the card sits sticky beside the steps; a long order
+          would push the total below the modal's fold, so the lines scroll
+          inside the card and the title + total stay in view. The cap is the
+          modal's 92vh minus its header/padding and this card's own chrome.
+          The scroll area reaches into the card's right padding (-mr-6) so the
+          scrollbar sits in that white space, while the rows keep the card's
+          content width (100cqw of the @container card) and the prices stay
+          put, whatever the browser's scrollbar width. */}
+      <div className="lg:-mr-6 lg:max-h-[max(10rem,calc(92vh-22rem))] lg:overflow-y-auto">
+      <div className="lg:w-[100cqw]">
       {products.length === 0 ? (
         !hideProductHints && (
           <p className="mt-3 text-sm text-black/50">{t("Choose a product to see pricing here.", "Velg et produkt for å se pris her.")}</p>
@@ -181,6 +191,8 @@ export function WhiteGoodsOrderSummary({
           </div>
         </div>
       )}
+      </div>
+      </div>
 
       {totalFooter ? (
         <div className="mt-4 border-t border-black/10 pt-4">{totalFooter}</div>
