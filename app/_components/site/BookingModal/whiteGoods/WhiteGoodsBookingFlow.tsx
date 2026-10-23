@@ -630,7 +630,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     setProductCards((cards) => cards.map((c) => (c.cardId === cardId ? next : c)));
   }
   function setProductQuantity(productId: string, amount: number) {
-    setProductCards((cards) => applyProductQuantity(cards, productId, amount, nextCardId(cards)));
+    const deliveryTypes = catalogProducts.find((p) => p.id === productId)?.deliveryTypes;
+    setProductCards((cards) => applyProductQuantity(cards, productId, amount, nextCardId(cards), deliveryTypes));
   }
   // Volume / weight for size-priced products (Other furniture), chosen in the
   // product tile itself.
@@ -647,7 +648,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   }
 
   function addAnotherCard(productId: string) {
-    setProductCards((cards) => addAnotherProductCard(cards, productId, nextCardId(cards)));
+    const deliveryTypes = catalogProducts.find((p) => p.id === productId)?.deliveryTypes;
+    setProductCards((cards) => addAnotherProductCard(cards, productId, nextCardId(cards), deliveryTypes));
   }
   function removeCard(cardId: number) {
     setProductCards((cards) => removeProductCard(cards, cardId));

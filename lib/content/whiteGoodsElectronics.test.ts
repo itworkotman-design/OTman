@@ -201,6 +201,20 @@ describe("WHITE_GOODS_ELECTRONICS_PRODUCTS", () => {
   });
 });
 
+describe("wine cooler", () => {
+  // Wine coolers are always integrated, so the size choice doesn't repeat
+  // "integrated"; the front panel is one add-on under either size.
+  it("labels the install sizes without 'integrated' and keeps one front-panel add-on", () => {
+    const wineCooler = WHITE_GOODS_ELECTRONICS_PRODUCTS.find((p) => p.code === "WG_WINE_COOLER");
+    const installs = wineCooler?.options.filter((o) => o.category === "install") ?? [];
+    expect(installs.map((o) => [o.code, o.labelNo, o.labelEn])).toEqual([
+      ["WINE_COOLER_SM_INT", "Montering av lite vinkjøleskap", "Install small wine cooler"],
+      ["WINE_COOLER_LG_INT", "Montering av stort vinkjøleskap", "Install large wine cooler"],
+      ["WINE_COOLER_INT_FP", "Montering av front", "Install front panel"],
+    ]);
+  });
+});
+
 describe("washer/dryer stacking", () => {
   function stackingOptions(code: string) {
     const product = WHITE_GOODS_ELECTRONICS_PRODUCTS.find((p) => p.code === code);

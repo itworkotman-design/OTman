@@ -3,6 +3,7 @@ import {
   type SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { DELIVERY_TYPES } from "@/lib/booking/constants";
+import { getProductDeliveryType, type ProductDeliveryType } from "@/lib/products/deliveryTypes";
 
 // New cards are inserted next to their product's other cards (see
 // addAnotherProductCard), so the last card is not necessarily the newest.
@@ -27,12 +28,28 @@ export function getProductQuantities(cards: SavedProductCard[]): Record<string, 
 // the order's "full price" delivery reference, so later products preview the
 // correct extra rate right away instead of only once their own delivery
 // buttons get clicked (see getAutomaticXtraDeliveryCardIds).
-function newProductCard(cardId: number, productId: string, amount: number): SavedProductCard {
+//
+// A card added after another starts with that card's delivery (doorstep or
+// carry-in) instead, so five products all carried in only need it picked
+// once. Not when the new product doesn't offer it (pallets: doorstep only),
+// and never installation only, which would leave the new product with no
+// installation picked.
+function newProductCard(
+  cardId: number,
+  productId: string,
+  amount: number,
+  previous: SavedProductCard | undefined,
+  deliveryTypes: ProductDeliveryType[] | undefined,
+): SavedProductCard {
+  const inherited = previous?.deliveryType;
+  const canInherit =
+    (inherited === DELIVERY_TYPES.FIRST_STEP || inherited === DELIVERY_TYPES.INDOOR) &&
+    (!deliveryTypes || !!getProductDeliveryType(deliveryTypes, inherited)?.enabled);
   return {
     ...createEmptyProductCard(cardId),
     productId,
     amount,
-    deliveryType: DELIVERY_TYPES.FIRST_STEP,
+    deliveryType: canInherit ? inherited : DELIVERY_TYPES.FIRST_STEP,
   };
 }
 
@@ -48,6 +65,7 @@ export function applyProductQuantity(
   productId: string,
   amount: number,
   newCardId: number,
+  deliveryTypes?: ProductDeliveryType[],
 ): SavedProductCard[] {
   const clamped = Math.max(0, amount);
   const own = cards.filter((card) => card.productId === productId);
@@ -56,7 +74,7 @@ export function applyProductQuantity(
     return own.length === 0 ? cards : cards.filter((card) => card.productId !== productId);
   }
 
-  if (own.length === 0) return [...cards, newProductCard(newCardId, productId, clamped)];
+  if (own.length === 0) return [...cards, newProductCard(newCardId, productId, clamped, cards.at(-1), deliveryTypes)];
 
   const current = own.reduce((sum, card) => sum + card.amount, 0);
   if (clamped === current) return cards;
@@ -80,17 +98,19 @@ export function applyProductQuantity(
 
 // "Add another": a second, independently configured card for a product already
 // on the order (e.g. a bed for disposal and another bed for reuse). It starts
-// blank — one unit, default delivery, no options — and sits right after that
-// product's last card so the cards stay grouped.
+// blank — one unit, the delivery of the card before it, no options — and sits
+// right after that product's last card so the cards stay grouped.
 export function addAnotherProductCard(
   cards: SavedProductCard[],
   productId: string,
   newCardId: number,
+  deliveryTypes?: ProductDeliveryType[],
 ): SavedProductCard[] {
   const lastIndex = cards.map((card) => card.productId).lastIndexOf(productId);
   if (lastIndex === -1) return cards;
 
-  return [...cards.slice(0, lastIndex + 1), newProductCard(newCardId, productId, 1), ...cards.slice(lastIndex + 1)];
+  const added = newProductCard(newCardId, productId, 1, cards[lastIndex], deliveryTypes);
+  return [...cards.slice(0, lastIndex + 1), added, ...cards.slice(lastIndex + 1)];
 }
 
 export function removeProductCard(cards: SavedProductCard[], cardId: number): SavedProductCard[] {

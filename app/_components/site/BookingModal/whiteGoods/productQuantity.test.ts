@@ -161,3 +161,56 @@ describe("applyProductQuantity", () => {
     expect(next).toEqual([]);
   });
 });
+
+describe("delivery type carried over to a newly added card", () => {
+  // The customer picks carry-in on the first product, then adds four more:
+  // each new card starts with carry-in too instead of doorstep.
+  const withDelivery = (cardId: number, productId: string, deliveryType: "FIRST_STEP" | "INDOOR" | "INSTALL_ONLY") => ({
+    ...card(cardId, productId),
+    deliveryType,
+  });
+  const offers = (...keys: string[]) =>
+    (["FIRST_STEP", "INDOOR", "INSTALL_ONLY"] as const).map((key) => ({
+      key,
+      enabled: keys.includes(key),
+      code: key,
+      label: key,
+      price: "0",
+      xtraPrice: "0",
+      allowInstallOptions: true,
+      allowExtraServices: true,
+      allowReturnOptions: true,
+      allowModelNumber: true,
+    }));
+
+  it("copies carry-in from the previous card to a new product", () => {
+    const next = applyProductQuantity([withDelivery(0, "dw", "INDOOR")], "wm", 1, 1, offers("FIRST_STEP", "INDOOR"));
+
+    expect(next[1]).toMatchObject({ productId: "wm", deliveryType: "INDOOR" });
+  });
+
+  it("copies from the card the new one is placed after, for each further product", () => {
+    let cards = applyProductQuantity([withDelivery(0, "dw", "INDOOR")], "wm", 1, 1, offers("FIRST_STEP", "INDOOR"));
+    cards = applyProductQuantity(cards, "td", 1, 2, offers("FIRST_STEP", "INDOOR"));
+
+    expect(cards.map((c) => c.deliveryType)).toEqual(["INDOOR", "INDOOR", "INDOOR"]);
+  });
+
+  it("copies the previous card's delivery for 'add another' of the same product", () => {
+    const next = addAnotherProductCard([withDelivery(0, "bed", "INDOOR"), withDelivery(1, "sofa", "FIRST_STEP")], "bed", 2, offers("FIRST_STEP", "INDOOR"));
+
+    expect(next[1]).toMatchObject({ cardId: 2, productId: "bed", deliveryType: "INDOOR" });
+  });
+
+  it("falls back to doorstep when the new product has no carry-in (pallet)", () => {
+    const next = applyProductQuantity([withDelivery(0, "dw", "INDOOR")], "pallet", 1, 1, offers("FIRST_STEP"));
+
+    expect(next[1].deliveryType).toBe("FIRST_STEP");
+  });
+
+  it("does not copy installation only, which would leave the new product with nothing picked to install", () => {
+    const next = applyProductQuantity([withDelivery(0, "wm", "INSTALL_ONLY")], "dw", 1, 1, offers("FIRST_STEP", "INDOOR", "INSTALL_ONLY"));
+
+    expect(next[1].deliveryType).toBe("FIRST_STEP");
+  });
+});
