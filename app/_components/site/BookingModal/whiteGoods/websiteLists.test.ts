@@ -73,6 +73,16 @@ describe("per-list card helpers", () => {
     expect(isListConfigured([sizedCard(["v1", "w1"])], sized)).toBe(false); // still no name for the item
     expect(isListConfigured([{ ...sizedCard(["v1", "w1"]), modelNumber: "Piano" }], sized)).toBe(true);
   });
+
+  it("isListConfigured also needs the company's name when assembly is for another manufacturer", () => {
+    const bed = [
+      { id: "bed", code: "FN_BED", options: [{ id: "other", code: "ASM_SGL_BED_OTHER", category: "install", active: true, customerPrice: "0" }] },
+    ] as unknown as CatalogProduct[];
+    const bedCard = { ...card(0, "bed", "INDOOR"), selectedInstallOptionIds: ["other"] } as SavedProductCard;
+
+    expect(isListConfigured([bedCard], bed)).toBe(false);
+    expect(isListConfigured([{ ...bedCard, modelNumber: "Hästens" }], bed)).toBe(true);
+  });
 });
 
 describe("list step readiness (a list emptied later must not collapse the order)", () => {

@@ -26,3 +26,4 @@ Only known seeded text is translated. A label staff have edited is shown as-is, 
 Used by the booking modal's order summary, the "My order" pages, and `orderChangeText` (the change lines in customer emails and "My order").
 
 - `localizeWebsiteLineLabelList(list, locale)` — a stored comma list of line labels (`deliveryTypeSummary`, `servicesSummary`) label by label, keeping an `xN` count. Used by the order-received email's details table.
+- An "— Other manufacturer" assembly line carrying a typed company ("Single bed — Hästens") is translated through the seeded "Single bed — Other manufacturer" label, and the company is kept as typed ("Enkeltseng — Hästens"). See [other-manufacturer.md](other-manufacturer.md).

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getWebsiteOrderCatalog } from "@/lib/content/websiteOrderCatalog";
 import type { MergedWebsiteCatalog } from "@/lib/content/mergeWebsiteCatalogs";
 import { findCardsWithSizeBracketProblems, findSizePricedCardsMissingName } from "@/lib/booking/pricing/sizeBrackets";
+import { findOtherManufacturerCardsMissingName } from "@/lib/booking/otherManufacturer";
 import { applyDimensionDerivedVolumeBrackets } from "@/lib/booking/pricing/sizeDimensions";
 import {
   applyOrderPricingSnapshot,
@@ -106,7 +107,11 @@ export async function recomputeWebsiteOrderPricing(
     throw new SizeBracketSelectionError();
   }
 
-  if (!options.allowIncomplete && findSizePricedCardsMissingName(submittedCards, catalog.products).length > 0) {
+  if (
+    !options.allowIncomplete &&
+    (findSizePricedCardsMissingName(submittedCards, catalog.products).length > 0 ||
+      findOtherManufacturerCardsMissingName(submittedCards, catalog.products).length > 0)
+  ) {
     throw new ItemNameRequiredError();
   }
 

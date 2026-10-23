@@ -28,6 +28,7 @@ import {
 import { computeLineKey } from "@/lib/booking/pricing/lineKey";
 import { shouldZeroBaseDeliveryPrice } from "@/lib/booking/pricing/fromProductCards";
 import { resolveSizeBracketCharge, splitSizeBracketOptionIds } from "@/lib/booking/pricing/sizeBrackets";
+import { otherManufacturerLabel } from "@/lib/booking/otherManufacturer";
 
 const PALLET_EXTRA_CODE = "PALLXTRAS1";
 const PALLET_EXTRA_LABEL = "Ekstra pall";
@@ -578,6 +579,18 @@ export function buildOrderItemsFromCards(
     if (product?.allowInstallOptions && product.productType === "PHYSICAL") {
       for (const optionId of card.selectedInstallOptionIds) {
       const option = product?.options.find((o) => o.id === optionId) ?? null;
+      // "— Other manufacturer" assembly is stored with the company the
+      // customer typed, in both the English label and the Norwegian
+      // description (what the archive summary and GSM task print).
+      const named = option
+        ? {
+            ...option,
+            label: otherManufacturerLabel(option.label, option.code, card.modelNumber),
+            description: option.description
+              ? otherManufacturerLabel(option.description, option.code, card.modelNumber)
+              : option.description,
+          }
+        : null;
 
       items.push({
         cardId: card.cardId,
@@ -588,7 +601,7 @@ export function buildOrderItemsFromCards(
         itemType: "INSTALL_OPTION",
         optionId,
         optionCode: option?.code ?? null,
-        optionLabel: option?.label ?? null,
+        optionLabel: named?.label ?? null,
         quantity: amount,
         customerPriceCents: option
           ? decimalStringToCents(getEffectiveCustomerPrice(option))
@@ -596,7 +609,7 @@ export function buildOrderItemsFromCards(
         subcontractorPriceCents: option
           ? decimalStringToCents(option.subcontractorPrice)
           : null,
-        rawData: option ?? undefined,
+        rawData: named ?? undefined,
       });
     }
     }

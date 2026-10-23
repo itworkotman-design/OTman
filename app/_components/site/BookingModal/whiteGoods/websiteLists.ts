@@ -1,6 +1,7 @@
 import type { CatalogProduct, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { findCardsWithSizeBracketProblems, findSizePricedCardsMissingName } from "@/lib/booking/pricing/sizeBrackets";
 import { findInstallOnlyCardsMissingInstall } from "@/lib/booking/installOnlyRequirement";
+import { findOtherManufacturerCardsMissingName } from "@/lib/booking/otherManufacturer";
 
 // A website price list the order flow can offer, as returned by the catalog
 // API's availableLists.
@@ -54,12 +55,14 @@ export function isListConfigured(cards: SavedProductCard[], listProducts: Catalo
   const own = cardsForList(cards, listProducts);
   // Size-priced products (Other furniture) also need their size and weight
   // chosen, and a name saying what the item is, before the step counts as done.
+  // Assembly for "another manufacturer" needs the company named.
   // An installation-only item needs its installation picked.
   return (
     own.length > 0 &&
     own.every((card) => !!card.productId && !!card.deliveryType) &&
     findCardsWithSizeBracketProblems(own, listProducts).length === 0 &&
     findSizePricedCardsMissingName(own, listProducts).length === 0 &&
+    findOtherManufacturerCardsMissingName(own, listProducts).length === 0 &&
     findInstallOnlyCardsMissingInstall(own, listProducts).length === 0
   );
 }

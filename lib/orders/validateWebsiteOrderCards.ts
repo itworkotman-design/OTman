@@ -9,6 +9,7 @@ import { applyDimensionDerivedVolumeBrackets } from "@/lib/booking/pricing/sizeD
 import { findInstallOnlyCardsMissingInstall } from "@/lib/booking/installOnlyRequirement";
 import { findCardsWithDisallowedInstallAddOns } from "@/lib/content/installAddOnRequirements";
 import { findCardsWithDisallowedExtraOptions } from "@/lib/content/extraOptionRequirements";
+import { cardHasOtherManufacturer, findOtherManufacturerCardsMissingName } from "@/lib/booking/otherManufacturer";
 import { validateTextField } from "./websiteOrderValidation";
 
 // The product-card rules every customer-made homepage order is held to — at
@@ -71,8 +72,12 @@ export function validateWebsiteOrderCards(
     const product = products.find((p) => p.id === card.productId);
     return !!product && isSizePricedProduct(product);
   };
-  if (cards.some((card) => sizePriced(card) && validateTextField(card.modelNumber))) return { ok: false, reason: "ITEM_NAME_REQUIRED" };
-  cards = cards.map((card) => (sizePriced(card) ? { ...card, modelNumber: card.modelNumber.trim() } : card));
+  // Assembly for "another manufacturer" names the company the same way, in
+  // the same field (otherManufacturer.ts).
+  if (findOtherManufacturerCardsMissingName(cards, products).length > 0) return { ok: false, reason: "ITEM_NAME_REQUIRED" };
+  const typedName = (card: SavedProductCard) => sizePriced(card) || cardHasOtherManufacturer(card, products);
+  if (cards.some((card) => typedName(card) && validateTextField(card.modelNumber))) return { ok: false, reason: "ITEM_NAME_REQUIRED" };
+  cards = cards.map((card) => (typedName(card) ? { ...card, modelNumber: card.modelNumber.trim() } : card));
 
   return { ok: true, cards };
 }

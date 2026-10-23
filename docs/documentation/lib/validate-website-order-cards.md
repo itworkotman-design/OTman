@@ -12,6 +12,7 @@ The product-card rules every customer-made homepage order must follow. Both the 
 - A size-priced product gets its volume bracket from the dimensions the customer entered, and must end up with exactly one volume bracket and one weight bracket.
 - An installation-only item must have an installation option chosen.
 - A size-priced item must have a plain-text name, which is stored trimmed.
+- An assembly for "another manufacturer" must name the company (in `modelNumber`), under the same rules. See [other-manufacturer.md](other-manufacturer.md).
 
 ## Functions
 

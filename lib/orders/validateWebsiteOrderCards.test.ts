@@ -30,6 +30,13 @@ const products = [
   },
   { id: "wm", code: "WM", label: "Washing machine", active: true, options: [] },
   {
+    id: "bed",
+    code: "FN_BED",
+    label: "Bed",
+    active: true,
+    options: [option("bed-ikea", "install", "ASM_SGL_BED_IKEA"), option("bed-other", "install", "ASM_SGL_BED_OTHER")],
+  },
+  {
     id: "tv",
     code: "WG_TV",
     label: "TV",
@@ -99,6 +106,21 @@ describe("validateWebsiteOrderCards", () => {
     });
     const ok = validateWebsiteOrderCards([card({ ...base, modelNumber: "  Clock  " })], products);
     expect(ok.ok && ok.cards[0].modelNumber).toBe("Clock");
+  });
+
+  it("refuses an other-manufacturer assembly without the company's name, and trims the name it keeps", () => {
+    const base = { productId: "bed", selectedInstallOptionIds: ["bed-other"] };
+    expect(validateWebsiteOrderCards([card({ ...base, modelNumber: " " })], products)).toEqual({
+      ok: false,
+      reason: "ITEM_NAME_REQUIRED",
+    });
+    expect(validateWebsiteOrderCards([card({ ...base, modelNumber: "<b>x</b>" })], products)).toEqual({
+      ok: false,
+      reason: "ITEM_NAME_REQUIRED",
+    });
+    const ok = validateWebsiteOrderCards([card({ ...base, modelNumber: "  Hästens  " })], products);
+    expect(ok.ok && ok.cards[0].modelNumber).toBe("Hästens");
+    expect(validateWebsiteOrderCards([card({ productId: "bed", selectedInstallOptionIds: ["bed-ikea"] })], products).ok).toBe(true);
   });
 
   it("refuses the integrated front panel with a freestanding fridge-freezer", () => {

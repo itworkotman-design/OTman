@@ -240,7 +240,10 @@ export default function WebsiteOrderEditTab({
     PRODUCT_WITHOUT_PICKUP: t("Every product needs a pickup address.", "Hvert produkt må ha en henteadresse."),
     TIME_WINDOW_INCOMPLETE: t("Choose a start and end time, with the end after the start.", "Velg start- og sluttid, der slutten er etter starten."),
     SIZE_BRACKETS_REQUIRED: t("Choose the size and weight of every item.", "Velg størrelse og vekt for alle varer."),
-    ITEM_NAME_REQUIRED: t("Say what each item is.", "Skriv hva hver vare er."),
+    ITEM_NAME_REQUIRED: t(
+      "Say what each item is, and which company made it if the manufacturer is \"other\".",
+      "Skriv hva hver vare er, og hvilket firma den er fra hvis produsenten er «annen».",
+    ),
     INSTALL_OPTION_REQUIRED: t("Installation only needs an installation chosen.", "Kun montering krever at en montering er valgt."),
     UNKNOWN_PRODUCT: t("One of the products isn't sold on the website.", "En av varene selges ikke på nettsiden."),
     NOT_EDITABLE_STATUS: t("This order is closed and can't be changed.", "Denne bestillingen er avsluttet og kan ikke endres."),

@@ -23,6 +23,7 @@ import {
   showsExtraCheckboxes,
 } from "@/lib/booking/pricing/rules";
 import { resolveSizeBracketCharge, splitSizeBracketOptionIds } from "@/lib/booking/pricing/sizeBrackets";
+import { otherManufacturerLabel } from "@/lib/booking/otherManufacturer";
 
 const PALLET_EXTRA_CODE = "PALLXTRAS1";
 const PALLET_EXTRA_LABEL = "Ekstra pall";
@@ -568,10 +569,14 @@ function buildItemsForCard(
 
   if (showInstallOptions) {
     for (const id of card.selectedInstallOptionIds) {
+      // "— Other manufacturer" assembly shows the company the customer typed.
+      const option = product.options.find((o) => o.id === id);
+      const label = option ? otherManufacturerLabel(option.label, option.code, card.modelNumber) : undefined;
       items.push({
         kind: "productOption",
         productOptionId: id,
         qty: amount,
+        ...(option && label !== option.label ? { label } : {}),
       });
     }
   }

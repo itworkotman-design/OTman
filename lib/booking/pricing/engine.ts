@@ -168,7 +168,7 @@ export function calculateBookingPricing(params: {
       );
 
       pushLine({
-        label: lookup.label,
+        label: item.label ?? lookup.label,
         code: lookup.code,
         qty: item.qty,
         unitPrice,

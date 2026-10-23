@@ -18,6 +18,9 @@ export type ProductCardLineItem =
       kind: "productOption";
       productOptionId: string;
       qty: number;
+      // Replaces the option's own label on the line (an "Other manufacturer"
+      // assembly naming the company, see lib/booking/otherManufacturer.ts).
+      label?: string;
       priceOverride?: number;
       subcontractorPriceOverride?: number;
     }

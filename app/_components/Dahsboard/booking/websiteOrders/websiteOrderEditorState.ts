@@ -3,6 +3,7 @@ import type { AdminPickupStop } from "@/lib/orders/websiteOrderDetailsEdit";
 import { findCardsWithoutPickup, findPickupsWithoutProducts } from "@/lib/orders/pickupAssignment";
 import { findCardsWithSizeBracketProblems, findSizePricedCardsMissingName } from "@/lib/booking/pricing/sizeBrackets";
 import { findInstallOnlyCardsMissingInstall } from "@/lib/booking/installOnlyRequirement";
+import { findOtherManufacturerCardsMissingName } from "@/lib/booking/otherManufacturer";
 import { claimsPerStop } from "@/app/_components/site/BookingModal/whiteGoods/adminOrderState";
 import { orderedCardIds } from "@/app/_components/site/BookingModal/whiteGoods/pickupLocations";
 import {
@@ -147,7 +148,11 @@ export function editorBlockers(cards: SavedProductCard[], stops: EditorStop[], c
   if (findCardsWithoutPickup(stops, cards).length > 0) blockers.push("PRODUCT_WITHOUT_PICKUP");
   if (stopsWithoutProducts(stops).length > 0) blockers.push("PICKUP_WITHOUT_PRODUCT");
   if (findCardsWithSizeBracketProblems(cards, catalogProducts).length > 0) blockers.push("SIZE_BRACKETS_REQUIRED");
-  if (findSizePricedCardsMissingName(cards, catalogProducts).length > 0) blockers.push("ITEM_NAME_REQUIRED");
+  if (
+    findSizePricedCardsMissingName(cards, catalogProducts).length > 0 ||
+    findOtherManufacturerCardsMissingName(cards, catalogProducts).length > 0
+  )
+    blockers.push("ITEM_NAME_REQUIRED");
   if (findInstallOnlyCardsMissingInstall(cards, catalogProducts).length > 0) blockers.push("INSTALL_OPTION_REQUIRED");
   return blockers;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import type {
   CatalogOption,
   CatalogProduct,
@@ -29,6 +29,9 @@ import { getProductDeliveryType } from "@/lib/products/deliveryTypes";
 import { isBookedService, keepBookedServices } from "./bookedServices";
 import { DELIVERY_TYPES } from "@/lib/booking/constants";
 import { websiteCustomerPrice, type CustomerType } from "@/lib/booking/pricing/websiteVat";
+import { MAX_ITEM_NAME_LENGTH } from "@/lib/booking/pricing/sizeBrackets";
+import { cardHasOtherManufacturer, isOtherManufacturerOptionCode } from "@/lib/booking/otherManufacturer";
+import { sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
 import {
   hasExtrasStepContent,
   hasInstallStepContent,
@@ -343,11 +346,19 @@ export function WhiteGoodsProductCard({
     });
   }
 
+  // The company typed for "Other manufacturer" (kept in modelNumber) only
+  // belongs to that choice — dropped once another one is picked.
+  const companyAfter = (optionCode: string | null) =>
+    cardHasOtherManufacturer(value, [product]) && !(optionCode && isOtherManufacturerOptionCode(optionCode))
+      ? ""
+      : value.modelNumber;
+
   function clearInstallation() {
     if (deliveryType === "INSTALL_ONLY") return;
     emit({
       ...value,
       selectedInstallOptionIds: [],
+      modelNumber: companyAfter(null),
     });
   }
 
@@ -369,6 +380,7 @@ export function WhiteGoodsProductCard({
         ? deliveryTypeAfterSelectingType(seed, value.deliveryType)
         : value.deliveryType) as SavedProductCard["deliveryType"],
       selectedInstallOptionIds: [optionId, ...stackableSelected],
+      modelNumber: companyAfter(option?.code ?? null),
     });
   }
 
@@ -986,22 +998,41 @@ export function WhiteGoodsProductCard({
                             onClick={clearInstallation}
                             bare
                           />
-                          {group.options.map(
-                            ({ option, choiceLabel }) => (
-                              <OptionRow
-                                key={option.id}
-                                variant="radio"
-                                selected={value.selectedInstallOptionIds.includes(
-                                  option.id,
+                          {group.options.map(({ option, choiceLabel }) => {
+                            const selected = value.selectedInstallOptionIds.includes(option.id);
+                            return (
+                              <Fragment key={option.id}>
+                                <OptionRow
+                                  variant="radio"
+                                  selected={selected}
+                                  title={choiceLabel}
+                                  price={money(option.customerPrice)}
+                                  onClick={() => selectType(option.id)}
+                                  bare
+                                  nested
+                                />
+                                {/* "Other manufacturer" opens a field for which
+                                    company it is, attached to its row (no divider). */}
+                                {selected && isOtherManufacturerOptionCode(option.code) && (
+                                  <label className="block border-t-0! pb-3 pl-11 pr-4">
+                                    <span className="mb-1.5 block text-sm font-medium text-black/70">
+                                      {t("Which company is it from?", "Hvilket firma er den fra?")}
+                                    </span>
+                                    <input
+                                      type="text"
+                                      value={value.modelNumber}
+                                      maxLength={MAX_ITEM_NAME_LENGTH}
+                                      onChange={(e) =>
+                                        emit({ ...value, modelNumber: sanitizeTextInput(e.target.value) })
+                                      }
+                                      placeholder={t("e.g. Hästens, Fagmøbler", "f.eks. Hästens, Fagmøbler")}
+                                      className="h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-sm text-black/85 outline-none transition focus:border-logoblue focus:ring-2 focus:ring-logoblue/20"
+                                    />
+                                  </label>
                                 )}
-                                title={choiceLabel}
-                                price={money(option.customerPrice)}
-                                onClick={() => selectType(option.id)}
-                                bare
-                                nested
-                              />
-                            ),
-                          )}
+                              </Fragment>
+                            );
+                          })}
                         </div>
                       );
                     })

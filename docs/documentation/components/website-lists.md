@@ -15,3 +15,4 @@ nothing left to add, or a locked order.
 ### `isListOptionsStepComplete({ optionsReady, hostsMoreProducts, declinedMoreProducts })`
 Whether a list's options step is done (reveals the steps after it). The step holding the question also waits for
 "No, continue to order details"; picking a category instead moves the question to the new list's step.
+- A furniture card with an "Other manufacturer" assembly also needs the company named (`findOtherManufacturerCardsMissingName`, see [other-manufacturer.md](../lib/other-manufacturer.md)) before `isListConfigured` is true.
