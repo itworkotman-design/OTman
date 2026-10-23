@@ -5,7 +5,13 @@ describe("localizeWebsiteLineLabel", () => {
   it("translates the seeded delivery-type labels to Norwegian", () => {
     expect(localizeWebsiteLineLabel("Delivery to doorstep", "no")).toBe("Levering til første hindring");
     expect(localizeWebsiteLineLabel("Delivery with carry-in", "no")).toBe("Levering med innbæring");
-    expect(localizeWebsiteLineLabel("Installation only", "no")).toBe("Kun montering");
+    expect(localizeWebsiteLineLabel("Installation only", "no")).toBe("Besøk – kun montering");
+  });
+
+  it("names install-only as a visit, and shows the old stored label under its new name", () => {
+    expect(localizeWebsiteLineLabel("Visit – installation only", "no")).toBe("Besøk – kun montering");
+    expect(localizeWebsiteLineLabel("Visit – installation only", "en")).toBe("Visit – installation only");
+    expect(localizeWebsiteLineLabel("Installation only", "en")).toBe("Visit – installation only");
   });
 
   it("translates the seeded order-extra labels to Norwegian", () => {

@@ -50,7 +50,7 @@ export function buildDeliveryTypesJson(product: Pick<WhiteGoodsProductSeed, "del
       key: DELIVERY_TYPES.INSTALL_ONLY,
       enabled: installOnlyEnabled,
       code: "INSTALL_ONLY",
-      label: "Installation only",
+      label: "Visit – installation only",
       price: String(INSTALL_ONLY_VISIT_PRICE.customerPrice),
       subcontractorPrice: String(INSTALL_ONLY_VISIT_PRICE.subcontractorPrice),
       xtraPrice: "0",

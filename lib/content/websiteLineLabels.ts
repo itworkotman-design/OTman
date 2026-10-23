@@ -9,12 +9,13 @@ import { WEBSITE_CATALOGS } from "@/lib/content/websiteCatalogs";
 // rename still store the old one, shown under its new name in both languages.
 const RENAMED_SEEDED_LABEL: Record<string, string> = {
   "Delivery to doorstep": "Delivery to first obstacle",
+  "Installation only": "Visit – installation only",
 };
 
 const NORWEGIAN_BY_SEEDED_LABEL: Record<string, string> = {
   "Delivery to first obstacle": "Levering til første hindring",
   "Delivery with carry-in": "Levering med innbæring",
-  "Installation only": "Kun montering",
+  "Visit – installation only": "Besøk – kun montering",
   "Return only": "Kun retur",
   "Additional pickup / pickup in another store": "Ekstra hentested / henting i annen butikk",
   "Extra pickup location": "Ekstra hentested",

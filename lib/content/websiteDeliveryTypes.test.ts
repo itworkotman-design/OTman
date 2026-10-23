@@ -34,4 +34,10 @@ describe("buildDeliveryTypesJson — labels", () => {
     if (!seed) throw new Error("missing seed WG_DISHWASHER");
     expect(buildDeliveryTypesJson(seed).find((t) => t.key === "FIRST_STEP")?.label).toBe("Delivery to first obstacle");
   });
+
+  it("labels install-only as a visit, so the customer sees what the price is for", () => {
+    const seed = findWebsiteProductSeed("WG_DISHWASHER");
+    if (!seed) throw new Error("missing seed WG_DISHWASHER");
+    expect(buildDeliveryTypesJson(seed).find((t) => t.key === "INSTALL_ONLY")?.label).toBe("Visit – installation only");
+  });
 });
