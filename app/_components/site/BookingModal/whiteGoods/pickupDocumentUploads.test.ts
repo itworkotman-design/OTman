@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { collectPickupDocuments, hasEveryStorePickupDocument, planPickupDocumentUploads } from "./pickupDocumentUploads";
+import {
+  collectPickupDocuments,
+  describeSubmitProgress,
+  hasEveryStorePickupDocument,
+  planPickupDocumentUploads,
+} from "./pickupDocumentUploads";
 
 const fileA = new File(["a"], "a.pdf");
 const fileB = new File(["b"], "b.pdf");
@@ -61,5 +66,25 @@ describe("hasEveryStorePickupDocument", () => {
     expect(hasEveryStorePickupDocument([{ source: "store", document: fileA }, { source: "private", document: null }])).toBe(true);
     expect(hasEveryStorePickupDocument([{ source: "store", document: fileA }, { source: "store", document: null }])).toBe(false);
     expect(hasEveryStorePickupDocument([{ source: "business", document: null }])).toBe(true);
+  });
+});
+
+describe("describeSubmitProgress", () => {
+  it("says which document is uploading and how far along it is", () => {
+    expect(describeSubmitProgress({ phase: "uploading", current: 1, total: 2, percent: 45 })).toEqual({
+      en: "Uploading document 1 of 2… 45%",
+      no: "Laster opp dokument 1 av 2… 45 %",
+    });
+  });
+
+  it("leaves out the count for a single document, and clamps the percentage", () => {
+    expect(describeSubmitProgress({ phase: "uploading", current: 1, total: 1, percent: 140 })).toEqual({
+      en: "Uploading document… 100%",
+      no: "Laster opp dokument… 100 %",
+    });
+  });
+
+  it("says the order is being sent once the uploads are done", () => {
+    expect(describeSubmitProgress({ phase: "sending" })).toEqual({ en: "Sending order…", no: "Sender bestillingen…" });
   });
 });

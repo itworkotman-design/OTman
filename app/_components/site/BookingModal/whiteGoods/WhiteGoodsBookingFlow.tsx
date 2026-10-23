@@ -11,9 +11,12 @@ import { PickupContactCard, isPickupContactStepReady, type PickupProductPoolSect
 import { ExtraPickupLocationCard } from "./ExtraPickupLocationCard";
 import {
   collectPickupDocuments,
+  describeSubmitProgress,
   hasEveryStorePickupDocument,
   planPickupDocumentUploads,
+  postWithUploadProgress,
   type PickupDocumentUpload,
+  type SubmitProgress,
 } from "./pickupDocumentUploads";
 import {
   claimedCardIds,
@@ -215,6 +218,18 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   const [notes, setNotes] = useState("");
 
   const [submitLoading, setSubmitLoading] = useState(false);
+  // What the submit button shows while documents upload / the order is sent.
+  const [submitProgress, setSubmitProgress] = useState<SubmitProgress | null>(null);
+  // Leaving mid-upload would lose the order — the browser asks first.
+  useEffect(() => {
+    if (!submitLoading) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [submitLoading]);
   // Set once by the very first step ("customer-type", below) — no toggle
   // to change it again later, since asking twice would be redundant. Still
   // display-only — decides which VAT total (incl. or ex.) is shown as the
@@ -877,16 +892,23 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     }
     if (wanted.length === 0) return null;
 
-    for (const doc of plan.toUpload) {
+    for (const [i, doc] of plan.toUpload.entries()) {
       const form = new FormData();
       form.append("file", doc.file);
       form.append("uploadToken", pickupDocumentTokenRef.current);
       form.append("stopIndex", String(doc.stopIndex));
+      const progress = { phase: "uploading" as const, current: i + 1, total: plan.toUpload.length };
+      setSubmitProgress({ ...progress, percent: 0 });
       let reason: string | null = "NETWORK";
       try {
-        const res = await fetch("/api/site/white-goods-order/pickup-document", { method: "POST", body: form });
-        const json = await res.json().catch(() => ({}));
-        reason = res.ok && json.ok ? null : String(json.reason ?? res.status);
+        const { status, json } = await postWithUploadProgress(
+          "/api/site/white-goods-order/pickup-document",
+          form,
+          (percent) => setSubmitProgress({ ...progress, percent }),
+        );
+        // A 413 with no JSON body is the hosting platform's own request
+        // size limit (Vercel: 4.5 MB), hit before our route runs.
+        reason = status >= 200 && status < 300 && json.ok ? null : status === 413 ? "FILE_TOO_LARGE" : String(json.reason ?? status);
       } catch {
         // reason stays NETWORK
       }
@@ -931,6 +953,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     try {
       const pickupDocumentToken = await uploadPickupDocuments();
       if (pickupDocumentToken === false) return;
+      setSubmitProgress({ phase: "sending" });
       const res = await fetch("/api/site/white-goods-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1020,6 +1043,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
       setSubmitError(t("Something went wrong. Please try again.", "Noe gikk galt. Prøv igjen."));
     } finally {
       setSubmitLoading(false);
+      setSubmitProgress(null);
     }
   }
 
@@ -1538,10 +1562,30 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
                 type="button"
                 disabled={!canSubmit}
                 onClick={handleSubmit}
-                className="inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:pointer-events-none disabled:opacity-40"
+                aria-busy={submitLoading}
+                // While sending it stays at full colour with a spinner, so it
+                // reads as working rather than greyed out / frozen.
+                className={`inline-flex h-11 items-center justify-center gap-2 rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:pointer-events-none ${
+                  submitLoading ? "cursor-wait" : "disabled:opacity-40"
+                }`}
               >
-                {submitLoading ? t("Sending…", "Sender…") : t("Submit order", "Send bestilling")}
+                {submitLoading && (
+                  <span aria-hidden className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                )}
+                {submitLoading
+                  ? submitProgress
+                    ? t(describeSubmitProgress(submitProgress).en, describeSubmitProgress(submitProgress).no)
+                    : t("Sending…", "Sender…")
+                  : t("Submit order", "Send bestilling")}
               </button>
+              )}
+              {!customer && submitLoading && (
+                <p className="text-xs text-black/55" aria-live="polite">
+                  {t(
+                    "Please keep this page open until the order is sent.",
+                    "Ikke lukk siden før bestillingen er sendt.",
+                  )}
+                </p>
               )}
             </div>
           </div>
