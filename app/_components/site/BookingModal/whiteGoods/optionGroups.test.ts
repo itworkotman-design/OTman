@@ -97,8 +97,8 @@ describe("groupDismantlingOptions", () => {
     const single = groups[0];
     expect(single.disposal?.id).toBe("DISMANTLE_DISP_SGL_BED");
     expect(single.careful?.id).toBe("DISMANTLE_CAR_SGL_BED");
-    expect(single.disposal?.customerPrice).toBe("400");
-    expect(single.careful?.customerPrice).toBe("656");
+    expect(single.disposal?.customerPrice).toBe("200");
+    expect(single.careful?.customerPrice).toBe("328");
   });
 
   it("returns nothing for a product without dismantling, e.g. a chair", () => {

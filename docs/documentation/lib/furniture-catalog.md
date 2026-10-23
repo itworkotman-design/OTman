@@ -5,7 +5,7 @@ Types and the exported product list for the website furniture catalog (`WEBSITE_
 
 ## Exports
 ### `FURNITURE_PRODUCTS`
-The 23 furniture products, from `furnitureCatalogData.ts`.
+The 23 furniture products, from `furnitureCatalogData.ts`. Dismantling (`DISMANTLE_*`, both variants) and the recycling return (`RETURN_RECYCLING`) are sold at half the workbook price, customer and partner (decided 2026-10-23) — applied here, not in the generated data file, so a regeneration keeps it.
 
 ### `FurnitureOptionSeed` / `FurnitureProductSeed`
 Extend the white-goods seed types. Assembly options carry `typeEn/typeNo` and `manufacturer/manufacturerNo` (a "Single bed — IKEA" choice is one option). A product may carry `needsImplementation` (Other furniture: assembly needs a manual quote) — shown as a disabled note, never seeded as a priced option.

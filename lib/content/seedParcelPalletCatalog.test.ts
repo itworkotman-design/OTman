@@ -99,6 +99,13 @@ describe("seedParcelPalletCatalog", () => {
     expect(update("PKG_ESKER").deliveryTypes.find((t: { key: string }) => t.key === "FIRST_STEP")).toMatchObject({ price: "650" });
   });
 
+  it("seeds taking the empty pallet at exactly 100 kr ex. VAT, not raised to the next multiple of 8", async () => {
+    await seedParcelPalletCatalog();
+    const creates = mocks.priceListItemUpsert.mock.calls.map(([arg]) => arg.create);
+    expect(creates).toContainEqual(expect.objectContaining({ customerPriceCents: 10000, subcontractorPriceCents: 6000 }));
+    expect(creates.some((c) => c.customerPriceCents === 10400)).toBe(false);
+  });
+
   it("fills an option price still at 0 kr, but never overwrites one staff entered", async () => {
     mocks.priceListItemFindUnique
       .mockResolvedValueOnce({ customerPriceCents: 0, subcontractorPriceCents: 0 })

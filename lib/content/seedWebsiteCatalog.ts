@@ -159,7 +159,9 @@ export async function seedWebsiteCatalog({
       });
 
       const prices = {
-        customerPriceCents: Math.round(websiteSeedCustomerPrice(optionSeed.customerPrice) * 100),
+        customerPriceCents: Math.round(
+          (optionSeed.exactCustomerPrice ? optionSeed.customerPrice : websiteSeedCustomerPrice(optionSeed.customerPrice)) * 100,
+        ),
         subcontractorPriceCents: Math.round(roundToNearest5(optionSeed.subcontractorPrice) * 100),
       };
 

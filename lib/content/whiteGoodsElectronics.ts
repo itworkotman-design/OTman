@@ -78,6 +78,12 @@ export type WhiteGoodsOptionSeed = Money & {
    */
   staffPriced?: boolean;
   /**
+   * Seed customerPrice as-is, skipping the 5 kr rounding and the raise to a
+   * multiple of 8 (websiteSeedCustomerPrice) — for a price set on purpose
+   * that doesn't end in 0 incl. VAT (taking the empty pallet: 100 / 125).
+   */
+  exactCustomerPrice?: boolean;
+  /**
    * Type options only: the first half of a two-step pick, e.g. "Wall mount"
    * (TV) or "Single bed" (furniture assembly). The card groups the type
    * options by it; the second half is `size` here or furniture's manufacturer.

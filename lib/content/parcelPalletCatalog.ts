@@ -70,14 +70,16 @@ const UNPACKING_OPTION: WhiteGoodsOptionSeed = {
 // Pallet sizes only — offers to take the now-empty pallet away after
 // delivery. A plain "extra" (not "return"): that category renders with
 // hardcoded white-goods-recycling copy in WhiteGoodsProductCard, which
-// wouldn't fit here.
+// wouldn't fit here. 100 kr ex. VAT (125 incl.), kept exact rather than raised
+// to 104 (130); the partner gets 60, the same 60% share as before.
 const PALLET_PICKUP_OPTION: WhiteGoodsOptionSeed = {
   code: "PALLET_PICKUP",
   category: "extra",
   labelEn: "Take the empty pallet",
   labelNo: "Ta med tom pall",
-  customerPrice: 258,
-  subcontractorPrice: 154.8,
+  customerPrice: 100,
+  subcontractorPrice: 60,
+  exactCustomerPrice: true,
 };
 
 export const PARCEL_PALLET_PRODUCTS: WhiteGoodsProductSeed[] = [

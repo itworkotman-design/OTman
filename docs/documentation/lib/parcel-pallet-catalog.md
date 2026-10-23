@@ -20,7 +20,7 @@ Prices (NOK ex VAT, rounded to 5 kr when seeded):
 
 The source codes are in the white-goods workbook's "Source price codes" sheet. Add-ons:
 - `UNPACKING`: 103.20 / 51.60.
-- `PALLET_PICKUP`: 258 / 154.80, like a recycling return (`RETURNREC`).
+- `PALLET_PICKUP`: 100 / 60 (125 incl. VAT), seeded exact (`exactCustomerPrice`) instead of raised to 104.
 
 Pallets are doorstep only (`deliveryTypes.indoorEnabled: false`, so the card hides carry-in; see `offersCarryIn`). None of these products offers installation only.
 

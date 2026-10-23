@@ -45,10 +45,32 @@ export type FurnitureProductSeed = Omit<WhiteGoodsProductSeed, "options"> & {
   needsImplementation?: { labelEn: string; labelNo: string };
 };
 
+// Dismantling (both variants) and the recycling return are sold at half the
+// source workbook's price, partner price included (decided 2026-10-23). Done
+// here rather than in the generated data file so a regeneration keeps it.
+const HALF_PRICE_FACTOR = 0.5;
+
+function isHalfPriceOption(code: string) {
+  return code.startsWith("DISMANTLE_") || code === "RETURN_RECYCLING";
+}
+
+function withHalfPriceOptions(options: FurnitureOptionSeed[]): FurnitureOptionSeed[] {
+  return options.map((option) =>
+    isHalfPriceOption(option.code)
+      ? {
+          ...option,
+          customerPrice: option.customerPrice * HALF_PRICE_FACTOR,
+          subcontractorPrice: option.subcontractorPrice * HALF_PRICE_FACTOR,
+        }
+      : option,
+  );
+}
+
 // "Other furniture" additionally gets its volume/weight size brackets (kept out
 // of the generated data file — see otherFurnitureSizeOptions.ts).
-export const FURNITURE_PRODUCTS: FurnitureProductSeed[] = FURNITURE_PRODUCTS_DATA.map((product) =>
-  product.code === OTHER_FURNITURE_PRODUCT_CODE
-    ? { ...product, options: [...product.options, ...OTHER_FURNITURE_SIZE_OPTIONS] }
-    : product,
-);
+export const FURNITURE_PRODUCTS: FurnitureProductSeed[] = FURNITURE_PRODUCTS_DATA.map((product) => {
+  const options = withHalfPriceOptions(product.options);
+  return product.code === OTHER_FURNITURE_PRODUCT_CODE
+    ? { ...product, options: [...options, ...OTHER_FURNITURE_SIZE_OPTIONS] }
+    : { ...product, options };
+});

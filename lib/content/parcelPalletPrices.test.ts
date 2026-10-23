@@ -45,9 +45,9 @@ describe("parcel/pallet prices", () => {
     }
   });
 
-  it("charges unpacking 103.20 and taking the empty pallet like a recycling return (258)", () => {
+  it("charges unpacking 103.20 and taking the empty pallet 100 ex. VAT (125 incl.), kept exact", () => {
     expect(option("PKG_ESKER", "UNPACKING")).toMatchObject({ customerPrice: 103.2, subcontractorPrice: 51.6 });
-    expect(option("PKG_PALL", "PALLET_PICKUP")).toMatchObject({ customerPrice: 258, subcontractorPrice: 154.8 });
+    expect(option("PKG_PALL", "PALLET_PICKUP")).toMatchObject({ customerPrice: 100, subcontractorPrice: 60, exactCustomerPrice: true });
   });
 });
 

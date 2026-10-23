@@ -1,7 +1,7 @@
 # `lib/content/seedWebsiteCatalog.ts`
 
 ## Purpose
-Shared, idempotent seeding routine for a website catalog: upserts the PriceList (order-level fees in its description), each Product (delivery types JSON; customer prices end in 0 incl. VAT via `websiteSeedCustomerPrice`, partner prices rounded to 5 kr) and each ProductOption with its PriceListItem. Used by white goods, furniture, and parcel/pallet.
+Shared, idempotent seeding routine for a website catalog: upserts the PriceList (order-level fees in its description), each Product (delivery types JSON; customer prices end in 0 incl. VAT via `websiteSeedCustomerPrice`, partner prices rounded to 5 kr) and each ProductOption with its PriceListItem. An option seed with `exactCustomerPrice` keeps its customer price as given (no 5 kr rounding or multiple-of-8 raise). Used by white goods, furniture, and parcel/pallet.
 
 ## Functions
 ### `seedWebsiteCatalog({ priceListCode, priceListName, products, preservePricesOnReseed? })`

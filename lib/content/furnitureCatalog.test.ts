@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FURNITURE_PRODUCTS, FURNITURE_PRICE_LIST_CODE } from "./furnitureCatalog";
+import { FURNITURE_PRODUCTS_DATA } from "./furnitureCatalogData";
 import { WHITE_GOODS_ORDER_LEVEL_EXTRAS } from "./whiteGoodsElectronics";
 import { VOLUME_BRACKET_MAX_M3 } from "@/lib/booking/pricing/sizeDimensions";
 
@@ -121,19 +122,32 @@ describe("assembly (type + manufacturer) options", () => {
 });
 
 describe("add-ons", () => {
-  it("has unpacking at 103.2 / 51.6 and recycling return at 258 / 154.8", () => {
+  it("has unpacking at 103.2 / 51.6 and recycling return at half the source's 258 / 154.8", () => {
     expect(opt("FN_BED", "UNPACKING").customerPrice).toBeCloseTo(103.2);
     expect(opt("FN_BED", "UNPACKING").subcontractorPrice).toBeCloseTo(51.6);
-    expect(opt("FN_BED", "RETURN_RECYCLING").customerPrice).toBe(258);
+    expect(opt("FN_BED", "RETURN_RECYCLING").customerPrice).toBe(129);
+    expect(opt("FN_BED", "RETURN_RECYCLING").subcontractorPrice).toBeCloseTo(77.4);
     expect(opt("FN_BED", "RETURN_RECYCLING").category).toBe("return");
   });
 
-  it("has two paid dismantling variants per relevant type — for disposal and careful for reuse", () => {
-    expect(opt("FN_BED", "DISMANTLE_DISP_SGL_BED").customerPrice).toBe(400);
-    expect(opt("FN_BED", "DISMANTLE_DISP_SGL_BED").subcontractorPrice).toBe(250);
-    expect(opt("FN_BED", "DISMANTLE_CAR_SGL_BED").customerPrice).toBe(650);
-    expect(opt("FN_BED", "DISMANTLE_CAR_SGL_BED").subcontractorPrice).toBe(450);
-    expect(opt("FN_BED", "DISMANTLE_DISP_BUNK_FAM_BED").customerPrice).toBe(1150);
+  it("has two paid dismantling variants per relevant type — for disposal and careful for reuse — at half the source price", () => {
+    expect(opt("FN_BED", "DISMANTLE_DISP_SGL_BED").customerPrice).toBe(200);
+    expect(opt("FN_BED", "DISMANTLE_DISP_SGL_BED").subcontractorPrice).toBe(125);
+    expect(opt("FN_BED", "DISMANTLE_CAR_SGL_BED").customerPrice).toBe(325);
+    expect(opt("FN_BED", "DISMANTLE_CAR_SGL_BED").subcontractorPrice).toBe(225);
+    expect(opt("FN_BED", "DISMANTLE_DISP_BUNK_FAM_BED").customerPrice).toBe(575);
+  });
+
+  it("halves every dismantling and recycling-return price from the source data, and nothing else", () => {
+    for (const source of FURNITURE_PRODUCTS_DATA) {
+      for (const sourceOption of source.options) {
+        const halved = sourceOption.code.startsWith("DISMANTLE_") || sourceOption.code === "RETURN_RECYCLING";
+        const factor = halved ? 0.5 : 1;
+        const option = opt(source.code, sourceOption.code);
+        expect(option.customerPrice, `${source.code}/${sourceOption.code}`).toBeCloseTo(sourceOption.customerPrice * factor, 6);
+        expect(option.subcontractorPrice, `${source.code}/${sourceOption.code}`).toBeCloseTo(sourceOption.subcontractorPrice * factor, 6);
+      }
+    }
   });
 
   it("offers no dismantling for chairs and other small items", () => {
