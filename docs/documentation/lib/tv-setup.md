@@ -4,7 +4,7 @@
 "TV setup" (`TV_SETUP`, category `extra`, 800 kr ex. VAT = 1000 kr incl. VAT) is an additional service on the website TV (`WG_TV`). It is shown in the product card's "Additional services" step whenever a delivery type is picked, with or without mounting. Next to a mount, the shared pricing drops extras, so it is priced by `websiteAssemblyExtras.ts` (`isAssemblyCompatibleExtraCode`), the same way as furniture dismantling. The technician can only set the TV up if the customer has the passwords and cables ready. So ticking it opens `TvSetupChecklist` with:
 - a warning: if anything is missing, the setup is stopped, a wasted-trip fee (bomtur) is charged, and a new visit must be booked and paid for;
 - a TV provider pick (Altibox / Go3 / Tet / Other). "Other" asks for the provider's name;
-- a checklist: Wi-Fi password, TV provider login, the TV's own account password (e.g. Samsung), and power, HDMI, Ethernet and antenna cables and remotes. Every item must be ticked.
+- a list of what to have ready: Wi-Fi password, TV provider login, the TV's own account password (e.g. Samsung), and power, HDMI, Ethernet and antenna cables and remotes. One "I confirm I have all of this ready" checkbox confirms the whole list (stored as every item in `confirmedItems`).
 
 The answers are stored on the card as `tvSetup` (`{ provider, providerName, confirmedItems }`), as proof of what the customer confirmed. Only the provider is ever asked for; passwords are never collected.
 

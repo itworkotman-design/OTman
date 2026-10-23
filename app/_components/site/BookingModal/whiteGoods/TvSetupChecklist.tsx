@@ -11,8 +11,9 @@ import { MAX_ITEM_NAME_LENGTH } from "@/lib/booking/pricing/sizeBrackets";
 import { sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
 
 // Opens under "TV setup" in the TV card's additional services: which TV provider the
-// customer uses, and a checklist of what the technician needs on site. Every
-// item has to be ticked before the order can go on (lib/booking/tvSetup.ts).
+// customer uses, and a list of what the technician needs on site, which the
+// customer confirms having with one tick before the order can go on
+// (lib/booking/tvSetup.ts).
 
 const EMPTY: TvSetupDetails = { provider: "", providerName: "", confirmedItems: [] };
 
@@ -31,13 +32,10 @@ export function TvSetupChecklist({
   const setProvider = (provider: TvSetupProvider) =>
     onChange({ ...details, provider, providerName: provider === "OTHER" ? details.providerName : "" });
 
-  const toggleItem = (key: string) =>
-    onChange({
-      ...details,
-      confirmedItems: details.confirmedItems.includes(key)
-        ? details.confirmedItems.filter((k) => k !== key)
-        : [...details.confirmedItems, key],
-    });
+  // One confirmation for the whole list; stored as every item confirmed.
+  const allConfirmed = TV_SETUP_CHECKLIST.every((item) => details.confirmedItems.includes(item.key));
+  const toggleAll = () =>
+    onChange({ ...details, confirmedItems: allConfirmed ? [] : TV_SETUP_CHECKLIST.map((item) => item.key) });
 
   return (
     <div className="flex flex-col gap-4 px-4 py-4">
@@ -90,27 +88,25 @@ export function TvSetupChecklist({
         )}
       </fieldset>
 
-      <fieldset>
-        <legend className="mb-1.5 block text-sm font-medium text-black/70">
-          {t("Confirm that you have:", "Bekreft at du har:")}
-        </legend>
-        <div className="flex flex-col gap-1.5">
-          {TV_SETUP_CHECKLIST.map((item) => {
-            const checked = details.confirmedItems.includes(item.key);
-            return (
-              <label key={item.key} className="flex cursor-pointer items-start gap-2.5 text-sm text-black/80">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => toggleItem(item.key)}
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-logoblue"
-                />
-                <span>{t(item.en, item.no)}</span>
-              </label>
-            );
-          })}
+      <div>
+        <div className="mb-1.5 text-sm font-medium text-black/70">
+          {t("You need to have ready:", "Du må ha klart:")}
         </div>
-      </fieldset>
+        <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-black/80">
+          {TV_SETUP_CHECKLIST.map((item) => (
+            <li key={item.key}>{t(item.en, item.no)}</li>
+          ))}
+        </ul>
+        <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm font-semibold text-black/85">
+          <input
+            type="checkbox"
+            checked={allConfirmed}
+            onChange={toggleAll}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-logoblue"
+          />
+          <span>{t("I confirm I have all of this ready", "Jeg bekrefter at jeg har alt dette klart")}</span>
+        </label>
+      </div>
     </div>
   );
 }
