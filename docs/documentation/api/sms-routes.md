@@ -17,7 +17,7 @@ All routes except the webhook and the cron route are OWNER/ADMIN only (`requireS
 
 | Function | Description |
 | --- | --- |
-| `GET /api/sms/templates` | Lists templates plus `placeholders` and `configured`. Creates any missing automatic template (`DAY_OF_DELIVERY`, `REVIEW_REQUEST`) from its default text, **disabled**. The check-and-create runs under a per-company Postgres advisory lock (`pg_advisory_xact_lock`) and re-checks inside it, so concurrent GETs (React dev double-mount, two tabs) never create duplicates. |
+| `GET /api/sms/templates` | Lists templates plus `placeholders` and `configured`. Creates any missing automatic template (`DAY_BEFORE_DELIVERY`, `REVIEW_REQUEST`) from its default text, **disabled**. The check-and-create runs under a per-company Postgres advisory lock (`pg_advisory_xact_lock`) and re-checks inside it, so concurrent GETs (React dev double-mount, two tabs) never create duplicates. |
 | `POST /api/sms/templates` | `{ name, description?, body }` creates a `MANUAL` template. |
 | `PATCH /api/sms/templates/[id]` | Updates `body` and/or `enabled` on any template. `name` and `description` (blank clears it) are editable on `MANUAL` templates only; sending either for an automatic template → 400 `AUTOMATIC_TEMPLATE_DETAILS_LOCKED`. `kind` can't be changed. Empty name/body → 400. |
 | `DELETE /api/sms/templates/[id]` | Deletes a `MANUAL` template. Automatic templates can only be switched off (400). |
@@ -26,9 +26,9 @@ All routes except the webhook and the cron route are OWNER/ADMIN only (`requireS
 
 Receives GatewayAPI `message.status.sms` events. It verifies the `Signature` header against `GATEWAYAPI_WEBHOOK_SECRET` (401 if the header is wrong or the secret is unset). It finds the `OrderSmsMessage` by `msg_id` or by `reference` (the row id), then updates `status`, `providerStatus`, `statusUpdatedAt` (from `status_at`) and `errorMessage`. Events older than the stored status are ignored. Other event types, unknown messages and incomplete events are acknowledged with 200 so GatewayAPI doesn't retry them for 24 hours.
 
-## `app/api/cron/day-of-delivery-sms/route.ts`
+## `app/api/cron/day-before-delivery-sms/route.ts`
 
-`POST [?limit=N]` with `Authorization: Bearer <CRON_SECRET>`. Runs `runDayOfDeliverySmsSweep` and returns `{ ok, date, skippedReason?, scanned, sent, failed, skipped }`. Scheduling: see `integrations/gatewayapi-sms.md`.
+`POST [?limit=N]` with `Authorization: Bearer <CRON_SECRET>`. Runs `runDayBeforeDeliverySmsSweep` and returns `{ ok, date, skippedReason?, scanned, sent, failed, skipped }`. Scheduling: see `integrations/gatewayapi-sms.md`.
 
 ## `app/api/cron/review-request-sms/route.ts`
 

@@ -12,7 +12,7 @@ import { countSmsSegments } from "@/lib/sms/segments";
 
 type SmsMessage = {
   id: string;
-  kind: "MANUAL" | "DAY_OF_DELIVERY" | "REVIEW_REQUEST";
+  kind: "MANUAL" | "DAY_BEFORE_DELIVERY" | "REVIEW_REQUEST";
   status: "SENT" | "DELIVERED" | "FAILED";
   providerStatus: string | null;
   errorMessage: string | null;
@@ -26,7 +26,7 @@ type SmsMessage = {
 
 type SmsTemplateOption = {
   id: string;
-  kind: "MANUAL" | "DAY_OF_DELIVERY" | "REVIEW_REQUEST";
+  kind: "MANUAL" | "DAY_BEFORE_DELIVERY" | "REVIEW_REQUEST";
   name: string;
   body: string;
 };
@@ -65,8 +65,8 @@ export function SmsSegmentInfo({ text }: { text: string }) {
 
 function SmsMessageCard({ message }: { message: SmsMessage }) {
   const sender =
-    message.kind === "DAY_OF_DELIVERY"
-      ? "Automatic (09:00 on delivery day)"
+    message.kind === "DAY_BEFORE_DELIVERY"
+      ? "Automatic (19:00 the day before delivery)"
       : message.kind === "REVIEW_REQUEST"
         ? "Automatic (review request after completion)"
         : message.sentByMembership?.user.username || message.sentByMembership?.user.email || "Unknown";

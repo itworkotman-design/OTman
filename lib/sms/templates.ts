@@ -26,11 +26,11 @@ export const SMS_TEMPLATE_PLACEHOLDERS = [
   { key: "orderNumber", label: "Power bilagsnummer" },
 ] as const;
 
-export type AutomaticSmsKind = "DAY_OF_DELIVERY" | "REVIEW_REQUEST";
+export type AutomaticSmsKind = "DAY_BEFORE_DELIVERY" | "REVIEW_REQUEST";
 
-const TEMPLATE_KIND_ORDER: Record<AutomaticSmsKind | "MANUAL", number> = { DAY_OF_DELIVERY: 0, REVIEW_REQUEST: 1, MANUAL: 2 };
+const TEMPLATE_KIND_ORDER: Record<AutomaticSmsKind | "MANUAL", number> = { DAY_BEFORE_DELIVERY: 0, REVIEW_REQUEST: 1, MANUAL: 2 };
 
-// Automatic templates first (delivery day, then review request), then manual
+// Automatic templates first (day before delivery, then review request), then manual
 // ones in their existing order (stable sort).
 export function sortSmsTemplates<T extends { kind: AutomaticSmsKind | "MANUAL" }>(templates: T[]): T[] {
   return [...templates].sort((a, b) => TEMPLATE_KIND_ORDER[a.kind] - TEMPLATE_KIND_ORDER[b.kind]);
@@ -39,12 +39,12 @@ export function sortSmsTemplates<T extends { kind: AutomaticSmsKind | "MANUAL" }
 // Seeded (switched off) per company by GET /api/sms/templates. After that the
 // name, description and body live in the DB and are edited in Settings.
 export const AUTOMATIC_SMS_TEMPLATE_DEFAULTS: Record<AutomaticSmsKind, { name: string; description: string; body: string }> = {
-  DAY_OF_DELIVERY: {
-    name: "Automatic SMS on delivery day",
+  DAY_BEFORE_DELIVERY: {
+    name: "Automatic SMS the day before delivery",
     description:
-      "Sent at 09:00 on the order's delivery date to the customer's phone (Phone 2 if Phone is empty). Skips pending, cancelled, rejected and finished orders.",
+      "Sent at 19:00 the day before the order's delivery date (until 22:00 at the latest) to the customer's phone (Phone 2 if Phone is empty). Skips pending, cancelled, rejected and finished orders.",
     body:
-      "Hei {name}! Otman kommer til deg i dag ({timeWindow}) på {address}. " +
+      "Hei {name}! Otman kommer til deg i morgen {date} ({timeWindow}) på {address}. " +
       "Oppdrag: {job}. Spørsmål? Ring oss på +47 402 84 977. Mvh Otman",
   },
   REVIEW_REQUEST: {

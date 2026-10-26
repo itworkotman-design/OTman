@@ -75,10 +75,10 @@ export async function loadEnabledTemplateBodies(kind: AutomaticSmsKind) {
 }
 
 function claimOrder(orderId: string, kind: AutomaticSmsKind, now: Date) {
-  return kind === "DAY_OF_DELIVERY"
+  return kind === "DAY_BEFORE_DELIVERY"
     ? prisma.order.updateMany({
-        where: { id: orderId, dayOfDeliverySmsSentAt: null },
-        data: { dayOfDeliverySmsSentAt: now },
+        where: { id: orderId, dayBeforeDeliverySmsSentAt: null },
+        data: { dayBeforeDeliverySmsSentAt: now },
       })
     : prisma.order.updateMany({
         where: { id: orderId, reviewSmsSentAt: null },

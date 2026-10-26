@@ -47,7 +47,7 @@ describe("/api/sms/templates", () => {
     mocks.requireSmsAdminMock.mockResolvedValue({ ok: true, companyId: "c-1", membershipId: "m-1", actor });
     mocks.isSmsConfiguredMock.mockReturnValue(true);
     mocks.templateFindManyMock.mockResolvedValue([
-      { id: "d-1", kind: "DAY_OF_DELIVERY" },
+      { id: "d-1", kind: "DAY_BEFORE_DELIVERY" },
       { id: "r-1", kind: "REVIEW_REQUEST" },
     ]);
     mocks.templateFindFirstMock.mockResolvedValue({ id: "t-1", kind: "MANUAL" });
@@ -74,7 +74,7 @@ describe("/api/sms/templates", () => {
   });
 
   it("GET creates every automatic template switched off the first time, under a per-company lock", async () => {
-    mocks.templateFindManyMock.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "d-1", kind: "DAY_OF_DELIVERY" }]);
+    mocks.templateFindManyMock.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "d-1", kind: "DAY_BEFORE_DELIVERY" }]);
 
     const res = await GET(new Request("http://localhost"));
     const json = await res.json();
@@ -83,7 +83,7 @@ describe("/api/sms/templates", () => {
     expect(mocks.txExecuteRawMock.mock.calls[0].slice(1)).toEqual(["sms-templates:c-1"]);
     expect(mocks.txExecuteRawMock.mock.invocationCallOrder[0]).toBeLessThan(mocks.txTemplateFindManyMock.mock.invocationCallOrder[0]);
     expect(mocks.txTemplateCreateManyMock).toHaveBeenCalledWith({
-      data: (["DAY_OF_DELIVERY", "REVIEW_REQUEST"] as const).map((kind) => ({
+      data: (["DAY_BEFORE_DELIVERY", "REVIEW_REQUEST"] as const).map((kind) => ({
         companyId: "c-1",
         kind,
         name: AUTOMATIC_SMS_TEMPLATE_DEFAULTS[kind].name,
@@ -98,7 +98,7 @@ describe("/api/sms/templates", () => {
 
   it("GET only creates the automatic templates that are still missing once it holds the lock", async () => {
     mocks.templateFindManyMock.mockResolvedValueOnce([]);
-    mocks.txTemplateFindManyMock.mockResolvedValueOnce([{ kind: "DAY_OF_DELIVERY" }]);
+    mocks.txTemplateFindManyMock.mockResolvedValueOnce([{ kind: "DAY_BEFORE_DELIVERY" }]);
 
     await GET(new Request("http://localhost"));
 
@@ -109,7 +109,7 @@ describe("/api/sms/templates", () => {
 
   it("GET creates nothing when a concurrent request already seeded them (double mount / two tabs)", async () => {
     mocks.templateFindManyMock.mockResolvedValueOnce([]);
-    mocks.txTemplateFindManyMock.mockResolvedValueOnce([{ kind: "DAY_OF_DELIVERY" }, { kind: "REVIEW_REQUEST" }]);
+    mocks.txTemplateFindManyMock.mockResolvedValueOnce([{ kind: "DAY_BEFORE_DELIVERY" }, { kind: "REVIEW_REQUEST" }]);
 
     await GET(new Request("http://localhost"));
 
@@ -170,7 +170,7 @@ describe("/api/sms/templates", () => {
   });
 
   it("PATCH never changes an automatic template's name or description, but its text and switch stay editable", async () => {
-    for (const kind of ["DAY_OF_DELIVERY", "REVIEW_REQUEST"]) {
+    for (const kind of ["DAY_BEFORE_DELIVERY", "REVIEW_REQUEST"]) {
       mocks.templateFindFirstMock.mockResolvedValueOnce({ id: "t-1", kind });
       const nameRes = await PATCH(jsonRequest("PATCH", { name: "Nytt navn" }), idParams);
       expect(nameRes.status).toBe(400);
@@ -181,7 +181,7 @@ describe("/api/sms/templates", () => {
     }
     expect(mocks.templateUpdateMock).not.toHaveBeenCalled();
 
-    mocks.templateFindFirstMock.mockResolvedValueOnce({ id: "t-1", kind: "DAY_OF_DELIVERY" });
+    mocks.templateFindFirstMock.mockResolvedValueOnce({ id: "t-1", kind: "DAY_BEFORE_DELIVERY" });
     expect((await PATCH(jsonRequest("PATCH", { body: "Ny tekst", enabled: true }), idParams)).status).toBe(200);
     expect(mocks.templateUpdateMock).toHaveBeenCalledWith({ where: { id: "t-1" }, data: { enabled: true, body: "Ny tekst" } });
   });
@@ -190,7 +190,7 @@ describe("/api/sms/templates", () => {
     expect((await DELETE(new Request("http://localhost"), idParams)).status).toBe(200);
     expect(mocks.templateDeleteMock).toHaveBeenCalledWith({ where: { id: "t-1" } });
 
-    mocks.templateFindFirstMock.mockResolvedValueOnce({ id: "t-1", kind: "DAY_OF_DELIVERY" });
+    mocks.templateFindFirstMock.mockResolvedValueOnce({ id: "t-1", kind: "DAY_BEFORE_DELIVERY" });
     expect((await DELETE(new Request("http://localhost"), idParams)).status).toBe(400);
 
     mocks.templateFindFirstMock.mockResolvedValueOnce({ id: "t-1", kind: "REVIEW_REQUEST" });

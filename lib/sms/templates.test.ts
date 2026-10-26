@@ -76,18 +76,19 @@ describe("renderSmsTemplate", () => {
 
 describe("AUTOMATIC_SMS_TEMPLATE_DEFAULTS", () => {
   it("gives each automatic template a title and a description of when it is sent", () => {
-    expect(AUTOMATIC_SMS_TEMPLATE_DEFAULTS.DAY_OF_DELIVERY.name).toBe("Automatic SMS on delivery day");
-    expect(AUTOMATIC_SMS_TEMPLATE_DEFAULTS.DAY_OF_DELIVERY.description).toMatch(/09:00/);
+    expect(AUTOMATIC_SMS_TEMPLATE_DEFAULTS.DAY_BEFORE_DELIVERY.name).toBe("Automatic SMS the day before delivery");
+    expect(AUTOMATIC_SMS_TEMPLATE_DEFAULTS.DAY_BEFORE_DELIVERY.description).toMatch(/19:00 the day before/);
     expect(AUTOMATIC_SMS_TEMPLATE_DEFAULTS.REVIEW_REQUEST.name).toBe("Automatic review request after completion");
     expect(AUTOMATIC_SMS_TEMPLATE_DEFAULTS.REVIEW_REQUEST.description).toMatch(/GSM/);
   });
 });
 
 describe("renderOrderSms", () => {
-  it("renders the default day-of-delivery template with the address and the job", () => {
-    const text = renderOrderSms(AUTOMATIC_SMS_TEMPLATE_DEFAULTS.DAY_OF_DELIVERY.body, order);
+  it("renders the default day-before template with tomorrow, the date, the address and the job", () => {
+    const text = renderOrderSms(AUTOMATIC_SMS_TEMPLATE_DEFAULTS.DAY_BEFORE_DELIVERY.body, order);
     expect(text).toContain("Kari Nordmann");
-    expect(text).toContain("i dag");
+    expect(text).toContain("i morgen 26.10.2026");
+    expect(text).not.toContain("i dag");
     expect(text).toContain("Storgata 1, 0155 Oslo");
     expect(text).toContain("Oppdrag: Kjøleskap x2 (Innbæring).");
     expect(text).not.toContain("Montering");

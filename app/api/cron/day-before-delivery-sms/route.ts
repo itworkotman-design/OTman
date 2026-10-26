@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runDayOfDeliverySmsSweep } from "@/lib/sms/dayOfDeliverySweep";
+import { runDayBeforeDeliverySmsSweep } from "@/lib/sms/dayBeforeDeliverySweep";
 
 export async function POST(req: Request) {
   const header = req.headers.get("authorization") ?? "";
@@ -12,7 +12,7 @@ export async function POST(req: Request) {
 
   const rawLimit = Number(new URL(req.url).searchParams.get("limit"));
   const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : undefined;
-  const summary = await runDayOfDeliverySmsSweep({ limit });
+  const summary = await runDayBeforeDeliverySmsSweep({ limit });
 
   return NextResponse.json({ ok: true, ...summary });
 }

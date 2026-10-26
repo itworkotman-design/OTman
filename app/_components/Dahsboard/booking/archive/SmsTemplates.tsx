@@ -8,7 +8,7 @@ import { SmsPlaceholderLegend, type SmsPlaceholder } from "@/app/_components/Dah
 
 export type SmsTemplate = {
   id: string;
-  kind: "MANUAL" | "DAY_OF_DELIVERY" | "REVIEW_REQUEST";
+  kind: "MANUAL" | "DAY_BEFORE_DELIVERY" | "REVIEW_REQUEST";
   name: string;
   // Admin-facing note, stored in the DB; never sent in the SMS.
   description: string | null;

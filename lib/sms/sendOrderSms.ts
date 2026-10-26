@@ -10,7 +10,7 @@ export type SendOrderSmsResult =
 
 const KIND_LABELS: Record<OrderSmsKind, string> = {
   MANUAL: "Manual SMS",
-  DAY_OF_DELIVERY: "Automatic day-of-delivery SMS",
+  DAY_BEFORE_DELIVERY: "Automatic day-before-delivery SMS",
   REVIEW_REQUEST: "Automatic review request SMS",
 };
 
@@ -19,7 +19,7 @@ function toErrorMessage(error: unknown) {
 }
 
 // Shared by the per-order composer, the bulk "send SMS to selected" route and
-// the 09:00 sweep. The OrderSmsMessage row is written before the API call and
+// the 19:00 day-before sweep. The OrderSmsMessage row is written before the API call and
 // its id is the GatewayAPI `reference`, so the status webhook can always find
 // it. Failures are logged on the row (shown in the order's SMS tab) rather
 // than thrown.

@@ -620,9 +620,9 @@ model Order {
   stripeAmountChargedCents Int?
   paymentRequestSentAt     DateTime?
   paymentReminderSentAt    DateTime?
-  // Set (claimed) by the 09:00 day-of-delivery SMS sweep before it sends, so
+  // Set (claimed) by the 19:00 day-before-delivery SMS sweep before it sends, so
   // repeated cron runs and parallel runs never text the same customer twice.
-  dayOfDeliverySmsSentAt   DateTime?
+  dayBeforeDeliverySmsSentAt DateTime?
   // Same claim pattern for the review-request SMS sent after completion.
   reviewSmsSentAt          DateTime?
   // Set only by the GSM webhook when it auto-completes the order (never by
@@ -730,7 +730,7 @@ model OrderSmsMessage {
 }
 
 // Editable SMS texts per company. MANUAL templates are picked in the SMS
-// composers. Each automatic kind (DAY_OF_DELIVERY = 09:00 on delivery day,
+// composers. Each automatic kind (DAY_BEFORE_DELIVERY = 19:00 the day before delivery,
 // REVIEW_REQUEST = after completion) has exactly one template per company,
 // and its `enabled` flag is the on/off switch for that automatic SMS.
 model SmsTemplate {
@@ -1052,7 +1052,7 @@ enum OrderEmailDirection {
 
 enum OrderSmsKind {
   MANUAL
-  DAY_OF_DELIVERY
+  DAY_BEFORE_DELIVERY
   REVIEW_REQUEST
 }
 
@@ -1064,7 +1064,7 @@ enum OrderSmsStatus {
 
 enum SmsTemplateKind {
   MANUAL
-  DAY_OF_DELIVERY
+  DAY_BEFORE_DELIVERY
   REVIEW_REQUEST
 }
 

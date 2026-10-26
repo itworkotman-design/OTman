@@ -113,7 +113,7 @@ function buildOrder(overrides?: Partial<Order>): Order {
     stripeAmountChargedCents: null,
     paymentRequestSentAt: null,
     paymentReminderSentAt: null,
-    dayOfDeliverySmsSentAt: null,
+    dayBeforeDeliverySmsSentAt: null,
     reviewSmsSentAt: null,
     gsmCompletedAt: null,
     ...overrides,

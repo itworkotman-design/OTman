@@ -94,7 +94,7 @@ describe("/api/orders/[orderId]/sms", () => {
     mocks.templateFindManyMock.mockResolvedValue([
       { id: "m-1", name: "Forsinkelse", body: "Hei", kind: "MANUAL", enabled: true },
       { id: "r-1", name: "Review", body: "Takk", kind: "REVIEW_REQUEST", enabled: false },
-      { id: "d-1", name: "Leveringsdag", body: "I dag", kind: "DAY_OF_DELIVERY", enabled: true },
+      { id: "d-1", name: "Leveringsdag", body: "I dag", kind: "DAY_BEFORE_DELIVERY", enabled: true },
     ]);
 
     const json = await (await GET(new Request("http://localhost"), params)).json();
