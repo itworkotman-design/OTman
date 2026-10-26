@@ -6,7 +6,7 @@ import OrderModal from "@/app/_components/Dahsboard/booking/OrderModal";
 import ReadOnlyOrderModal from "@/app/_components/Dahsboard/booking/orders/ReadOnlyOrderModal";
 import BookingFilters from "@/app/_components/Dahsboard/booking/archive/BookingFilters";
 import BookingArchiveTable from "@/app/_components/Dahsboard/booking/archive/BookingArchiveTable";
-import OrderEmailModal from "@/app/_components/Dahsboard/booking/archive/OrderEmailModal";
+import OrderEmailModal, { type AlertCenterTab } from "@/app/_components/Dahsboard/booking/archive/OrderEmailModal";
 import SendSelectedSmsModal from "@/app/_components/Dahsboard/booking/archive/SendSelectedSmsModal";
 import OrderCreatorContactModal from "@/app/_components/Dahsboard/booking/orders/OrderCreatorContactModal";
 import type {
@@ -85,6 +85,7 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
   const [emailOrder, setEmailOrder] = useState<OrderRow | null>(null);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailInitialTab, setEmailInitialTab] = useState<AlertCenterTab | undefined>(undefined);
   const [smsModalOpen, setSmsModalOpen] = useState(false);
   const [contactOrder, setContactOrder] = useState<OrderRow | null>(null);
   const [contactModalOpen, setContactModalOpen] = useState(false);
@@ -874,12 +875,21 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
               orders={orders}
               viewMode={access.viewMode}
               onRowClick={(orderId) => {
+                // Admins get the Alert Center opened on its "Edit order" tab.
+                const row = access.viewMode === "ADMIN" ? orders.find((order) => order.id === orderId) : undefined;
+                if (row) {
+                  setEmailOrder(row);
+                  setEmailInitialTab("edit");
+                  setEmailModalOpen(true);
+                  return;
+                }
                 setSelectedOrderId(orderId);
                 setModalOpen(true);
               }}
               onAlertClick={(order) => {
                 if (access.viewMode === "ADMIN") {
                   setEmailOrder(order);
+                  setEmailInitialTab(undefined);
                   setEmailModalOpen(true);
                 } else {
                   setContactOrder(order);
@@ -940,6 +950,23 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
           setEmailOrder(null);
         }}
         onAlertsChanged={() => void loadOrders(appliedFilters)}
+        initialTab={emailInitialTab}
+        edit={
+          access.viewMode === "ADMIN"
+            ? {
+                locale,
+                canDelete: true,
+                onSaved: () => {
+                  void loadOrders(appliedFilters);
+                  void loadDriverOptions();
+                },
+                onDeleted: () => {
+                  void loadOrders(appliedFilters);
+                  void loadDriverOptions();
+                },
+              }
+            : undefined
+        }
       />
 
       <SendSelectedSmsModal

@@ -15,3 +15,5 @@ When `insuranceCases` (`{ storeMembershipId, storeLabel }`) is passed, the list 
 ## SMS
 
 Owns `smsModalOpen` and renders `SendSelectedSmsModal` for the selected order ids, opened from the selection bar's "Send SMS". Not offered on the Insurance cases page. Templates are managed on the Settings page.
+
+For admins, a row click opens `OrderEmailModal` on its "Edit order" tab (`initialTab="edit"`, with `edit` callbacks that reload orders and driver options), and the alert button opens it on the usual default tab. `OrderModal` is only used when the order is not in the loaded rows (the single-order copy flow). Non-admins keep `ReadOnlyOrderModal` and the contact modal.

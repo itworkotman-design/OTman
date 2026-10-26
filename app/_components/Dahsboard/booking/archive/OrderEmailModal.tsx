@@ -4,6 +4,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import type { OrderRow } from "@/app/_components/Dahsboard/booking/archive/types";
 import OrderSmsPanel from "@/app/_components/Dahsboard/booking/archive/OrderSmsPanel";
+import OrderEditPanel from "@/app/_components/Dahsboard/booking/OrderEditPanel";
+import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 
 type SnapshotPayload = {
   kind: "created";
@@ -135,11 +137,23 @@ function getCurrentHourOption() {
   );
 }
 
+export type AlertCenterTab = "edit" | "conversation" | "sms" | "notifications" | "history";
+
 type OrderEmailModalProps = {
   open: boolean;
   order: OrderRow | null;
   onClose: () => void;
   onAlertsChanged?: () => void;
+  // Tab to open on. Without it: Notifications when only a notification needs
+  // attention, otherwise Conversation.
+  initialTab?: AlertCenterTab;
+  // Admins: adds the "Edit order" tab (first) with the full order editor.
+  edit?: {
+    locale?: BookingUiLocale;
+    canDelete?: boolean;
+    onSaved?: () => void;
+    onDeleted?: () => void;
+  };
 };
 
 const SNAPSHOT_LABELS: Record<string, string> = {
@@ -484,9 +498,13 @@ function ConversationMessageCard({ message, expanded, onToggle }: { message: Con
   );
 }
 
-export default function OrderEmailModal({ open, order, onClose, onAlertsChanged }: OrderEmailModalProps) {
+export default function OrderEmailModal({ open, order, onClose, onAlertsChanged, initialTab, edit }: OrderEmailModalProps) {
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<"conversation" | "sms" | "notifications" | "history">("conversation");
+  const [activeTab, setActiveTab] = useState<AlertCenterTab>("conversation");
+  // The editor mounts on first visit and then stays mounted (hidden) so
+  // unsaved edits survive switching to another tab and back.
+  const [editVisited, setEditVisited] = useState(false);
+  const canEdit = Boolean(edit);
 
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -540,7 +558,14 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
     const defaultSubject =
       order.orderNumber && order.orderNumber.trim().length > 0 ? `Order ${order.displayId} | ${order.orderNumber}` : `Order ${order.displayId}`;
 
-    setActiveTab(order.needsNotificationAttention && !(order.needsEmailAttention || order.unreadInboundEmailCount > 0) ? "notifications" : "conversation");
+    const startTab =
+      initialTab && (initialTab !== "edit" || canEdit)
+        ? initialTab
+        : order.needsNotificationAttention && !(order.needsEmailAttention || order.unreadInboundEmailCount > 0)
+          ? "notifications"
+          : "conversation";
+    setActiveTab(startTab);
+    setEditVisited(startTab === "edit");
     setRecipientEmail(order.email || order.createdByEmail || "");
     setRecipientName(order.customerLabel || order.customerName || order.createdByName || "");
     setSubject(defaultSubject);
@@ -555,7 +580,11 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
     setOpenNotificationMenuId(null);
     setEditingNotificationId(null);
     setEditNotificationError("");
-  }, [open, order]);
+  }, [open, order, initialTab, canEdit]);
+
+  useEffect(() => {
+    if (activeTab === "edit") setEditVisited(true);
+  }, [activeTab]);
 
   useEffect(() => {
     const latestMessageId = conversation?.messages[0]?.id;
@@ -1062,12 +1091,14 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
   const hasNotificationAttention = activeNotifications.some((notification) => !notification.resolvedAt) || order.needsNotificationAttention;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    // Once the editor has been opened, a stray click outside must not throw
+    // away unsaved edits, so only the X closes it then.
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={editVisited ? undefined : onClose}>
       <div className="flex min-h-full items-center justify-center px-4 py-6">
-        <div className="flex max-h-[94vh] w-full max-w-[1180] flex-col customContainer bg-white" onClick={(event) => event.stopPropagation()}>
+        <div className={`flex max-h-[94vh] w-full ${activeTab === "edit" ? "max-w-[1700]" : "max-w-[1180]"} flex-col customContainer bg-white`} onClick={(event) => event.stopPropagation()}>
           <div className="flex items-center justify-between border-b border-black/10 px-6 py-4">
             <div>
-              <h2 className="text-2xl font-semibold text-logoblue">Alert Center</h2>
+              <h2 className="text-2xl font-semibold text-logoblue">{activeTab === "edit" ? "Edit order" : "Alert Center"}</h2>
               <p className="mt-1 text-sm text-textColorThird">
                 {orderLabel}
                 {order.orderNumber ? ` | ${order.orderNumber}` : ""}
@@ -1086,6 +1117,17 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
 
           <div className="border-b border-black/10 px-6 py-3">
             <div className="flex flex-wrap items-center gap-2">
+              {canEdit ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("edit")}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    activeTab === "edit" ? "bg-logoblue text-white" : "bg-slate-100 text-textColorThird hover:bg-slate-200"
+                  }`}
+                >
+                  Edit order
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setActiveTab("conversation")}
@@ -1142,7 +1184,19 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-6 py-5">
-            {activeTab === "conversation" ? (
+            {edit && editVisited ? (
+              <div className={activeTab === "edit" ? "rounded-2xl border border-black/10 bg-white p-4" : "hidden"}>
+                <OrderEditPanel
+                  orderId={order.id}
+                  locale={edit.locale}
+                  canDelete={edit.canDelete}
+                  onSaved={edit.onSaved}
+                  onDeleted={edit.onDeleted}
+                  onDone={onClose}
+                />
+              </div>
+            ) : null}
+            {activeTab === "edit" ? null : activeTab === "conversation" ? (
               <div className="space-y-4">
                 <div className="rounded-2xl border border-black/10 bg-white p-4">
                   <div className="mb-4 text-base font-semibold text-logoblue">Send email</div>

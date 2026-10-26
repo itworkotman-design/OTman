@@ -30,3 +30,5 @@ Renders the Alert Center modal for admins, combining order email conversation to
 ## SMS tab
 
 An "SMS" tab between Conversation and Order history renders `OrderSmsPanel` for the order (see `sms-components.md`).
+
+Optional `edit` (`{ locale, canDelete, onSaved, onDeleted }`) adds an **Edit order** tab first, rendering `OrderEditPanel`. While that tab is active the title reads "Edit order" and the modal widens to 1700px. The editor mounts on first visit and then stays mounted (hidden), so unsaved edits survive switching tabs. After that, a click on the backdrop no longer closes the modal; only X does. Saving or deleting closes the modal. Optional `initialTab` (`AlertCenterTab`) picks the starting tab; without it, the old attention-based default applies (Notifications or Conversation).
