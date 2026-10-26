@@ -1098,11 +1098,16 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged,
         <div className={`flex max-h-[94vh] w-full ${activeTab === "edit" ? "max-w-[1700]" : "max-w-[1180]"} flex-col customContainer bg-white`} onClick={(event) => event.stopPropagation()}>
           <div className="flex items-center justify-between border-b border-black/10 px-6 py-4">
             <div>
-              <h2 className="text-2xl font-semibold text-logoblue">{activeTab === "edit" ? "Edit order" : "Alert Center"}</h2>
-              <p className="mt-1 text-sm text-textColorThird">
-                {orderLabel}
-                {order.orderNumber ? ` | ${order.orderNumber}` : ""}
-              </p>
+              <h2 className="text-2xl font-semibold text-logoblue">{activeTab === "edit" ? (typeof order.displayId === "number" && order.displayId > 0 ? `Editing ${order.displayId}` : "Editing order") : "Alert Center"}</h2>
+              {/* The Edit tab's title already carries the order number. */}
+              {activeTab === "edit" ? (
+                order.orderNumber ? <p className="mt-1 text-sm text-textColorThird">{order.orderNumber}</p> : null
+              ) : (
+                <p className="mt-1 text-sm text-textColorThird">
+                  {orderLabel}
+                  {order.orderNumber ? ` | ${order.orderNumber}` : ""}
+                </p>
+              )}
             </div>
 
             <button
@@ -1115,72 +1120,55 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged,
             </button>
           </div>
 
-          <div className="border-b border-black/10 px-6 py-3">
-            <div className="flex flex-wrap items-center gap-2">
-              {canEdit ? (
+          <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 border-b border-black/10 px-6">
+            <nav className="-mb-px flex flex-wrap gap-6" role="tablist" aria-label="Order sections">
+              {(
+                [
+                  ...(canEdit ? [{ id: "edit", label: "Edit order", attention: null }] : []),
+                  { id: "conversation", label: "Conversation", attention: hasMailAttention ? "bg-logoblue" : null },
+                  { id: "sms", label: "SMS", attention: null },
+                  { id: "history", label: "Order history", attention: null },
+                  { id: "notifications", label: "Notifications", attention: hasNotificationAttention ? "bg-amber-500" : null },
+                ] as Array<{ id: AlertCenterTab; label: string; attention: string | null }>
+              ).map((tab) => (
                 <button
+                  key={tab.id}
                   type="button"
-                  onClick={() => setActiveTab("edit")}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    activeTab === "edit" ? "bg-logoblue text-white" : "bg-slate-100 text-textColorThird hover:bg-slate-200"
+                  role="tab"
+                  aria-selected={activeTab === tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 border-b-2 py-3 text-sm font-semibold transition ${
+                    activeTab === tab.id
+                      ? "border-logoblue text-logoblue"
+                      : "border-transparent text-textColorThird hover:border-black/20 hover:text-logoblue"
                   }`}
                 >
-                  Edit order
+                  {tab.label}
+                  {tab.attention ? <span className={`h-2 w-2 rounded-full ${tab.attention}`} aria-hidden /> : null}
                 </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => setActiveTab("conversation")}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  activeTab === "conversation" ? "bg-logoblue text-white" : "bg-slate-100 text-textColorThird hover:bg-slate-200"
-                }`}
-              >
-                Conversation
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("sms")}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  activeTab === "sms" ? "bg-logoblue text-white" : "bg-slate-100 text-textColorThird hover:bg-slate-200"
-                }`}
-              >
-                SMS
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("history")}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  activeTab === "history" ? "bg-logoblue text-white" : "bg-slate-100 text-textColorThird hover:bg-slate-200"
-                }`}
-              >
-                Order history
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("notifications")}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  activeTab === "notifications" ? "bg-logoblue text-white" : "bg-slate-100 text-textColorThird hover:bg-slate-200"
-                }`}
-              >
-                Notifications
-              </button>
-              {hasMailAttention ? (
-                <>
-                  <span className="rounded-full bg-logoblue/10 px-3 py-1 text-xs font-semibold text-logoblue">Awaiting admin reply</span>
-                  <button
-                    type="button"
-                    onClick={handleConversationComplete}
-                    disabled={completeLoading}
-                    className="rounded-full bg-logoblue px-3 py-1 text-xs font-semibold text-white transition hover:bg-logoblue/90 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {completeLoading ? "Updating..." : "Conversation complete"}
-                  </button>
-                </>
-              ) : null}
-              {hasNotificationAttention ? (
-                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">Awaiting notification approval</span>
-              ) : null}
-            </div>
+              ))}
+            </nav>
+
+            {hasMailAttention || hasNotificationAttention ? (
+              <div className="flex flex-wrap items-center gap-2 py-2">
+                {hasMailAttention ? (
+                  <>
+                    <span className="rounded-md bg-logoblue/10 px-2.5 py-1 text-xs font-semibold text-logoblue">Awaiting admin reply</span>
+                    <button
+                      type="button"
+                      onClick={handleConversationComplete}
+                      disabled={completeLoading}
+                      className="rounded-md border border-logoblue px-2.5 py-1 text-xs font-semibold text-logoblue transition hover:bg-logoblue hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {completeLoading ? "Updating..." : "Conversation complete"}
+                    </button>
+                  </>
+                ) : null}
+                {hasNotificationAttention ? (
+                  <span className="rounded-md bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900">Awaiting notification approval</span>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-6 py-5">
