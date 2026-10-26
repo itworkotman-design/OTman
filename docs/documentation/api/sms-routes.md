@@ -19,7 +19,7 @@ All routes except the webhook and the cron route are OWNER/ADMIN only (`requireS
 | --- | --- |
 | `GET /api/sms/templates` | Lists templates plus `placeholders` and `configured`. Creates any missing automatic template (`DAY_OF_DELIVERY`, `REVIEW_REQUEST`) from its default text, **disabled**. The check-and-create runs under a per-company Postgres advisory lock (`pg_advisory_xact_lock`) and re-checks inside it, so concurrent GETs (React dev double-mount, two tabs) never create duplicates. |
 | `POST /api/sms/templates` | `{ name, description?, body }` creates a `MANUAL` template. |
-| `PATCH /api/sms/templates/[id]` | Updates `name`, `description` (blank clears it), `body` and/or `enabled` on any template, automatic ones included. `kind` can't be changed. Empty name/body → 400. |
+| `PATCH /api/sms/templates/[id]` | Updates `body` and/or `enabled` on any template. `name` and `description` (blank clears it) are editable on `MANUAL` templates only; sending either for an automatic template → 400 `AUTOMATIC_TEMPLATE_DETAILS_LOCKED`. `kind` can't be changed. Empty name/body → 400. |
 | `DELETE /api/sms/templates/[id]` | Deletes a `MANUAL` template. Automatic templates can only be switched off (400). |
 
 ## `app/api/integrations/sms/webhook/route.ts`

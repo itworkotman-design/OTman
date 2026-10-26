@@ -11,7 +11,7 @@
 
 | Export | Description |
 | --- | --- |
-| `SmsTemplatesSection` (default) | Section on the Settings page (`app/(User)/dashboard/settings/page.tsx`), below Pickup addresses and shown to OWNER/ADMIN only. Lists the automatic templates first (delivery day, then review request), each with its On/Off switch in the collapsible header. Every template shows its DB-stored name, and the collapsed row shows its description (or the text if there is none); name, description and text are editable for all templates. It also edits and deletes manual templates, and adds new ones. Clicking a placeholder chip appends it to the text. |
+| `SmsTemplatesSection` (default) | Section on the Settings page (`app/(User)/dashboard/settings/page.tsx`), below Pickup addresses and shown to OWNER/ADMIN only. Lists the automatic templates first (delivery day, then review request), each with its On/Off switch in the collapsible header. Every template shows its DB-stored name, and the collapsed row shows its description (or the text if there is none); manual templates can edit name, description and text, while the automatic ones show their description read-only and only the text is editable. It also edits and deletes manual templates, and adds new ones. Clicking a placeholder chip appends it to the text. |
 | `useSmsTemplates` | Loads `GET /api/sms/templates` while open. |
 | `SmsPlaceholderLegend` | Re-exported from `SmsPlaceholderLegend.tsx` (see below). |
 | `SmsModalShell` | Portal modal frame used by `SendSelectedSmsModal`. |

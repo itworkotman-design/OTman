@@ -153,20 +153,28 @@ function TemplateEditor({
 
       {expanded ? (
         <div className="border-t border-black/5 p-4">
-          <label className="mb-3 block">
-            <div className="mb-1 text-sm font-medium text-textColorThird">Name</div>
-            <input value={name} onChange={(event) => setName(event.target.value)} className={inputClass} />
-          </label>
+          {/* Automatic templates keep their built-in name and description
+              (the API rejects changes); only the text is editable. */}
+          {isAutomatic ? (
+            template.description ? <p className="mb-3 text-sm text-textColorThird">{template.description}</p> : null
+          ) : (
+            <>
+              <label className="mb-3 block">
+                <div className="mb-1 text-sm font-medium text-textColorThird">Name</div>
+                <input value={name} onChange={(event) => setName(event.target.value)} className={inputClass} />
+              </label>
 
-          <label className="mb-3 block">
-            <div className="mb-1 text-sm font-medium text-textColorThird">Description (not sent, only shown here)</div>
-            <textarea
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              className={`${inputClass} min-h-16`}
-              placeholder="What is this template for / when is it sent?"
-            />
-          </label>
+              <label className="mb-3 block">
+                <div className="mb-1 text-sm font-medium text-textColorThird">Description (not sent, only shown here)</div>
+                <textarea
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  className={`${inputClass} min-h-16`}
+                  placeholder="What is this template for / when is it sent?"
+                />
+              </label>
+            </>
+          )}
 
           <label className="block">
             <div className="mb-1 text-sm font-medium text-textColorThird">Text</div>
@@ -197,7 +205,7 @@ function TemplateEditor({
             <button
               type="button"
               disabled={saving || !dirty || !body.trim() || !name.trim()}
-              onClick={() => void request("PATCH", { name, description, body })}
+              onClick={() => void request("PATCH", isAutomatic ? { body } : { name, description, body })}
               className="rounded-full bg-logoblue px-5 py-2 text-sm font-semibold text-white transition hover:bg-logoblue/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? "Saving..." : "Save"}

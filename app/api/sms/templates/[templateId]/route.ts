@@ -26,6 +26,12 @@ export async function PATCH(req: Request, { params }: TemplateRouteParams) {
   }
 
   const body = await req.json().catch(() => null);
+  // The automatic templates keep their built-in name and description; only
+  // their text and on/off switch are editable.
+  if (template.kind !== "MANUAL" && (body?.name !== undefined || body?.description !== undefined)) {
+    return NextResponse.json({ ok: false, reason: "AUTOMATIC_TEMPLATE_DETAILS_LOCKED" }, { status: 400 });
+  }
+
   const data: { enabled?: boolean; body?: string; name?: string; description?: string | null } = {};
 
   if (typeof body?.enabled === "boolean") data.enabled = body.enabled;
@@ -39,7 +45,7 @@ export async function PATCH(req: Request, { params }: TemplateRouteParams) {
     if (!name) return NextResponse.json({ ok: false, reason: "NAME_REQUIRED" }, { status: 400 });
     data.name = name;
   }
-  // Optional on every kind; blank clears it.
+  // Optional; blank clears it.
   if (body?.description !== undefined) {
     data.description = typeof body.description === "string" ? body.description.trim() || null : null;
   }

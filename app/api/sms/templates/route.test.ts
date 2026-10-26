@@ -158,16 +158,32 @@ describe("/api/sms/templates", () => {
     expect((await PATCH(jsonRequest("PATCH", { body: "" }), idParams)).status).toBe(400);
   });
 
-  it("PATCH edits the description of any template (automatic ones included); empty clears it", async () => {
-    mocks.templateFindFirstMock.mockResolvedValueOnce({ id: "t-1", kind: "DAY_OF_DELIVERY" });
-    await PATCH(jsonRequest("PATCH", { description: " Ny beskrivelse ", name: "Leveringsdag" }), idParams);
+  it("PATCH edits a manual template's description; empty clears it", async () => {
+    await PATCH(jsonRequest("PATCH", { description: " Ny beskrivelse ", name: "Forsinkelse" }), idParams);
     expect(mocks.templateUpdateMock).toHaveBeenLastCalledWith({
       where: { id: "t-1" },
-      data: { description: "Ny beskrivelse", name: "Leveringsdag" },
+      data: { description: "Ny beskrivelse", name: "Forsinkelse" },
     });
 
     await PATCH(jsonRequest("PATCH", { description: "  " }), idParams);
     expect(mocks.templateUpdateMock).toHaveBeenLastCalledWith({ where: { id: "t-1" }, data: { description: null } });
+  });
+
+  it("PATCH never changes an automatic template's name or description, but its text and switch stay editable", async () => {
+    for (const kind of ["DAY_OF_DELIVERY", "REVIEW_REQUEST"]) {
+      mocks.templateFindFirstMock.mockResolvedValueOnce({ id: "t-1", kind });
+      const nameRes = await PATCH(jsonRequest("PATCH", { name: "Nytt navn" }), idParams);
+      expect(nameRes.status).toBe(400);
+      expect(await nameRes.json()).toEqual({ ok: false, reason: "AUTOMATIC_TEMPLATE_DETAILS_LOCKED" });
+
+      mocks.templateFindFirstMock.mockResolvedValueOnce({ id: "t-1", kind });
+      expect((await PATCH(jsonRequest("PATCH", { description: "Ny" }), idParams)).status).toBe(400);
+    }
+    expect(mocks.templateUpdateMock).not.toHaveBeenCalled();
+
+    mocks.templateFindFirstMock.mockResolvedValueOnce({ id: "t-1", kind: "DAY_OF_DELIVERY" });
+    expect((await PATCH(jsonRequest("PATCH", { body: "Ny tekst", enabled: true }), idParams)).status).toBe(200);
+    expect(mocks.templateUpdateMock).toHaveBeenCalledWith({ where: { id: "t-1" }, data: { enabled: true, body: "Ny tekst" } });
   });
 
   it("DELETE removes a manual template but never an automatic one", async () => {
