@@ -7,6 +7,7 @@ import ReadOnlyOrderModal from "@/app/_components/Dahsboard/booking/orders/ReadO
 import BookingFilters from "@/app/_components/Dahsboard/booking/archive/BookingFilters";
 import BookingArchiveTable from "@/app/_components/Dahsboard/booking/archive/BookingArchiveTable";
 import OrderEmailModal from "@/app/_components/Dahsboard/booking/archive/OrderEmailModal";
+import SendSelectedSmsModal from "@/app/_components/Dahsboard/booking/archive/SendSelectedSmsModal";
 import OrderCreatorContactModal from "@/app/_components/Dahsboard/booking/orders/OrderCreatorContactModal";
 import type {
   BookingArchiveFilters,
@@ -84,6 +85,7 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
   const [emailOrder, setEmailOrder] = useState<OrderRow | null>(null);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [smsModalOpen, setSmsModalOpen] = useState(false);
   const [contactOrder, setContactOrder] = useState<OrderRow | null>(null);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [columnModalOpen, setColumnModalOpen] = useState(false);
@@ -798,6 +800,7 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
               onCopySelected={handleCopySelected}
               onExportExcel={handleExportSelected}
               onManageColumns={() => setColumnModalOpen(true)}
+              onSendSms={insuranceCases ? undefined : () => setSmsModalOpen(true)}
               loading={customerActionLoading}
               error={customerActionError}
               gsmDuplicateWarning={gsmDuplicateWarning}
@@ -935,6 +938,13 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
           setEmailOrder(null);
         }}
         onAlertsChanged={() => void loadOrders(appliedFilters)}
+      />
+
+      <SendSelectedSmsModal
+        open={smsModalOpen}
+        orderIds={selectedOrderIds}
+        onClose={() => setSmsModalOpen(false)}
+        onSent={() => setChangeFlags((prev) => ({ ...prev, hasChangedOrders: true }))}
       />
 
       <OrderCreatorContactModal

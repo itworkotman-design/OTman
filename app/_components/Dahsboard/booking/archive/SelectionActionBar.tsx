@@ -28,6 +28,8 @@ type Props = {
   onCopySelected: () => void | Promise<void>;
   onExportExcel: () => void | Promise<void>;
   onManageColumns: () => void;
+  // Optional so other users of the bar (e.g. Insurance cases) can leave SMS out.
+  onSendSms?: () => void;
   loading?: boolean;
   error?: string;
   gsmDuplicateWarning?: string[];
@@ -47,6 +49,7 @@ export default function SelectionActionBar({
   onCopySelected,
   onExportExcel,
   onManageColumns,
+  onSendSms,
   loading = false,
   error = "",
   gsmDuplicateWarning = [],
@@ -247,6 +250,17 @@ export default function SelectionActionBar({
           <button type="button" onClick={onManageColumns} className="customButtonDefault h-10 w-full height-weird-landscape">
             {t("Hide columns")}
           </button>
+
+          {onSendSms && (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={onSendSms}
+              className="customButtonDefault h-10 w-full disabled:opacity-50! disabled:cursor-auto! height-weird-landscape"
+            >
+              {t("Send SMS")}
+            </button>
+          )}
         </div>
 
         {showStoreEmail && (
@@ -354,6 +368,17 @@ export default function SelectionActionBar({
           <button type="button" onClick={onManageColumns} className="customButtonDefault h-10 height-weird-landscape">
             {t("Hide columns")}
           </button>
+
+          {onSendSms && (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={onSendSms}
+              className="customButtonDefault h-10 disabled:opacity-50! disabled:cursor-auto! height-weird-landscape"
+            >
+              {t("Send SMS")}
+            </button>
+          )}
         </div>
       </div>
 

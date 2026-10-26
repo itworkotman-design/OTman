@@ -246,6 +246,7 @@ const NB_TEXT: Record<string, string> = {
   Sent: "Sendt",
   "Send email": "Send e-post",
   "Send to GSM": "Send til GSM",
+  "Send SMS": "Send SMS",
   "Sent to GSM": "Sendt til GSM",
   "Selected orders were sent to GSM.": "Valgte bestillinger ble sendt til GSM.",
   "Copy selected": "Kopier valgte",

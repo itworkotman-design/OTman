@@ -75,3 +75,7 @@ This is infrastructure configuration, not something checked into the repo:
    production with `npx prisma migrate deploy` — the route will 500 with a
    Prisma "column does not exist" error until this has run, the same way it
    did locally before the migration was applied.
+
+## SMS log
+
+Anonymizing an order also overwrites its `OrderSmsMessage` rows (`toPhone` and `body` → GDPR placeholders), and the audit event's `relatedCleared.smsMessages` holds the count.

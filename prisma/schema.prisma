@@ -53,6 +53,7 @@ model Company {
   orders                  Order[]
   activeSessions          Session[]                    @relation("SessionActiveCompany")
   recurringOrderTemplates RecurringOrderTemplate[]
+  smsTemplates            SmsTemplate[]
 
   @@index([status])
 }
@@ -77,6 +78,7 @@ model Membership {
   orders                         Order[]
   ordersLastEdited               Order[]                      @relation("OrderLastEditedByMembership")
   sentOrderEmails                OrderEmailMessage[]          @relation("OrderEmailSentByMembership")
+  sentOrderSms                   OrderSmsMessage[]            @relation("OrderSmsSentByMembership")
   orderEvents                    OrderEvent[]
   resolvedOrderNotifications     OrderNotification[]          @relation("OrderNotificationResolvedByMembership")
   createdRecurringOrderTemplates RecurringOrderTemplate[]     @relation("RecurringOrderTemplateCreatedByMembership")
@@ -584,6 +586,7 @@ model Order {
   lastEditedByMembership             Membership?               @relation("OrderLastEditedByMembership", fields: [lastEditedByMembershipId], references: [id])
   orderAttachments                   OrderAttachment[]
   emailMessages                      OrderEmailMessage[]
+  smsMessages                        OrderSmsMessage[]
   events                             OrderEvent[]
   gsmTasks                           OrderGsmTask[]
   items                              OrderItem[]
@@ -617,6 +620,14 @@ model Order {
   stripeAmountChargedCents Int?
   paymentRequestSentAt     DateTime?
   paymentReminderSentAt    DateTime?
+  // Set (claimed) by the 09:00 day-of-delivery SMS sweep before it sends, so
+  // repeated cron runs and parallel runs never text the same customer twice.
+  dayOfDeliverySmsSentAt   DateTime?
+  // Same claim pattern for the review-request SMS sent after completion.
+  reviewSmsSentAt          DateTime?
+  // Set only by the GSM webhook when it auto-completes the order (never by
+  // manual/bulk status changes). The review-request SMS keys off this.
+  gsmCompletedAt           DateTime?
 
   @@unique([companyId, displayId])
   @@unique([recurringOrderTemplateId, recurringOrderOccurrenceDate])
@@ -692,6 +703,51 @@ model OrderEmailMessage {
   @@index([status, createdAt])
   @@index([sentByMembershipId, createdAt])
   @@index([externalMessageId])
+}
+
+model OrderSmsMessage {
+  id                 String         @id @default(cuid())
+  orderId            String
+  companyId          String
+  kind               OrderSmsKind   @default(MANUAL)
+  status             OrderSmsStatus
+  // Raw GatewayAPI delivery state (ENROUTE, DELIVERED, REJECTED, ...) from the
+  // status webhook; `status` is the app-level summary of it.
+  providerStatus     String?
+  errorMessage       String?
+  toPhone            String
+  body               String
+  externalMessageId  String?        @unique
+  sentByMembershipId String?
+  createdAt          DateTime       @default(now())
+  sentAt             DateTime?
+  statusUpdatedAt    DateTime?
+  order              Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sentByMembership   Membership?    @relation("OrderSmsSentByMembership", fields: [sentByMembershipId], references: [id])
+
+  @@index([orderId, createdAt])
+  @@index([companyId, createdAt])
+}
+
+// Editable SMS texts per company. MANUAL templates are picked in the SMS
+// composers. Each automatic kind (DAY_OF_DELIVERY = 09:00 on delivery day,
+// REVIEW_REQUEST = after completion) has exactly one template per company,
+// and its `enabled` flag is the on/off switch for that automatic SMS.
+model SmsTemplate {
+  id          String          @id @default(cuid())
+  companyId   String
+  kind        SmsTemplateKind @default(MANUAL)
+  name        String
+  // Admin-facing note on what the template is for / when it is sent. Never
+  // part of the SMS itself.
+  description String?
+  body        String
+  enabled     Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, kind])
 }
 
 model OrderNotification {
@@ -992,6 +1048,24 @@ enum OrderEventType {
 enum OrderEmailDirection {
   OUTBOUND
   INBOUND
+}
+
+enum OrderSmsKind {
+  MANUAL
+  DAY_OF_DELIVERY
+  REVIEW_REQUEST
+}
+
+enum OrderSmsStatus {
+  SENT
+  DELIVERED
+  FAILED
+}
+
+enum SmsTemplateKind {
+  MANUAL
+  DAY_OF_DELIVERY
+  REVIEW_REQUEST
 }
 
 enum OrderEmailStatus {

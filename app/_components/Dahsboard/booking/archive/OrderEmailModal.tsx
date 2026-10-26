@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import type { OrderRow } from "@/app/_components/Dahsboard/booking/archive/types";
+import OrderSmsPanel from "@/app/_components/Dahsboard/booking/archive/OrderSmsPanel";
 
 type SnapshotPayload = {
   kind: "created";
@@ -485,7 +486,7 @@ function ConversationMessageCard({ message, expanded, onToggle }: { message: Con
 
 export default function OrderEmailModal({ open, order, onClose, onAlertsChanged }: OrderEmailModalProps) {
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<"conversation" | "notifications" | "history">("conversation");
+  const [activeTab, setActiveTab] = useState<"conversation" | "sms" | "notifications" | "history">("conversation");
 
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -1096,6 +1097,15 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
               </button>
               <button
                 type="button"
+                onClick={() => setActiveTab("sms")}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  activeTab === "sms" ? "bg-logoblue text-white" : "bg-slate-100 text-textColorThird hover:bg-slate-200"
+                }`}
+              >
+                SMS
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveTab("history")}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
                   activeTab === "history" ? "bg-logoblue text-white" : "bg-slate-100 text-textColorThird hover:bg-slate-200"
@@ -1232,6 +1242,8 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged 
                   </>
                 )}
               </div>
+            ) : activeTab === "sms" ? (
+              <OrderSmsPanel orderId={order.id} />
             ) : activeTab === "notifications" ? (
               <div className="space-y-4">
                 <div className="rounded-2xl border border-black/10 bg-white p-4">

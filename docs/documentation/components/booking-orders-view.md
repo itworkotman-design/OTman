@@ -11,3 +11,7 @@ Loads archive rows and filter options, including the drivers found on the compan
 Loads the driver choices (drivers found on the company's orders) used by the admin filter and skips the request for non-admin views. Re-runs whenever the view mode changes, so it fires once the current user resolves to an admin.
 
 When `insuranceCases` (`{ storeMembershipId, storeLabel }`) is passed, the list is locked to that store: the access object gets `canFilterCreatedBy: false` + `lockedCreatedById` (so `BookingFilters` hides the Store filter and keeps `createdById` pinned, including on reset), the default/reset filters carry that `createdById`, the title becomes "Insurance cases" with the store name underneath, the `BulkUpdateBar` is not rendered, and `SelectionActionBar` is rendered with `showStoreEmail={false}` and `showSendGsm={false}` (only Copy selected / Export Excel / Hide columns remain).
+
+## SMS
+
+Owns `smsModalOpen` and renders `SendSelectedSmsModal` for the selected order ids, opened from the selection bar's "Send SMS". Not offered on the Insurance cases page. Templates are managed on the Settings page.
