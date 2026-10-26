@@ -113,6 +113,15 @@ const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   unreadInboundEmailCount: true,
   needsNotificationAttention: true,
   unreadNotificationCount: true,
+  // Alerts-column marker strip (admin only): GSM send time, count of SMS
+  // that didn't fail, and the latest SMS's status/time.
+  gsmSentAt: true,
+  _count: { select: { smsMessages: { where: { status: { not: "FAILED" } } } } },
+  smsMessages: {
+    orderBy: { createdAt: "desc" },
+    take: 1,
+    select: { status: true, createdAt: true, sentAt: true, statusUpdatedAt: true },
+  },
   priceExVat: true,
   priceSubcontractor: true,
   priceListId: true,
@@ -1198,6 +1207,7 @@ export async function GET(req: Request) {
       const assignedStore = getMembershipUserLabel(order.customerMembership?.user);
       const storeLabel = assignedStore || legacyCreatedBy || createdBy;
       const latestEvent = order.events?.[0];
+      const latestSms = order.smsMessages?.[0];
       const latestActionTitle = getLatestActionTitle(latestEvent?.payload);
       const emailAttention = getArchiveEmailAttention(order, isOrderCreator);
 
@@ -1245,6 +1255,12 @@ export async function GET(req: Request) {
         unreadInboundEmailCount: emailAttention.unreadInboundEmailCount,
         needsNotificationAttention: isOrderCreator ? false : order.needsNotificationAttention,
         unreadNotificationCount: isOrderCreator ? 0 : order.unreadNotificationCount,
+        // Alerts-column marker strip (admin only). smsAt is the latest
+        // SMS's status time, else its send time, else when it was created.
+        gsmSentAt: isAdminOrOwner ? (order.gsmSentAt ?? null) : null,
+        smsStatus: isAdminOrOwner ? (latestSms?.status ?? null) : null,
+        smsAt: isAdminOrOwner && latestSms ? (latestSms.statusUpdatedAt ?? latestSms.sentAt ?? latestSms.createdAt) : null,
+        smsCount: isAdminOrOwner ? (order._count?.smsMessages ?? 0) : 0,
         priceExVat: order.priceExVat,
         priceSubcontractor: order.priceSubcontractor,
         priceListId: order.priceListId ?? "",

@@ -650,6 +650,172 @@ describe("routes in /api/orders", () => {
     });
   });
 
+  describe("GSM / SMS markers for the alerts column", () => {
+    function archiveOrder(overrides: Record<string, unknown> = {}) {
+      return {
+        id: "order-1",
+        displayId: 20001,
+        status: "processing",
+        statusNotes: null,
+        deliveryDate: "2030-01-15",
+        timeWindow: "08-12",
+        customerLabel: "Acme",
+        customerName: "Alice",
+        orderNumber: "PO-1",
+        phone: "12345678",
+        email: null,
+        pickupAddress: "Pickup 1",
+        extraPickupAddress: [],
+        extraPickupContacts: null,
+        deliveryAddress: "Delivery 1",
+        returnAddress: null,
+        items: [],
+        productsSummary: "Van",
+        deliveryTypeSummary: "Standard",
+        servicesSummary: "Carry",
+        description: null,
+        cashierName: null,
+        cashierPhone: null,
+        customerComments: null,
+        driverInfo: null,
+        subcontractorMembershipId: null,
+        subcontractor: null,
+        driver: null,
+        createdAt: new Date("2030-01-01T00:00:00.000Z"),
+        updatedAt: new Date("2030-01-02T00:00:00.000Z"),
+        lastInboundEmailAt: null,
+        lastOutboundEmailAt: null,
+        lastNotificationAt: null,
+        needsEmailAttention: false,
+        unreadInboundEmailCount: 0,
+        needsNotificationAttention: false,
+        unreadNotificationCount: 0,
+        priceExVat: 1000,
+        priceSubcontractor: 700,
+        createdByMembershipId: "membership-1",
+        lastEditedByMembershipId: null,
+        customerMembershipId: "membership-1",
+        legacyWordpressAuthorId: null,
+        customerMembership: null,
+        createdByMembership: { user: { username: "store", email: "store@example.com" } },
+        lastEditedByMembership: null,
+        gsmSentAt: new Date("2030-01-03T00:00:00.000Z"),
+        _count: { smsMessages: 2 },
+        smsMessages: [
+          {
+            status: "DELIVERED",
+            createdAt: new Date("2030-01-04T09:00:00.000Z"),
+            sentAt: new Date("2030-01-04T09:00:01.000Z"),
+            statusUpdatedAt: new Date("2030-01-04T09:00:05.000Z"),
+          },
+        ],
+        ...overrides,
+      };
+    }
+
+    beforeEach(() => {
+      mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "user-1", activeCompanyId: "company-1" });
+      mocks.membershipFindManyMock.mockResolvedValue([]);
+    });
+
+    it("GET only sends the detailed marker fields (no separate yes/no flags)", async () => {
+      mocks.membershipFindFirstMock.mockResolvedValue({
+        id: "membership-1",
+        companyId: "company-1",
+        role: "ADMIN",
+        permissions: [],
+      });
+      mocks.orderFindManyMock.mockResolvedValue([archiveOrder()]);
+
+      const json = await (await GET(new Request("http://localhost/api/orders"))).json();
+
+      expect(json.orders[0]).not.toHaveProperty("sentToGsm");
+      expect(json.orders[0]).not.toHaveProperty("smsSent");
+      // Failed SMS don't count towards smsCount.
+      expect(mocks.orderFindManyMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({
+            gsmSentAt: true,
+            _count: { select: { smsMessages: { where: { status: { not: "FAILED" } } } } },
+          }),
+        }),
+      );
+    });
+
+    it("GET gives admins the GSM send time and the latest SMS status, time and sent count", async () => {
+      mocks.membershipFindFirstMock.mockResolvedValue({
+        id: "membership-1",
+        companyId: "company-1",
+        role: "ADMIN",
+        permissions: [],
+      });
+      mocks.orderFindManyMock.mockResolvedValue([
+        archiveOrder(),
+        archiveOrder({
+          id: "order-2",
+          displayId: 20002,
+          gsmSentAt: null,
+          _count: { smsMessages: 0 },
+          smsMessages: [
+            { status: "FAILED", createdAt: new Date("2030-01-05T10:00:00.000Z"), sentAt: null, statusUpdatedAt: null },
+          ],
+        }),
+        archiveOrder({ id: "order-3", displayId: 20003, _count: { smsMessages: 0 }, smsMessages: [] }),
+      ]);
+
+      const json = await (await GET(new Request("http://localhost/api/orders"))).json();
+
+      expect(json.orders).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: "order-1",
+            gsmSentAt: "2030-01-03T00:00:00.000Z",
+            smsStatus: "DELIVERED",
+            // Status time wins over send time.
+            smsAt: "2030-01-04T09:00:05.000Z",
+            smsCount: 2,
+          }),
+          // Falls back to createdAt when the SMS never got sent.
+          expect.objectContaining({ id: "order-2", gsmSentAt: null, smsStatus: "FAILED", smsAt: "2030-01-05T10:00:00.000Z", smsCount: 0 }),
+          expect.objectContaining({ id: "order-3", smsStatus: null, smsAt: null, smsCount: 0 }),
+        ]),
+      );
+      expect(mocks.orderFindManyMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({
+            smsMessages: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              select: { status: true, createdAt: true, sentAt: true, statusUpdatedAt: true },
+            },
+          }),
+        }),
+      );
+    });
+
+    it("GET never exposes the markers to order creators", async () => {
+      mocks.membershipFindFirstMock.mockResolvedValue({
+        id: "membership-1",
+        companyId: "company-1",
+        role: "USER",
+        permissions: [{ permission: "BOOKING_CREATE" }],
+      });
+      mocks.orderFindManyMock.mockResolvedValue([archiveOrder()]);
+
+      const json = await (await GET(new Request("http://localhost/api/orders"))).json();
+
+      expect(json.orders).toEqual([
+        expect.objectContaining({
+          id: "order-1",
+          gsmSentAt: null,
+          smsStatus: null,
+          smsAt: null,
+          smsCount: 0,
+        }),
+      ]);
+    });
+  });
+
   it("GET filters the admin store dropdown by assigned customer membership", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "admin-1",

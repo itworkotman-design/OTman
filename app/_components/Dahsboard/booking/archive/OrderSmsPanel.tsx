@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { renderSmsTemplate, type SmsTemplateVariables } from "@/lib/sms/templates";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { SMS_TEMPLATE_PLACEHOLDERS, renderSmsTemplate, type SmsTemplateVariables } from "@/lib/sms/templates";
+import { SmsPlaceholderLegend } from "@/app/_components/Dahsboard/booking/archive/SmsPlaceholderLegend";
 import { countSmsSegments } from "@/lib/sms/segments";
 
 type SmsMessage = {
@@ -96,6 +97,21 @@ export default function OrderSmsPanel({ orderId }: { orderId: string }) {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
+  const messageRef = useRef<HTMLTextAreaElement>(null);
+
+  // Inserts a placeholder where the cursor is (or replaces the selection),
+  // then puts the cursor right after it so you can keep typing.
+  function insertPlaceholder(token: string) {
+    const textarea = messageRef.current;
+    const start = textarea?.selectionStart ?? message.length;
+    const end = textarea?.selectionEnd ?? message.length;
+    setMessage(`${message.slice(0, start)}${token}${message.slice(end)}`);
+    requestAnimationFrame(() => {
+      if (!textarea) return;
+      textarea.focus();
+      textarea.setSelectionRange(start + token.length, start + token.length);
+    });
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -223,12 +239,14 @@ export default function OrderSmsPanel({ orderId }: { orderId: string }) {
           <label className="block">
             <div className="mb-1 text-sm font-medium text-textColorThird">Message</div>
             <textarea
+              ref={messageRef}
               value={message}
               onChange={(event) => setMessage(event.target.value)}
               className="min-h-[110px] w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
               placeholder="Write the SMS here. Placeholders like {name} and {address} are filled in from the order."
             />
           </label>
+          <SmsPlaceholderLegend placeholders={SMS_TEMPLATE_PLACEHOLDERS} onInsert={insertPlaceholder} />
 
           {message.trim() ? (
             <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-logoblue">

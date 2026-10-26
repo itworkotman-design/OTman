@@ -190,22 +190,78 @@ function CopyButton({
   );
 }
 
+function formatMarkerTime(value: string | null | undefined) {
+  if (!value) return "";
+  return new Date(value).toLocaleString("nb-NO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+const SMS_STATUS_LABELS = {
+  SENT: "SMS sent, waiting for delivery",
+  DELIVERED: "SMS delivered",
+  FAILED: "SMS failed",
+} as const;
+
+// SMS half of the marker strip: blue once delivered, grey while still on its
+// way, red when it failed (the only state that needs attention).
+const SMS_STATUS_STRIP_COLORS = {
+  SENT: "bg-slate-400",
+  DELIVERED: "bg-blue-500",
+  FAILED: "bg-red-500",
+} as const;
+
+// One half of the GSM/SMS tab. Uses an instant CSS tooltip instead of the
+// native `title`: on an 8px-tall target the browser's delayed title tooltip
+// practically never appears before the pointer moves off.
+function MarkerHalf({ side, label, colorClass }: { side: "left" | "right"; label: string; colorClass: string }) {
+  if (!label) return <span className="h-full w-1/2" />;
+
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      className={`group relative h-full w-1/2 ${side === "left" ? "rounded-tl-md" : "rounded-tr-md"} ${colorClass}`}
+    >
+      <span className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white shadow-lg group-hover:block">
+        {label}
+      </span>
+    </span>
+  );
+}
+
 function AlertCell({
   order,
   onAlertClick,
   openLabel,
+  t,
 }: {
   order: OrderRow;
   onAlertClick: (order: OrderRow) => void;
   openLabel: string;
+  t: (text: string) => string;
 }) {
+  const gsmTooltip = [t("Sent to GSM"), formatMarkerTime(order.gsmSentAt)].filter(Boolean).join(" ");
+  const smsTooltip = order.smsStatus
+    ? [
+        t(SMS_STATUS_LABELS[order.smsStatus]),
+        formatMarkerTime(order.smsAt),
+        (order.smsCount ?? 0) > 1 ? `(${order.smsCount} SMS)` : "",
+      ]
+        .filter(Boolean)
+        .join(" ")
+    : "";
+
   const hasMailAlert =
     order.needsEmailAttention || order.unreadInboundEmailCount > 0;
   const hasNotificationAlert =
     order.needsNotificationAttention || order.unreadNotificationCount > 0;
 
-  let buttonClassName =
-    "relative flex h-10 w-full items-center justify-center overflow-hidden rounded-md border text-[11px] font-semibold transition height-weird-landscape text-weird-landscape";
+  const hasMarkers = Boolean(order.gsmSentAt || order.smsStatus);
+
+  // With the GSM/SMS tab on top, the button's top corners go square so the
+  // tab (rounded top) and button (rounded bottom) read as one connected shape.
+  let buttonClassName = `relative flex h-10 w-full items-center justify-center overflow-hidden ${
+    hasMarkers ? "rounded-b-md" : "rounded-md"
+  } border text-[11px] font-semibold transition height-weird-landscape text-weird-landscape`;
 
   if (hasMailAlert && hasNotificationAlert) {
     buttonClassName +=
@@ -223,36 +279,58 @@ function AlertCell({
   return (
     <td
       data-alert-cell="true"
-      className="w-[60] min-w-[60] border-r border-black/3 px-2 py-2 text-center"
+      // With the GSM/SMS tab, pt-4 = 8px for the tab + the usual 8px of
+      // padding above it.
+      className={`w-[60] min-w-[60] border-r border-black/3 px-2 pb-2 text-center ${hasMarkers ? "pt-4" : "pt-2"}`}
     >
-      <button
-        type="button"
-        className={buttonClassName}
-        onClick={(event) => {
-          event.stopPropagation();
-          onAlertClick(order);
-        }}
-        aria-label={`Open alert center for order ${order.displayId}`}
-        title={openLabel}
-      >
-        {hasMailAlert && hasNotificationAlert ? (
-          <>
-            <span className="flex h-full w-1/2 items-center justify-center bg-logoblue text-white">
-              M
-            </span>
-            <span className="h-full w-px bg-white/80" />
-            <span className="flex h-full w-1/2 items-center justify-center bg-amber-300 text-amber-950">
-              A
-            </span>
-          </>
-        ) : hasMailAlert ? (
-          "M"
-        ) : hasNotificationAlert ? (
-          "A"
-        ) : (
-          openLabel
-        )}
-      </button>
+      {/* The wrapper anchors the tab to the button itself: the cell is
+          vertically centred in taller rows, so anchoring to the cell would
+          leave a gap. */}
+      <div className="relative">
+        {/* Tab sitting directly on top of the button (bottom-full), as wide as
+            the button, 8px tall (fits the cell's py-2 padding) with the button's
+            rounded-md top corners. Split 50/50: GSM (green) always on the left
+            half, latest SMS on the right coloured by its status, each shown
+            only when it applies. */}
+        {hasMarkers ? (
+          <span className="absolute bottom-full left-0 right-0 flex h-2">
+            <MarkerHalf side="left" label={order.gsmSentAt ? gsmTooltip : ""} colorClass="bg-green-500" />
+            <MarkerHalf
+              side="right"
+              label={order.smsStatus ? smsTooltip : ""}
+              colorClass={order.smsStatus ? SMS_STATUS_STRIP_COLORS[order.smsStatus] : ""}
+            />
+          </span>
+        ) : null}
+        <button
+          type="button"
+          className={buttonClassName}
+          onClick={(event) => {
+            event.stopPropagation();
+            onAlertClick(order);
+          }}
+          aria-label={`Open alert center for order ${order.displayId}`}
+          title={openLabel}
+        >
+          {hasMailAlert && hasNotificationAlert ? (
+            <>
+              <span className="flex h-full w-1/2 items-center justify-center bg-logoblue text-white">
+                M
+              </span>
+              <span className="h-full w-px bg-white/80" />
+              <span className="flex h-full w-1/2 items-center justify-center bg-amber-300 text-amber-950">
+                A
+              </span>
+            </>
+          ) : hasMailAlert ? (
+            "M"
+          ) : hasNotificationAlert ? (
+            "A"
+          ) : (
+            openLabel
+          )}
+        </button>
+      </div>
     </td>
   );
 }
@@ -668,7 +746,7 @@ export default function BookingArchiveTable({
                       <Cell>{formatStatusCell(order.status, locale)}</Cell>
                     </td>
                   ) : null}
-                  {isColumnVisible("mail") ? <AlertCell order={order} onAlertClick={onAlertClick} openLabel={t("Open")} /> : null}
+                  {isColumnVisible("mail") ? <AlertCell order={order} onAlertClick={onAlertClick} openLabel={t("Open")} t={t} /> : null}
                   {isColumnVisible("deliveryDate") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
                       <Cell>{formatDisplayDate(order.deliveryDate)}</Cell>
@@ -949,7 +1027,7 @@ export default function BookingArchiveTable({
                       <Cell>{formatStatusCell(order.status, locale)}</Cell>
                     </td>
                   ) : null}
-                  {isColumnVisible("mail") ? <AlertCell order={order} onAlertClick={onAlertClick} openLabel={t("Open")} /> : null}
+                  {isColumnVisible("mail") ? <AlertCell order={order} onAlertClick={onAlertClick} openLabel={t("Open")} t={t} /> : null}
                   {isColumnVisible("statusNotes") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
                       <Cell>{formatCell(order.statusNotes)}</Cell>

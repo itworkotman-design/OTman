@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { SmsSegmentInfo } from "@/app/_components/Dahsboard/booking/archive/OrderSmsPanel";
 import { sortSmsTemplates } from "@/lib/sms/templates";
+import { SmsPlaceholderLegend, type SmsPlaceholder } from "@/app/_components/Dahsboard/booking/archive/SmsPlaceholderLegend";
 
 export type SmsTemplate = {
   id: string;
@@ -15,7 +16,8 @@ export type SmsTemplate = {
   enabled: boolean;
 };
 
-export type SmsPlaceholder = { key: string; label: string };
+// Re-exported so existing imports from this module keep working.
+export { SmsPlaceholderLegend, type SmsPlaceholder };
 
 type TemplatesResponse = {
   ok: boolean;
@@ -54,24 +56,6 @@ export function useSmsTemplates(open: boolean) {
   }, [open, load]);
 
   return { data, loading, error, reload: load };
-}
-
-export function SmsPlaceholderLegend({ placeholders, onInsert }: { placeholders: SmsPlaceholder[]; onInsert?: (token: string) => void }) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {placeholders.map((placeholder) => (
-        <button
-          key={placeholder.key}
-          type="button"
-          title={placeholder.label}
-          onClick={() => onInsert?.(`{${placeholder.key}}`)}
-          className="rounded-full bg-slate-100 px-2.5 py-1 font-mono text-xs text-logoblue hover:bg-slate-200"
-        >
-          {`{${placeholder.key}}`}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 export function SmsModalShell({ title, subtitle, onClose, children }: { title: string; subtitle?: string; onClose: () => void; children: ReactNode }) {

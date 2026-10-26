@@ -76,6 +76,11 @@ export type OrderRow = {
   lastNotificationAt: string | null;
   needsNotificationAttention: boolean;
   unreadNotificationCount: number;
+  // Alerts-column markers; only ever true for admins (see /api/orders).
+  gsmSentAt?: string | null;
+  smsStatus?: "SENT" | "DELIVERED" | "FAILED" | null;
+  smsAt?: string | null;
+  smsCount?: number;
   priceExVat: number;
   priceSubcontractor: number;
   pricingSnapshot: unknown;
