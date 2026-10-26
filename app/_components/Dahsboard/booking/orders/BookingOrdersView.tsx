@@ -747,7 +747,9 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
         </p>
       ) : null}
 
-      <ShiftLeaderBanner currentUserId={currentUser?.id} />
+      {access.viewMode === "ADMIN" ? (
+        <ShiftLeaderBanner currentUserId={currentUser?.id} />
+      ) : null}
 
       <div className="flex w-full sm:w-fit max-w-full flex-col items-stretch gap-3 padding-weird-landscape">
         <BookingFilters

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { canAccessShiftLeader } from "@/lib/booking/shiftLeaderAccess";
 
 function todayDateString() {
   return new Date().toISOString().slice(0, 10);
@@ -16,6 +17,10 @@ export async function GET(req: Request) {
   const companyId = session.activeCompanyId;
   if (!companyId) {
     return NextResponse.json({ ok: true, shiftLeader: null });
+  }
+
+  if (!(await canAccessShiftLeader(session.userId, companyId))) {
+    return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
   }
 
   const record = await prisma.shiftLeader.findUnique({ where: { companyId } });
@@ -40,6 +45,10 @@ export async function POST(req: Request) {
   const companyId = session.activeCompanyId;
   if (!companyId) {
     return NextResponse.json({ ok: false, reason: "NO_COMPANY" }, { status: 400 });
+  }
+
+  if (!(await canAccessShiftLeader(session.userId, companyId))) {
+    return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
   }
 
   const body = await req.json().catch(() => ({}));
