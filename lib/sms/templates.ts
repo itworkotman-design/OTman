@@ -5,7 +5,6 @@ export type SmsOrderFields = {
   deliveryDate?: string | null;
   timeWindow?: string | null;
   deliveryAddress?: string | null;
-  pickupAddress?: string | null;
   productsSummary?: string | null;
   deliveryTypeSummary?: string | null;
   servicesSummary?: string | null;
@@ -16,7 +15,7 @@ export type SmsTemplateVariables = Record<string, string>;
 // Shown in the template editor so admins know what they can use.
 export const SMS_TEMPLATE_PLACEHOLDERS = [
   { key: "name", label: "Customer name" },
-  { key: "address", label: "Delivery address (pickup address if none)" },
+  { key: "address", label: "Delivery address" },
   { key: "date", label: "Delivery date (dd.mm.yyyy)" },
   { key: "timeWindow", label: "Time window" },
   { key: "job", label: "What we're doing: products (delivery type)" },
@@ -77,7 +76,7 @@ export function buildSmsTemplateVariables(order: SmsOrderFields): SmsTemplateVar
 
   return {
     name: clean(order.customerName),
-    address: clean(order.deliveryAddress) || clean(order.pickupAddress),
+    address: clean(order.deliveryAddress),
     date: formatDate(clean(order.deliveryDate)),
     timeWindow: clean(order.timeWindow).replace("-", " - "),
     products,
@@ -108,6 +107,19 @@ export function renderSmsTemplate(body: string, variables: SmsTemplateVariables)
     )
     .join("\n")
     .trim();
+}
+
+// Placeholders the text uses whose value is empty for this order (each once,
+// in order of use). Unknown placeholders are not listed; they stay visible as
+// typed instead.
+export function findMissingPlaceholders(body: string, variables: SmsTemplateVariables): string[] {
+  const missing: string[] = [];
+  for (const [, key] of body.matchAll(/\{(\w+)\}/g)) {
+    if (Object.prototype.hasOwnProperty.call(variables, key) && !variables[key] && !missing.includes(key)) {
+      missing.push(key);
+    }
+  }
+  return missing;
 }
 
 export function renderOrderSms(body: string, order: SmsOrderFields): string {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AUTOMATIC_SMS_TEMPLATE_DEFAULTS,
   buildSmsTemplateVariables,
+  findMissingPlaceholders,
   renderSmsTemplate,
   renderOrderSms,
 } from "./templates";
@@ -13,7 +14,6 @@ const order = {
   deliveryDate: "2026-10-26",
   timeWindow: "10:00-14:00",
   deliveryAddress: "Storgata 1, 0155 Oslo",
-  pickupAddress: "Lager 5, Lillestrøm",
   productsSummary: "Kjøleskap x2",
   deliveryTypeSummary: "Innbæring",
   servicesSummary: "Montering, Retur av gammel",
@@ -35,9 +35,19 @@ describe("buildSmsTemplateVariables", () => {
     });
   });
 
-  it("falls back to the pickup address when there is no delivery address", () => {
-    const vars = buildSmsTemplateVariables({ ...order, deliveryAddress: null });
-    expect(vars.address).toBe("Lager 5, Lillestrøm");
+  it("leaves the address empty when there is no delivery address (never uses the pickup address)", () => {
+    const withPickup = { ...order, deliveryAddress: null, pickupAddress: "Lager 5, Lillestrøm" };
+    expect(buildSmsTemplateVariables(withPickup).address).toBe("");
+  });
+
+  it("lists the placeholders used in the text whose value is empty, once each, in order of use", () => {
+    const vars = buildSmsTemplateVariables({ ...order, customerName: null, deliveryAddress: "  " });
+    expect(findMissingPlaceholders("Hei {name}! {address} {date} {address} {name}", vars)).toEqual(["name", "address"]);
+  });
+
+  it("ignores unknown placeholders and filled ones when looking for missing values", () => {
+    const vars = buildSmsTemplateVariables(order);
+    expect(findMissingPlaceholders("Hei {name} {nmae} på {address}", vars)).toEqual([]);
   });
 
   it("builds job from products and delivery type only — services are left out", () => {

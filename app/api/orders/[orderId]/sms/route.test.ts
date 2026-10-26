@@ -37,7 +37,6 @@ const order = {
   deliveryDate: "2026-10-26",
   timeWindow: null,
   deliveryAddress: "Storgata 1",
-  pickupAddress: null,
   productsSummary: "Kjøleskap",
   deliveryTypeSummary: null,
   servicesSummary: null,

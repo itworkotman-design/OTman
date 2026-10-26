@@ -8,6 +8,8 @@ import {
 } from "@/app/_components/Dahsboard/booking/archive/SmsTemplates";
 import { sortSmsTemplates } from "@/lib/sms/templates";
 
+type MissingPlaceholders = Array<{ orderId: string; displayId: number; placeholders: string[] }>;
+
 type SendResult = {
   sentCount: number;
   failed: Array<{ orderId: string; displayId: number; reason: string }>;
@@ -31,13 +33,44 @@ export default function SendSelectedSmsModal({ open, orderIds, onClose, onSent }
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<SendResult | null>(null);
+  const [missing, setMissing] = useState<MissingPlaceholders>([]);
 
   useEffect(() => {
     if (!open) return;
     setMessage("");
     setError("");
     setResult(null);
+    setMissing([]);
   }, [open]);
+
+  // Asks the route (preview mode, nothing is sent) which selected orders have
+  // no value for a placeholder the text uses. Debounced while typing.
+  useEffect(() => {
+    if (!open || !message.trim() || !/\{\w+\}/.test(message)) {
+      setMissing([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch("/api/orders/send-selected-sms", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderIds, message, preview: true }),
+          signal: controller.signal,
+        });
+        const json = await response.json().catch(() => null);
+        if (response.ok && json?.ok) setMissing(json.missing ?? []);
+      } catch {
+        // Aborted or offline: keep the last known warning.
+      }
+    }, 400);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [open, orderIds, message]);
 
   if (!open) return null;
 
@@ -139,6 +172,21 @@ export default function SendSelectedSmsModal({ open, orderIds, onClose, onSent }
           <div className="mt-2">
             <SmsPlaceholderLegend placeholders={data?.placeholders ?? []} onInsert={(token) => setMessage((current) => `${current}${token}`)} />
           </div>
+
+          {missing.length ? (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <div className="font-semibold">
+                {missing.length} order(s) have no value for a placeholder, so it will be left empty:
+              </div>
+              <ul className="mt-1 max-h-32 list-disc overflow-auto pl-5">
+                {missing.map((item) => (
+                  <li key={item.orderId}>
+                    Order {item.displayId}: {item.placeholders.map((key) => `{${key}}`).join(", ")}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           {error ? <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 

@@ -36,7 +36,6 @@ function makeOrder(overrides: Record<string, unknown> = {}) {
     deliveryDate: "2026-10-26",
     timeWindow: null,
     deliveryAddress: "Storgata 1",
-    pickupAddress: null,
     productsSummary: null,
     deliveryTypeSummary: null,
     servicesSummary: null,

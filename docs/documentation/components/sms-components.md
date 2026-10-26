@@ -4,7 +4,7 @@
 
 | Export | Description |
 | --- | --- |
-| `OrderSmsPanel` | The SMS tab in `OrderEmailModal`. Recipient picker (Phone / Phone 2 / other number), template insert, message box with clickable `{placeholder}` chips (inserted at the cursor), a live placeholder preview and segment count, and Send. Below it, the order's SMS history with Sent/Delivered/Failed badges, the raw provider state, errors, and who sent each message (or "Automatic"). |
+| `OrderSmsPanel` | The SMS tab in `OrderEmailModal`. Recipient picker (Phone / Phone 2 / other number), template insert, message box with clickable `{placeholder}` chips (inserted at the cursor), a live placeholder preview and segment count, an amber warning naming any placeholder the text uses that this order has no value for, and Send. Below it, the order's SMS history with Sent/Delivered/Failed badges, the raw provider state, errors, and who sent each message (or "Automatic"). |
 | `SmsSegmentInfo` | Small "N characters · N SMS" label, shared with the template editor. |
 
 ## `SmsTemplates.tsx`
@@ -20,7 +20,7 @@
 
 | Export | Description |
 | --- | --- |
-| `SendSelectedSmsModal` | Opened from "Send SMS" on the selection bar. Template insert, message box and placeholder chips. After a confirm dialog it posts to `/api/orders/send-selected-sms`, then shows how many were sent and which orders failed and why. |
+| `SendSelectedSmsModal` | Opened from "Send SMS" on the selection bar. Template insert, message box and placeholder chips. While you type (debounced 400 ms) it calls the route with `preview: true` and lists the selected orders that have no value for a placeholder the text uses. After a confirm dialog it posts to `/api/orders/send-selected-sms`, then shows how many were sent and which orders failed and why. |
 
 ## `SmsPlaceholderLegend.tsx`
 

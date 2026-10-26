@@ -27,7 +27,6 @@ function makeOrder(id: string, displayId: number, overrides: Record<string, unkn
     deliveryDate: "2026-10-27",
     timeWindow: null,
     deliveryAddress: `Gate ${displayId}`,
-    pickupAddress: null,
     productsSummary: null,
     deliveryTypeSummary: null,
     servicesSummary: null,
@@ -57,6 +56,26 @@ describe("POST /api/orders/send-selected-sms", () => {
     expect((await post({ orderIds: ["a"], message: "  " })).status).toBe(400);
     expect((await post({ orderIds: Array.from({ length: 201 }, (_, i) => `o${i}`), message: "Hei" })).status).toBe(400);
     expect(mocks.sendOrderSmsMock).not.toHaveBeenCalled();
+  });
+
+  it("preview: lists orders whose used placeholders are empty, without sending anything", async () => {
+    mocks.orderFindManyMock.mockResolvedValue([
+      makeOrder("a", 1),
+      makeOrder("b", 2, { customerName: null, deliveryAddress: null }),
+      makeOrder("c", 3, { deliveryAddress: " " }),
+    ]);
+
+    const res = await post({ orderIds: ["a", "b", "c"], message: "Hei {name}, vi kommer til {address}.", preview: true });
+
+    expect(res.status).toBe(200);
+    expect(mocks.sendOrderSmsMock).not.toHaveBeenCalled();
+    expect(await res.json()).toEqual({
+      ok: true,
+      missing: [
+        { orderId: "b", displayId: 2, placeholders: ["name", "address"] },
+        { orderId: "c", displayId: 3, placeholders: ["address"] },
+      ],
+    });
   });
 
   it("texts each selected order's own customer with the message rendered for that order", async () => {

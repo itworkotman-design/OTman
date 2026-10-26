@@ -2,14 +2,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireSmsAdmin } from "@/lib/sms/smsAccess";
 import { sendOrderSms } from "@/lib/sms/sendOrderSms";
-import { renderOrderSms } from "@/lib/sms/templates";
+import { buildSmsTemplateVariables, findMissingPlaceholders, renderOrderSms } from "@/lib/sms/templates";
 import { ORDER_SMS_SELECT } from "@/lib/sms/orderSmsFields";
 
 const MAX_ORDERS_PER_REQUEST = 200;
 
 // Unlike send-selected-email (one summary email to one recipient), this texts
 // each selected order's own customer, rendering the message's placeholders
-// per order. Uses Phone, falling back to Phone 2.
+// per order. Uses Phone, falling back to Phone 2. With `preview: true` it sends
+// nothing and lists the orders where a placeholder the text uses is empty.
 export async function POST(req: Request) {
   const access = await requireSmsAdmin(req);
   if (!access.ok) return access.response;
@@ -32,6 +33,14 @@ export async function POST(req: Request) {
     select: ORDER_SMS_SELECT,
     orderBy: { displayId: "asc" },
   });
+
+  if (body?.preview === true) {
+    const missing = orders.flatMap((order) => {
+      const placeholders = findMissingPlaceholders(message, buildSmsTemplateVariables(order));
+      return placeholders.length ? [{ orderId: order.id, displayId: order.displayId, placeholders }] : [];
+    });
+    return NextResponse.json({ ok: true, missing });
+  }
 
   let sentCount = 0;
   const failed: Array<{ orderId: string; displayId: number; reason: string }> = [];

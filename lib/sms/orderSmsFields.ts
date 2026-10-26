@@ -11,7 +11,6 @@ export const ORDER_SMS_SELECT = {
   deliveryDate: true,
   timeWindow: true,
   deliveryAddress: true,
-  pickupAddress: true,
   productsSummary: true,
   deliveryTypeSummary: true,
   servicesSummary: true,

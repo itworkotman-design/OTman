@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { SMS_TEMPLATE_PLACEHOLDERS, renderSmsTemplate, type SmsTemplateVariables } from "@/lib/sms/templates";
+import {
+  SMS_TEMPLATE_PLACEHOLDERS,
+  findMissingPlaceholders,
+  renderSmsTemplate,
+  type SmsTemplateVariables,
+} from "@/lib/sms/templates";
 import { SmsPlaceholderLegend } from "@/app/_components/Dahsboard/booking/archive/SmsPlaceholderLegend";
 import { countSmsSegments } from "@/lib/sms/segments";
 
@@ -141,6 +146,10 @@ export default function OrderSmsPanel({ orderId }: { orderId: string }) {
   }, [load]);
 
   const preview = useMemo(() => (data?.variables ? renderSmsTemplate(message, data.variables) : message), [data, message]);
+  const missingPlaceholders = useMemo(
+    () => (data?.variables ? findMissingPlaceholders(message, data.variables) : []),
+    [data, message],
+  );
   const toPhone = phoneChoice === CUSTOM_PHONE ? customPhone : phoneChoice;
 
   async function handleSend(event: FormEvent) {
@@ -255,6 +264,12 @@ export default function OrderSmsPanel({ orderId }: { orderId: string }) {
               <div className="mt-2 text-xs text-textColorThird">
                 <SmsSegmentInfo text={preview} />
               </div>
+            </div>
+          ) : null}
+
+          {missingPlaceholders.length ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              This order has no value for {missingPlaceholders.map((key) => `{${key}}`).join(", ")}, so it will be left empty. Check the preview.
             </div>
           ) : null}
 

@@ -11,7 +11,7 @@ All routes except the webhook and the cron route are OWNER/ADMIN only (`requireS
 
 ## `app/api/orders/send-selected-sms/route.ts`
 
-`POST { orderIds (1–200), message }`. Unlike send-selected-email, it texts **each selected order's own customer** (Phone, falling back to Phone 2), with placeholders rendered per order. Returns `{ ok, sentCount, failed: [{ orderId, displayId, reason }] }`. Stops with 503 on the first `SMS_NOT_CONFIGURED`.
+`POST { orderIds (1–200), message }`. Unlike send-selected-email, it texts **each selected order's own customer** (Phone, falling back to Phone 2), with placeholders rendered per order. Returns `{ ok, sentCount, failed: [{ orderId, displayId, reason }] }`. Stops with 503 on the first `SMS_NOT_CONFIGURED`. With `preview: true` it sends nothing and returns `{ ok, missing: [{ orderId, displayId, placeholders }] }`: the orders where a placeholder the text uses has no value (used for the warning in `SendSelectedSmsModal`).
 
 ## `app/api/sms/templates/route.ts` and `[templateId]/route.ts`
 
