@@ -242,7 +242,7 @@ export default function OrderSmsPanel({ orderId }: { orderId: string }) {
               ref={messageRef}
               value={message}
               onChange={(event) => setMessage(event.target.value)}
-              className="min-h-[110px] w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
+              className="min-h-[140px] w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
               placeholder="Write the SMS here. Placeholders like {name} and {address} are filled in from the order."
             />
           </label>

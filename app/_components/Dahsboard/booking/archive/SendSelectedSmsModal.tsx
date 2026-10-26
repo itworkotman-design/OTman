@@ -132,7 +132,7 @@ export default function SendSelectedSmsModal({ open, orderIds, onClose, onSent }
             <textarea
               value={message}
               onChange={(event) => setMessage(event.target.value)}
-              className="min-h-[120px] w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
+              className="min-h-[140px] w-full rounded-xl border border-black/10 px-3 py-2 text-sm text-logoblue outline-none transition focus:border-logoblue"
               placeholder="Hei {name}! ..."
             />
           </label>
