@@ -57,3 +57,28 @@ export function getOsloDateKey(date: Date = new Date()): string {
 
   return formatter.format(date);
 }
+
+// Oslo's UTC offset (ms) at a given instant.
+function getOsloOffsetMs(at: Date): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: COMPANY_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(at);
+  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+  const asUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+  return asUtc - Math.floor(at.getTime() / 1000) * 1000;
+}
+
+// The UTC instant of an Oslo wall-clock time ("YYYY-MM-DD" + "HH:MM[:SS]"),
+// using the offset in effect on that date (CET +01:00 / CEST +02:00).
+export function osloWallClockToDate(isoDate: string, time: string): Date {
+  const wallAsUtc = new Date(`${isoDate}T${time}Z`).getTime();
+  const candidate = new Date(wallAsUtc - getOsloOffsetMs(new Date(wallAsUtc)));
+  return new Date(wallAsUtc - getOsloOffsetMs(candidate));
+}

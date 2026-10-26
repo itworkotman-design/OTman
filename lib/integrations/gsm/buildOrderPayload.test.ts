@@ -148,6 +148,34 @@ describe("buildOrderPayload", () => {
     delete process.env.GOOGLE_REVIEW_QR_URL;
   });
 
+  it("sends the time window in Oslo summer time (+02:00) during DST", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(buildOrder({ deliveryDate: "2026-04-21", timeWindow: "10:00-16:00" }));
+
+    expect(payload.tasks_data[0].complete_after).toBe("2026-04-21T08:00:00.000Z");
+    expect(payload.tasks_data[0].complete_before).toBe("2026-04-21T14:00:00.000Z");
+  });
+
+  it("sends the time window in Oslo winter time (+01:00) outside DST", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(buildOrder({ deliveryDate: "2026-10-27", timeWindow: "10:00-16:00" }));
+
+    expect(payload.tasks_data[0].complete_after).toBe("2026-10-27T09:00:00.000Z");
+    expect(payload.tasks_data[0].complete_before).toBe("2026-10-27T15:00:00.000Z");
+  });
+
+  it("uses the offset in effect on the delivery date, not today's", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    // Oslo switches to summer time at 02:00 local on 2027-03-28.
+    const payload = buildOrderPayload(buildOrder({ deliveryDate: "2027-03-28", timeWindow: "08:00-12:00" }));
+
+    expect(payload.tasks_data[0].complete_after).toBe("2027-03-28T06:00:00.000Z");
+    expect(payload.tasks_data[0].complete_before).toBe("2027-03-28T10:00:00.000Z");
+  });
+
   it("uses the custom pickup address phone for the orderer instead of the cashier phone", () => {
     process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
 

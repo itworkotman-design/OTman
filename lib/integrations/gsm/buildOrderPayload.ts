@@ -2,6 +2,7 @@
 import type { Order, OrderItem } from "@prisma/client";
 import { buildLegacyOrderSummaryGroups, buildOrderSummaryGroups, formatOrderSummaryText } from "@/lib/orders/orderSummary";
 import { filterImpreciseAddressNotesForTask } from "@/lib/orders/addressPrecision";
+import { osloWallClockToDate } from "@/lib/dates/isoDate";
 
 type GsmContact = {
   name?: string;
@@ -313,8 +314,8 @@ function getTimeWindowIso(order: GsmOrderInput) {
   const start = match ? `${String(Number(match[1])).padStart(2, "0")}:${match[2]}:00` : "06:00:00";
   const end = match ? `${String(Number(match[3])).padStart(2, "0")}:${match[4]}:00` : "06:05:00";
 
-  const completeAfter = new Date(`${date}T${start}+02:00`).toISOString();
-  const completeBefore = new Date(`${date}T${end}+02:00`).toISOString();
+  const completeAfter = osloWallClockToDate(date, start).toISOString();
+  const completeBefore = osloWallClockToDate(date, end).toISOString();
 
   return {
     complete_after: completeAfter,

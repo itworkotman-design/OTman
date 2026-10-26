@@ -32,7 +32,7 @@ The orderer uses the customer/store label and the main custom pickup address pho
 | `hasReturnToStore` | Detects a selected `RETURNSTORE` order item. |
 | `buildDriverInfo` | Appends the return-to-store notice to existing driver information without replacing saved text or duplicating an existing notice. |
 | `buildDescription` | Builds the GSM task description from grouped `items` data when available, lift/floor details, fallback legacy summaries for older orders, and augmented driver information. |
-| `getTimeWindowIso` | Converts the stored delivery date and time window into GSM ISO completion bounds. |
+| `getTimeWindowIso` | Converts the stored delivery date and time window into GSM ISO completion bounds, interpreting the window as Oslo local time with the DST offset in effect on the delivery date (`osloWallClockToDate`). |
 | `getRawDataCategory` | Reads a structured option category from order item raw data. |
 | `getRawProductCardDeliveryType` | Reads the saved product-card delivery type key from item raw data. |
 | `matchesDeliveryType` | Compares saved delivery type text, keys, and codes against known GSM routing matches. |
