@@ -54,6 +54,7 @@ import {
   type AdjustmentLinePatch,
 } from "@/lib/booking/pricing/adjustmentLines";
 import { shouldPromptForPartner } from "@/lib/orders/partnerRequirement";
+import { isExpressDelivery } from "@/lib/booking/expressDelivery";
 import MissingPartnerDialog from "@/app/_components/Dahsboard/booking/MissingPartnerDialog";
 
 export type OrderFormPayload = {
@@ -2214,41 +2215,30 @@ export default function BookingEditor({
 
   const closePartnerPrompt = useCallback(() => setPartnerPromptOpen(false), []);
 
-  // Auto-enable express delivery for new orders only; saved orders keep their persisted value.
+  // Auto-set express delivery. New orders measure from now; saved orders measure
+  // from their creation time and keep their persisted value until the delivery
+  // date/time is actually changed.
+  const orderCreatedAt = initialValues?.createdAt ?? null;
+  const initialDeliveryDate = initialValues?.deliveryDate;
+  const initialTimeWindow = initialValues?.timeWindow;
   useEffect(() => {
     if (existingOrderId) {
-      return;
-    }
-
-    if (!deliveryDate) {
-      setExpressDelivery(false);
-      return;
-    }
-
-    let startHH = 0;
-    let startMM = 0;
-
-    if (timeWindow === "10:00-16:00") {
-      startHH = 10;
-    } else if (timeWindow === "16:00-21:00") {
-      startHH = 16;
-    } else if (timeWindow === "custom") {
-      const match = customTimeFrom.match(/^(\d{2}):(\d{2})$/);
-      if (!match) {
-        setExpressDelivery(false);
+      const initialTimeWindowState = parseTimeWindowState(initialTimeWindow);
+      const timingUnchanged =
+        deliveryDate === normalizeInitialDeliveryDate(initialDeliveryDate) &&
+        timeWindow === initialTimeWindowState.selectedTimeWindow &&
+        customTimeFrom === initialTimeWindowState.customTimeFrom;
+      if (timingUnchanged) {
         return;
       }
-      startHH = Number(match[1]);
-      startMM = Number(match[2]);
     }
 
-    const deliveryStart = new Date(
-      `${deliveryDate}T${String(startHH).padStart(2, "0")}:${String(startMM).padStart(2, "0")}:00`,
-    );
-    const diffHours = (deliveryStart.getTime() - Date.now()) / (1000 * 60 * 60);
+    const createdAtTime = orderCreatedAt ? new Date(orderCreatedAt) : null;
+    const referenceTime =
+      existingOrderId && createdAtTime && !Number.isNaN(createdAtTime.getTime()) ? createdAtTime : new Date();
 
-    setExpressDelivery(diffHours < 24);
-  }, [deliveryDate, timeWindow, customTimeFrom, existingOrderId]);
+    setExpressDelivery(isExpressDelivery({ deliveryDate, timeWindow, customTimeFrom, referenceTime }));
+  }, [deliveryDate, timeWindow, customTimeFrom, existingOrderId, orderCreatedAt, initialDeliveryDate, initialTimeWindow]);
 
   //For locking pickupadress when isonlyreturn or install
   useEffect(() => {
