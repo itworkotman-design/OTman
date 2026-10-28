@@ -14,11 +14,13 @@ import { canApplyReturnOption } from "@/lib/booking/pricing/sharedDeliveryLogic"
 import { isCustomSectionVisibleForDeliveryType } from "@/lib/products/customSections";
 import {
   normalizedUpper,
-  isInstallOption,
-  isReturnOption,
-  isXtraOption,
   isExtraCheckboxOption,
 } from "@/lib/booking/pricing/rules";
+import {
+  getDefaultInstallOptionIds,
+  getProductInstallOptions,
+  hasCategorizedInstallOptions,
+} from "./_types/installOptions";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 
 type Props = {
@@ -90,22 +92,10 @@ export function ProductCardNew({
     [catalogProducts],
   );
 
-  const categorizedInstallOptions = options.filter((o) =>
-    isInstallOption(o.category, o.code),
-  );
-
-  const installOptions =
-    !selectedProduct?.allowDeliveryTypes && categorizedInstallOptions.length === 0
-      ? options.filter(
-          (o) =>
-            o.active &&
-            !isReturnOption(o.category, o.code) &&
-            !isXtraOption(o.category, o.code) &&
-            !isExtraCheckboxOption(o.code),
-        )
-      : categorizedInstallOptions;
+  const installOptions = getProductInstallOptions(selectedProduct);
   const installSectionLabel =
-    !selectedProduct?.allowDeliveryTypes && categorizedInstallOptions.length === 0
+    !selectedProduct?.allowDeliveryTypes &&
+    !hasCategorizedInstallOptions(selectedProduct)
       ? t("Choose")
       : t("Installation");
 
@@ -411,16 +401,20 @@ export function ProductCardNew({
   function handleProductSelect(newProductId: string | null) {
     const nextProduct =
       catalogProducts.find((product) => product.id === newProductId) ?? null;
+    const nextDeliveryType = getDefaultDeliveryType(nextProduct);
 
     onChange({
       ...value,
       productId: newProductId,
       modelNumber: "",
-      deliveryType: getDefaultDeliveryType(nextProduct),
+      deliveryType: nextDeliveryType,
       amount: 1,
       peopleCount: 1,
       hoursInput: 1,
-      selectedInstallOptionIds: [],
+      selectedInstallOptionIds: getDefaultInstallOptionIds(
+        nextProduct,
+        nextDeliveryType,
+      ),
       selectedExtraOptionIds: [],
       selectedReturnOptionId: null,
       demontEnabled: false,
@@ -688,7 +682,10 @@ export function ProductCardNew({
                 onChange={(e) =>
                   update({
                     deliveryType: e.target.value as DeliveryType,
-                    selectedInstallOptionIds: [],
+                    selectedInstallOptionIds: getDefaultInstallOptionIds(
+                      selectedProduct,
+                      e.target.value as DeliveryType,
+                    ),
                     selectedExtraOptionIds: [],
                     selectedReturnOptionId:
                       e.target.value === DELIVERY_TYPES.RETURN_ONLY
