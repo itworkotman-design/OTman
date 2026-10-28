@@ -17,6 +17,7 @@ import {
 import type { AddressSelectionMeta } from "@/lib/orders/addressPrecision";
 import { ORDER_STATUS_OPTIONS } from "@/lib/orders/statusPresentation";
 import DatePicker from "@/app/_components/utils/DatePicker";
+import CopyButton from "@/app/_components/utils/CopyButton";
 import { toIsoDate } from "@/lib/dates/isoDate";
 
 const LIMITED_CUSTOM_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
@@ -430,6 +431,7 @@ export default function OrderFieldsForm({
           <h1 className="font-bold py-2">
             {t("Order number")}
             {!allowIncompleteRequiredFields ? <span className="text-red-600">*</span> : null}
+            <CopyButton value={orderNumber} ariaLabel={t("Copy order number")} className="ml-2" />
           </h1>
           <input
             id="order-number"
@@ -655,6 +657,7 @@ export default function OrderFieldsForm({
           <h1 className="font-bold py-2">
             {t("Delivery address")}
             {!allowIncompleteRequiredFields ? <span className="text-red-600">*</span> : null}
+            <CopyButton value={deliveryAddress} ariaLabel={t("Copy delivery address")} className="ml-2" />
           </h1>
           <PickupAddressCombobox
             inputId="order-delivery-address"
@@ -672,7 +675,10 @@ export default function OrderFieldsForm({
 
           {shouldShowReturnAddress && (
             <>
-              <h1 className="font-bold py-2">{t("Return address")}</h1>
+              <h1 className="font-bold py-2">
+                {t("Return address")}
+                <CopyButton value={returnAddress} ariaLabel={t("Copy return address")} className="ml-2" />
+              </h1>
               <PickupAddressCombobox
                 inputId="order-return-address"
                 value={returnAddress}
@@ -724,6 +730,7 @@ export default function OrderFieldsForm({
           <h1 className="font-bold py-2">
             {t("Customer's phone")}
             {!allowIncompleteRequiredFields ? <span className="text-red-600">*</span> : null}
+            <CopyButton value={phone} ariaLabel={t("Copy phone number")} className="ml-2" />
           </h1>
           <input id="order-customer-phone" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="customInput w-full" />
           <FieldErrorMessage message={phoneError} />
@@ -732,7 +739,10 @@ export default function OrderFieldsForm({
 
       {shown(hidden, OrderFields.CustomerPhone2) && (
         <>
-          <h1 className="font-bold py-2">{t("Additional customer's phone")}</h1>
+          <h1 className="font-bold py-2">
+            {t("Additional customer's phone")}
+            <CopyButton value={phoneTwo} ariaLabel={t("Copy phone number")} className="ml-2" />
+          </h1>
           <input
             id="order-customer-phone-two"
             type="tel"

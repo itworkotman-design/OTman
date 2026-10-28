@@ -25,6 +25,7 @@ import {
   bookingText,
   type BookingUiLocale,
 } from "@/lib/booking/bookingUiText";
+import SharedCopyButton from "@/app/_components/utils/CopyButton";
 
 type BookingArchiveTableProps = {
   orders: OrderRow[];
@@ -153,13 +154,6 @@ function Cell({
   );
 }
 
-function isCopyValueEmpty(value: string | number | null | undefined) {
-  if (value === null || value === undefined) return true;
-  if (typeof value === "number") return false;
-  const trimmed = value.trim();
-  return trimmed === "" || trimmed === "-";
-}
-
 function CopyButton({
   value,
   dataAttribute = "data-id-cell",
@@ -169,25 +163,7 @@ function CopyButton({
   dataAttribute?: string;
   ariaLabel?: string;
 }) {
-  if (isCopyValueEmpty(value)) return null;
-
-  return (
-    <button
-      type="button"
-      {...{ [dataAttribute]: "true" }}
-      onClick={(e) => {
-        e.stopPropagation();
-        navigator.clipboard.writeText(String(value ?? ""));
-      }}
-      className="shrink-0 text-logoblue opacity-40 transition-opacity hover:opacity-100"
-      aria-label={ariaLabel}
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-      </svg>
-    </button>
-  );
+  return <SharedCopyButton value={value} dataAttribute={dataAttribute} ariaLabel={ariaLabel} />;
 }
 
 function formatMarkerTime(value: string | null | undefined) {
