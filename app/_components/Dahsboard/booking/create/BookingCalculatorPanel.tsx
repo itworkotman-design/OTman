@@ -4,7 +4,9 @@ import React from "react";
 import {
   CalculatorDisplayNew,
   SubcontractorCalculatorDisplay,
+  type AdjustmentLineHandlers,
 } from "@/app/_components/Dahsboard/booking/create/CalculatorDisplay";
+import type { AdjustmentLine } from "@/lib/booking/pricing/adjustmentLines";
 import { buildProductBreakdowns } from "@/lib/booking/pricing/fromProductCards";
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
@@ -18,11 +20,8 @@ type Props = {
   forcedSubcontractorTotal?: number;
   adminView: boolean;
   onPriceChange: (exVat: number, subPrice: number) => void;
-  rabatt?: string;
-  leggTil?: string;
-  subcontractorMinus?: string;
-  subcontractorPlus?: string;
-  onAdjustmentsChange: (adj: { rabatt: string; leggTil: string; subcontractorMinus: string; subcontractorPlus: string }) => void;
+  adjustmentLines: AdjustmentLine[];
+  adjustmentLineHandlers: AdjustmentLineHandlers;
   onToggleCustomerNulled?: (cardId: number, lineKey: string, nulled: boolean) => void;
   onToggleSubcontractorNulled?: (cardId: number, lineKey: string, nulled: boolean) => void;
   onToggleCustomerOrderExtraNulled?: (lineKey: string, nulled: boolean) => void;
@@ -44,11 +43,8 @@ export default function BookingCalculatorPanel({
   forcedSubcontractorTotal,
   adminView,
   onPriceChange,
-  rabatt,
-  leggTil,
-  subcontractorMinus,
-  subcontractorPlus,
-  onAdjustmentsChange,
+  adjustmentLines,
+  adjustmentLineHandlers,
   onToggleCustomerNulled,
   onToggleSubcontractorNulled,
   onToggleCustomerOrderExtraNulled,
@@ -62,18 +58,6 @@ export default function BookingCalculatorPanel({
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
   const formatPrice = (value: number) => `${Math.round(value)} NOK`;
-
-  function handleSubcontractorAdjustmentsChange(
-    nextMinus: string,
-    nextPlus: string,
-  ) {
-    onAdjustmentsChange({
-      rabatt: rabatt ?? "",
-      leggTil: leggTil ?? "",
-      subcontractorMinus: nextMinus,
-      subcontractorPlus: nextPlus,
-    });
-  }
   const priceUpdateNotice = priceUpdateAvailable ? (
     <div className="mb-3 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900">
       <p className="font-semibold">{locale === "nb" ? "Dette bestillinger har endret pris." : "Hey, this order changed prices."}</p>
@@ -125,11 +109,8 @@ export default function BookingCalculatorPanel({
                 forcedSubcontractorTotal={forcedSubcontractorTotal}
                 adminView={adminView}
                 onPriceChange={onPriceChange}
-                rabatt={rabatt}
-                leggTil={leggTil}
-                subcontractorMinus={subcontractorMinus}
-                subcontractorPlus={subcontractorPlus}
-                onAdjustmentsChange={onAdjustmentsChange}
+                adjustmentLines={adjustmentLines}
+                adjustmentLineHandlers={adjustmentLineHandlers}
                 onToggleLineNulled={onToggleCustomerNulled}
                 onToggleOrderExtraLineNulled={onToggleCustomerOrderExtraNulled}
                 sidebarMode={false}
@@ -139,10 +120,8 @@ export default function BookingCalculatorPanel({
                 <SubcontractorCalculatorDisplay
                   productBreakdowns={productBreakdowns}
                   priceLookup={priceLookup}
-                  rabatt={rabatt}
-                  subcontractorMinus={subcontractorMinus}
-                  subcontractorPlus={subcontractorPlus}
-                  onSubcontractorAdjustmentsChange={handleSubcontractorAdjustmentsChange}
+                  adjustmentLines={adjustmentLines}
+                  adjustmentLineHandlers={adjustmentLineHandlers}
                   onToggleLineNulled={onToggleSubcontractorNulled}
                   onToggleOrderExtraLineNulled={onToggleSubcontractorOrderExtraNulled}
                 />
@@ -161,11 +140,8 @@ export default function BookingCalculatorPanel({
           onPriceChange={onPriceChange}
           forcedTotalExVat={forcedTotalExVat}
           forcedSubcontractorTotal={forcedSubcontractorTotal}
-          rabatt={rabatt}
-          leggTil={leggTil}
-          subcontractorMinus={subcontractorMinus}
-          subcontractorPlus={subcontractorPlus}
-          onAdjustmentsChange={onAdjustmentsChange}
+          adjustmentLines={adjustmentLines}
+          adjustmentLineHandlers={adjustmentLineHandlers}
           onToggleLineNulled={onToggleCustomerNulled}
           onToggleOrderExtraLineNulled={onToggleCustomerOrderExtraNulled}
           sidebarMode={sidebarMode}
@@ -175,10 +151,8 @@ export default function BookingCalculatorPanel({
           <SubcontractorCalculatorDisplay
             productBreakdowns={productBreakdowns}
             priceLookup={priceLookup}
-            rabatt={rabatt}
-            subcontractorMinus={subcontractorMinus}
-            subcontractorPlus={subcontractorPlus}
-            onSubcontractorAdjustmentsChange={handleSubcontractorAdjustmentsChange}
+            adjustmentLines={adjustmentLines}
+            adjustmentLineHandlers={adjustmentLineHandlers}
             onToggleLineNulled={onToggleSubcontractorNulled}
             onToggleOrderExtraLineNulled={onToggleSubcontractorOrderExtraNulled}
           />

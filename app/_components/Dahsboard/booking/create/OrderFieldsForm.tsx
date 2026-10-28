@@ -118,9 +118,6 @@ type Props = {
 
   orderNumber: string;
   setOrderNumber: React.Dispatch<React.SetStateAction<string>>;
-  showDnbDiscount: boolean;
-  dnbDiscount: boolean;
-  setDnbDiscount: React.Dispatch<React.SetStateAction<boolean>>;
   description: string;
   setDescription: React.Dispatch<React.SetStateAction<string>>;
   modelNr: string;
@@ -291,9 +288,6 @@ export default function OrderFieldsForm({
 
   orderNumber,
   setOrderNumber,
-  showDnbDiscount,
-  dnbDiscount,
-  setDnbDiscount,
   description,
   setDescription,
   deliveryDate,
@@ -430,17 +424,6 @@ export default function OrderFieldsForm({
   return (
     <div className="customContainer mb-20">
       {submitError ? <FieldErrorMessage message={submitError} /> : null}
-
-      {showDnbDiscount ? (
-        <label className="mb-3 flex w-fit items-center gap-2 text-sm font-semibold text-white bg-red-700 px-4 py-2 rounded-2xl">
-          <input
-            type="checkbox"
-            checked={dnbDiscount}
-            onChange={(event) => setDnbDiscount(event.target.checked)}
-          />
-          Add 20% discount
-        </label>
-      ) : null}
 
       {shown(hidden, OrderFields.OrderNumber) && (
         <>

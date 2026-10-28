@@ -1,12 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
 import type {
-  CalculatorAdjustments,
   PriceLookup,
   ProductBreakdown,
 } from "@/lib/booking/pricing/types";
+import {
+  sumAdjustmentLines,
+  type AdjustmentLine,
+  type AdjustmentLineKind,
+  type AdjustmentLinePatch,
+} from "@/lib/booking/pricing/adjustmentLines";
+import { sanitizeAmountInput, trackNewAdjustmentLines } from "./adjustmentLineEditing";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 
 function roundPriceRule(n: number) {
@@ -26,9 +32,365 @@ function formatQty(qty: number) {
   return Number.isInteger(rounded) ? String(rounded) : String(rounded);
 }
 
-function hasAdjustmentValue(value: string) {
-  const n = Number(value.replace(/[^\d.,-]/g, "").replace(",", "."));
-  return Number.isFinite(n) && n !== 0;
+function parseAmountInput(value: string) {
+  const n = Number(value.replace(/[^\d.,]/g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
+}
+
+const EMPTY_ADJUSTMENT_LINES: AdjustmentLine[] = [];
+
+export type AdjustmentLineHandlers = {
+  onAdd: (kind: AdjustmentLineKind) => void;
+  onUpdate: (id: string, patch: AdjustmentLinePatch) => void;
+  onRemove: (id: string) => void;
+  // Ends initial setup of a line: its linked partner minus stops following it.
+  onApply: (id: string) => void;
+};
+
+const NEGATIVE_KINDS: AdjustmentLineKind[] = ["discount", "subcontractorMinus"];
+
+function formatAmountInput(amount: number) {
+  return amount ? String(amount) : "";
+}
+
+// Keeps the typed text (e.g. "12,") while the parent holds the parsed number,
+// and picks up external changes such as a linked partner minus recalculating.
+function AmountInput({
+  id,
+  amount,
+  onChange,
+  onKeyDown,
+  autoFocus,
+}: {
+  id: string;
+  amount: number;
+  onChange: (amount: number) => void;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
+  autoFocus?: boolean;
+}) {
+  const [text, setText] = useState(formatAmountInput(amount));
+  const [syncedAmount, setSyncedAmount] = useState(amount);
+  if (amount !== syncedAmount) {
+    setSyncedAmount(amount);
+    if (parseAmountInput(text) !== amount) setText(formatAmountInput(amount));
+  }
+
+  return (
+    <input
+      id={id}
+      type="text"
+      inputMode="decimal"
+      value={text}
+      autoFocus={autoFocus}
+      onChange={(e) => {
+        const sanitized = sanitizeAmountInput(e.target.value);
+        setText(sanitized);
+        const next = parseAmountInput(sanitized);
+        setSyncedAmount(next);
+        onChange(next);
+      }}
+      onKeyDown={onKeyDown}
+      className="customInput h-9 w-full pr-16! text-right text-sm font-semibold"
+      placeholder="0"
+    />
+  );
+}
+
+type AdjustmentRowText = {
+  description: string;
+  descriptionPlaceholder: string;
+  optional: string;
+  amount: string;
+  remove: string;
+  add: string;
+  apply: string;
+  edit: string;
+  cancel: string;
+  subtracted: string;
+  added: string;
+  percent: string;
+  switchToPercent: string;
+  switchToNok: string;
+};
+
+function formatPercent(percent: number) {
+  return `${String(percent).replace(".", ",")} %`;
+}
+
+function AppliedAdjustmentRow({
+  line,
+  label,
+  onEdit,
+  onRemove,
+  text,
+}: {
+  line: AdjustmentLine;
+  label?: string;
+  onEdit?: () => void;
+  onRemove?: () => void;
+  text: AdjustmentRowText;
+}) {
+  const sign = NEGATIVE_KINDS.includes(line.kind) ? "-" : "+";
+  const iconButton = "rounded px-1 text-sm leading-none opacity-40 transition-opacity hover:opacity-100 focus:opacity-100";
+
+  return (
+    <div className="priceRow group">
+      <h1 className="text-md min-w-0">
+        {label}
+        {line.description ? <span className="opacity-70"> – {line.description}</span> : null}
+        {line.percent !== undefined ? <span className="opacity-70"> ({formatPercent(line.percent)})</span> : null}
+      </h1>
+      <div className="flex shrink-0 items-center gap-x-1">
+        <p className="font-semibold whitespace-nowrap">
+          {sign}
+          {formatSumNOK(line.amount)} NOK
+        </p>
+        {onEdit && (
+          <button type="button" onClick={onEdit} title={text.edit} aria-label={text.edit} className={iconButton}>
+            ✎
+          </button>
+        )}
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            title={text.remove}
+            aria-label={text.remove}
+            className={`${iconButton} text-red-600 font-bold`}
+          >
+            ×
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Draft line: totals (and a discount's linked partner minus) already preview
+// live while typing; Apply only collapses it into an applied row. Cancel
+// discards a new line, or restores an edited line's original values.
+function DraftAdjustmentRow({
+  line,
+  label,
+  handlers,
+  onClose,
+  text,
+}: {
+  line: AdjustmentLine;
+  label?: string;
+  handlers: AdjustmentLineHandlers;
+  onClose: () => void;
+  text: AdjustmentRowText;
+}) {
+  const fieldId = useId();
+  const [original] = useState<AdjustmentLinePatch>(() =>
+    line.percent !== undefined
+      ? { description: line.description, percent: line.percent }
+      : { description: line.description, amount: line.amount },
+  );
+  const isNew = !original.amount && !original.percent;
+  const subtracts = NEGATIVE_KINDS.includes(line.kind);
+  const isPercent = line.percent !== undefined;
+  const canApply = line.amount > 0;
+
+  const apply = () => {
+    if (!canApply) return;
+    handlers.onApply(line.id);
+    onClose();
+  };
+  const cancel = () => {
+    if (isNew) {
+      handlers.onRemove(line.id);
+    } else {
+      handlers.onUpdate(line.id, original);
+      onClose();
+    }
+  };
+  const applyOnEnter = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      apply();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      cancel();
+    }
+  };
+
+  return (
+    <div className="my-3 rounded-xl border border-lineSecondary bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-baseline justify-between gap-x-2">
+        <h2 className="text-sm font-bold">{isNew ? `${text.add} ${label?.toLowerCase()}` : `${text.edit} ${label?.toLowerCase()}`}</h2>
+        <span className={`text-xs font-semibold ${subtracts ? "text-red-700" : "text-green-700"}`}>
+          {subtracts ? text.subtracted : text.added}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-[minmax(0,1fr)_8rem] gap-x-3">
+        <label htmlFor={`${fieldId}-description`} className="mb-1 text-xs font-semibold opacity-70">
+          {text.description} <span className="font-normal">({text.optional})</span>
+        </label>
+        <label htmlFor={`${fieldId}-amount`} className="mb-1 text-xs font-semibold opacity-70">
+          {isPercent ? text.percent : text.amount}
+        </label>
+
+        <input
+          id={`${fieldId}-description`}
+          type="text"
+          value={line.description}
+          onChange={(e) => handlers.onUpdate(line.id, { description: e.target.value })}
+          onKeyDown={applyOnEnter}
+          className="customInput h-9 w-full text-sm"
+          placeholder={text.descriptionPlaceholder}
+          maxLength={200}
+        />
+        <div className="relative">
+          <AmountInput
+            id={`${fieldId}-amount`}
+            amount={isPercent ? (line.percent ?? 0) : line.amount}
+            onChange={(value) => handlers.onUpdate(line.id, isPercent ? { percent: value } : { amount: value })}
+            onKeyDown={applyOnEnter}
+            autoFocus
+          />
+          <button
+            type="button"
+            onClick={() => handlers.onUpdate(line.id, { unit: isPercent ? "nok" : "percent" })}
+            title={isPercent ? text.switchToNok : text.switchToPercent}
+            aria-label={isPercent ? text.switchToNok : text.switchToPercent}
+            className="absolute right-1.5 top-1/2 flex h-6 min-w-10 -translate-y-1/2 items-center justify-center gap-x-0.5 rounded-md bg-black/5 px-1.5 text-xs font-semibold transition-colors hover:bg-logoblue hover:text-white"
+          >
+            {isPercent ? "%" : "NOK"}
+            <span aria-hidden className="text-[10px] opacity-60">⇄</span>
+          </button>
+        </div>
+
+        <span />
+        {isPercent ? (
+          <p className="mt-1 text-right text-xs opacity-60">= {formatSumNOK(line.amount)} NOK</p>
+        ) : (
+          <span />
+        )}
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-x-2">
+        <button
+          type="button"
+          onClick={cancel}
+          className="h-9 rounded-lg border border-lineSecondary text-sm font-semibold transition-colors hover:bg-black/5"
+        >
+          {text.cancel}
+        </button>
+        <button
+          type="button"
+          onClick={apply}
+          disabled={!canApply}
+          className="h-9 rounded-lg bg-logoblue text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {text.apply}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AdjustmentLineRows({
+  lines,
+  kinds,
+  labels,
+  handlers,
+  text,
+}: {
+  lines: AdjustmentLine[];
+  kinds: AdjustmentLineKind[];
+  labels: Partial<Record<AdjustmentLineKind, string>>;
+  handlers?: AdjustmentLineHandlers;
+  text: AdjustmentRowText;
+}) {
+  const [editing, setEditing] = useState(() => ({
+    knownIds: new Set(lines.map((line) => line.id)),
+    editingIds: new Set<string>(),
+  }));
+  const tracked = trackNewAdjustmentLines(lines, editing.knownIds, editing.editingIds);
+  if (tracked) setEditing(tracked);
+  const editingIds = tracked?.editingIds ?? editing.editingIds;
+
+  const setLineEditing = (id: string, open: boolean) =>
+    setEditing((current) => {
+      const next = new Set(current.editingIds);
+      if (open) next.add(id);
+      else next.delete(id);
+      return { ...current, editingIds: next };
+    });
+
+  return (
+    <>
+      {lines
+        .filter((line) => kinds.includes(line.kind))
+        .map((line) => {
+          const label = labels[line.kind];
+
+          if (handlers && editingIds.has(line.id)) {
+            return (
+              <DraftAdjustmentRow
+                key={line.id}
+                line={line}
+                label={label}
+                handlers={handlers}
+                onClose={() => setLineEditing(line.id, false)}
+                text={text}
+              />
+            );
+          }
+
+          // Empty lines only exist as drafts; don't show them as "0 NOK" rows.
+          if (line.amount === 0) return null;
+
+          return (
+            <AppliedAdjustmentRow
+              key={line.id}
+              line={line}
+              label={label}
+              onEdit={handlers ? () => setLineEditing(line.id, true) : undefined}
+              onRemove={handlers ? () => handlers.onRemove(line.id) : undefined}
+              text={text}
+            />
+          );
+        })}
+    </>
+  );
+}
+
+// Footer of the calculator card: full-bleed halves split by a divider. The
+// negative margins cancel .customContainer's 20px padding and the 19px radius
+// (20px minus its 1px border) clips the hover fill to the card's corners.
+function AddAdjustmentLineButtons({
+  actions,
+  onAdd,
+  className = "",
+}: {
+  actions: Array<{ kind: AdjustmentLineKind; label: string }>;
+  onAdd: (kind: AdjustmentLineKind) => void;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`-mx-5 -mb-5 grid overflow-hidden rounded-b-[19px] border-t-2 ${className}`}
+      style={{ gridTemplateColumns: `repeat(${actions.length}, minmax(0, 1fr))` }}
+    >
+      {actions.map((action, index) => (
+        <button
+          key={action.kind}
+          type="button"
+          onClick={() => onAdd(action.kind)}
+          className={[
+            "py-5 text-base font-semibold text-logoblue transition-colors hover:bg-black/5 active:bg-black/10",
+            index > 0 ? "border-l-2 border-inherit" : "",
+          ].join(" ")}
+        >
+          + {action.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 type Props = {
@@ -38,11 +400,8 @@ type Props = {
   forcedSubcontractorTotal?: number;
   adminView?: boolean;
   onPriceChange?: (exVat: number, subcontractorPrice: number) => void;
-  rabatt?: string;
-  leggTil?: string;
-  subcontractorMinus?: string;
-  subcontractorPlus?: string;
-  onAdjustmentsChange?: (adjustments: CalculatorAdjustments) => void;
+  adjustmentLines?: AdjustmentLine[];
+  adjustmentLineHandlers?: AdjustmentLineHandlers;
   sidebarMode?: boolean;
   locale?: BookingUiLocale;
   hideWordpressImportWarnings?: boolean;
@@ -58,11 +417,8 @@ export function CalculatorDisplayNew({
   forcedSubcontractorTotal,
   adminView = false,
   onPriceChange,
-  rabatt = "",
-  leggTil = "",
-  subcontractorMinus = "",
-  subcontractorPlus = "",
-  onAdjustmentsChange,
+  adjustmentLines = EMPTY_ADJUSTMENT_LINES,
+  adjustmentLineHandlers,
   sidebarMode = false,
   locale = "en",
   hideWordpressImportWarnings,
@@ -71,15 +427,7 @@ export function CalculatorDisplayNew({
   onToggleOrderExtraLineNulled,
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
-  const adjustments = useMemo(
-    () => ({
-      rabatt,
-      leggTil,
-      subcontractorMinus,
-      subcontractorPlus,
-    }),
-    [rabatt, leggTil, subcontractorMinus, subcontractorPlus],
-  );
+  const adjustments = useMemo(() => sumAdjustmentLines(adjustmentLines), [adjustmentLines]);
 
   const result = useMemo(
     () =>
@@ -90,16 +438,6 @@ export function CalculatorDisplayNew({
       }),
     [productBreakdowns, priceLookup, adjustments],
   );
-
-  const hasAnyNulledLines = useMemo(
-    () =>
-      result.breakdowns.some((product) =>
-        product.lines.some((line) => line.nulledForCustomer || line.nulledForSubcontractor),
-      ),
-    [result.breakdowns],
-  );
-
-  const hasAnyDiscountValue = hasAdjustmentValue(rabatt) || hasAdjustmentValue(subcontractorMinus);
 
 const displayTotals = useMemo(() => {
   if (forcedTotalExVat == null && forcedSubcontractorTotal == null) return result.totals;
@@ -159,7 +497,7 @@ useEffect(() => {
                   return (
                     <div key={idx} className="priceRow ml-2">
                       <h1 className="text-sm flex items-center gap-x-2">
-                        {adminView && !hasAnyDiscountValue && (product.cardId != null || product.isOrderExtras) && line.lineKey != null && (
+                        {adminView && (product.cardId != null || product.isOrderExtras) && line.lineKey != null && (
                           <input
                             type="checkbox"
                             title={t("Set to 0")}
@@ -194,22 +532,28 @@ useEffect(() => {
       </div>
 
       <div className="pb-4">
-        {(result.totals.discount !== 0 || result.totals.checkboxDiscount !== 0) && (
-          <div className="priceRow">
-            <h1 className="text-md">{t("Discount")}</h1>
-            <p className="font-semibold">-{formatSumNOK(result.totals.discount + result.totals.checkboxDiscount)} NOK</p>
-          </div>
-        )}
-
-        {result.totals.extra !== 0 && (
-          <div className="priceRow">
-            <h1 className="text-md">{t("Extra")}</h1>
-            <p className="font-semibold">
-              {result.totals.extra > 0 ? "+" : ""}
-              {formatSumNOK(result.totals.extra)} NOK
-            </p>
-          </div>
-        )}
+        <AdjustmentLineRows
+          lines={adjustmentLines}
+          kinds={["discount", "extra"]}
+          labels={{ discount: t("Discount"), extra: t("Extra") }}
+          handlers={adminView ? adjustmentLineHandlers : undefined}
+          text={{
+            description: t("Description"),
+            descriptionPlaceholder: t("e.g. Damaged packaging"),
+            optional: t("optional"),
+            amount: t("Amount (ex VAT)"),
+            remove: t("Remove"),
+            add: t("Add"),
+            apply: t("Apply"),
+            edit: t("Edit"),
+            cancel: t("Cancel"),
+            subtracted: t("Subtracted from total"),
+            added: t("Added to total"),
+            percent: t("Percent"),
+            switchToPercent: t("Switch to %"),
+            switchToNok: t("Switch to NOK"),
+          }}
+        />
 
         <div className="priceRow">
           <h1 className="font-bold text-2xl">{t("Total")}</h1>
@@ -225,45 +569,18 @@ useEffect(() => {
           <h1 className="text-md">{t("Total incl. VAT")}</h1>
           <p className="font-semibold">{formatSumNOK(displayTotals.totalIncVat)} NOK</p>
         </div>
-
-        {adminView && (
-          <div className="mt-8 space-y-4">
-            {!hasAnyNulledLines && (
-              <div className="lg:flex items-center">
-                <h1 className="whitespace-nowrap">{t("Discount (ex VAT)")}:</h1>
-                <input
-                  type="text"
-                  value={rabatt}
-                  onChange={(e) =>
-                    onAdjustmentsChange?.({
-                      ...adjustments,
-                      rabatt: e.target.value,
-                    })
-                  }
-                  className="customInput w-full ml-2 h-8"
-                  placeholder="e.g. 500"
-                />
-              </div>
-            )}
-
-            <div className="lg:flex items-center">
-              <h1 className="whitespace-nowrap">{t("Extra (ex VAT)")}:</h1>
-              <input
-                type="text"
-                value={leggTil}
-                onChange={(e) =>
-                  onAdjustmentsChange?.({
-                    ...adjustments,
-                    leggTil: e.target.value,
-                  })
-                }
-                className="customInput w-full ml-2 h-8"
-                placeholder="e.g. 300"
-              />
-            </div>
-          </div>
-        )}
       </div>
+
+      {adminView && adjustmentLineHandlers && (
+        <AddAdjustmentLineButtons
+          className="border-lineSecondary"
+          actions={[
+            { kind: "discount" as const, label: t("Add discount") },
+            { kind: "extra" as const, label: t("Add extra") },
+          ]}
+          onAdd={adjustmentLineHandlers.onAdd}
+        />
+      )}
     </section>
   );
 }
@@ -271,13 +588,8 @@ useEffect(() => {
 type SubcontractorProps = {
   productBreakdowns: ProductBreakdown[];
   priceLookup: PriceLookup;
-  rabatt?: string;
-  subcontractorMinus?: string;
-  subcontractorPlus?: string;
-  onSubcontractorAdjustmentsChange?: (
-    subcontractorMinus: string,
-    subcontractorPlus: string,
-  ) => void;
+  adjustmentLines?: AdjustmentLine[];
+  adjustmentLineHandlers?: AdjustmentLineHandlers;
   onToggleLineNulled?: (cardId: number, lineKey: string, nulled: boolean) => void;
   onToggleOrderExtraLineNulled?: (lineKey: string, nulled: boolean) => void;
 };
@@ -285,13 +597,15 @@ type SubcontractorProps = {
 export function SubcontractorCalculatorDisplay({
   productBreakdowns,
   priceLookup,
-  rabatt = "",
-  subcontractorMinus = "",
-  subcontractorPlus = "",
-  onSubcontractorAdjustmentsChange,
+  adjustmentLines = EMPTY_ADJUSTMENT_LINES,
+  adjustmentLineHandlers,
   onToggleLineNulled,
   onToggleOrderExtraLineNulled,
 }: SubcontractorProps) {
+  const { subcontractorMinus, subcontractorPlus } = useMemo(
+    () => sumAdjustmentLines(adjustmentLines),
+    [adjustmentLines],
+  );
   const result = useMemo(
     () =>
       calculateBookingPricing({
@@ -306,16 +620,6 @@ export function SubcontractorCalculatorDisplay({
       }),
     [productBreakdowns, priceLookup, subcontractorMinus, subcontractorPlus],
   );
-
-  const hasAnyNulledLines = useMemo(
-    () =>
-      result.breakdowns.some((product) =>
-        product.lines.some((line) => line.nulledForCustomer || line.nulledForSubcontractor),
-      ),
-    [result.breakdowns],
-  );
-
-  const hasAnyDiscountValue = hasAdjustmentValue(subcontractorMinus) || hasAdjustmentValue(rabatt);
 
   return (
     <section className="w-full customContainer rounded-2xl px-4 mt-4 bg-amber-50 border border-amber-200">
@@ -338,7 +642,7 @@ export function SubcontractorCalculatorDisplay({
                 product.lines.map((line, idx) => (
                   <div key={idx} className="priceRow ml-2">
                     <h1 className="text-sm flex items-center gap-x-2">
-                      {!hasAnyDiscountValue && (product.cardId != null || product.isOrderExtras) && line.lineKey != null && (
+                      {(product.cardId != null || product.isOrderExtras) && line.lineKey != null && (
                         <input
                           type="checkbox"
                           title="Set to 0"
@@ -373,23 +677,29 @@ export function SubcontractorCalculatorDisplay({
       </div>
 
       <div className="pb-4">
-        {(result.totals.subcontractorMinus !== 0 || result.totals.subcontractorCheckboxDiscount !== 0) && (
-          <div className="priceRow">
-            <h1 className="text-md">Minus</h1>
-            <p className="font-semibold">
-              -{formatSumNOK(result.totals.subcontractorMinus + result.totals.subcontractorCheckboxDiscount)} NOK
-            </p>
-          </div>
-        )}
 
-        {result.totals.subcontractorPlus !== 0 && (
-          <div className="priceRow">
-            <h1 className="text-md">Plus</h1>
-            <p className="font-semibold">
-              +{formatSumNOK(result.totals.subcontractorPlus)} NOK
-            </p>
-          </div>
-        )}
+        <AdjustmentLineRows
+          lines={adjustmentLines}
+          kinds={["subcontractorMinus", "subcontractorPlus"]}
+          labels={{ subcontractorMinus: "Minus", subcontractorPlus: "Plus" }}
+          handlers={adjustmentLineHandlers}
+          text={{
+            description: "Description",
+            descriptionPlaceholder: "e.g. Waiting time",
+            optional: "optional",
+            amount: "Amount",
+            remove: "Remove",
+            add: "Add",
+            apply: "Apply",
+            edit: "Edit",
+            cancel: "Cancel",
+            subtracted: "Subtracted from partner total",
+            added: "Added to partner total",
+            percent: "Percent",
+            switchToPercent: "Switch to %",
+            switchToNok: "Switch to NOK",
+          }}
+        />
 
         <div className="priceRow">
           <h1 className="font-bold text-2xl">Total</h1>
@@ -397,37 +707,18 @@ export function SubcontractorCalculatorDisplay({
             {formatSumNOK(result.totals.subcontractorTotal)} NOK
           </p>
         </div>
-
-        <div className="mt-8 space-y-4">
-          {!hasAnyNulledLines && (
-            <div className="lg:flex items-center">
-              <h1 className="whitespace-nowrap">Partner minus:</h1>
-              <input
-                type="text"
-                value={subcontractorMinus}
-                onChange={(e) =>
-                  onSubcontractorAdjustmentsChange?.(e.target.value, subcontractorPlus)
-                }
-                className="customInput w-full ml-2 h-8"
-                placeholder="e.g. 200"
-              />
-            </div>
-          )}
-
-          <div className="lg:flex items-center">
-            <h1 className="whitespace-nowrap">Partner plus:</h1>
-            <input
-              type="text"
-              value={subcontractorPlus}
-              onChange={(e) =>
-                onSubcontractorAdjustmentsChange?.(subcontractorMinus, e.target.value)
-              }
-              className="customInput w-full ml-2 h-8"
-              placeholder="e.g. 200"
-            />
-          </div>
-        </div>
       </div>
+
+      {adjustmentLineHandlers && (
+        <AddAdjustmentLineButtons
+          className="border-amber-200"
+          actions={[
+            { kind: "subcontractorMinus" as const, label: "Add partner minus" },
+            { kind: "subcontractorPlus" as const, label: "Add partner plus" },
+          ]}
+          onAdd={adjustmentLineHandlers.onAdd}
+        />
+      )}
     </section>
   );
 }

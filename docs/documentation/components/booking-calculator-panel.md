@@ -6,7 +6,7 @@
 
 ## Responsibility
 
-Wraps the booking calculator for desktop and mobile layouts and shows the price-update warning when a saved order has older prices than the current catalog. The warning can show stored and current-catalog totals before the admin applies the new prices. It forwards native manual adjustments, including discounts, extras, subcontractor minus, and subcontractor plus.
+Wraps the booking calculator for desktop and mobile layouts and shows the price-update warning when a saved order has older prices than the current catalog. The warning can show stored and current-catalog totals before the admin applies the new prices. It forwards the manual adjustment lines (discounts, extras, subcontractor minus, subcontractor plus) and their add/remove handlers to both the customer and partner calculators.
 
 ## Functions
 

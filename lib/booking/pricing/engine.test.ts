@@ -78,6 +78,32 @@ describe("calculateBookingPricing", () => {
     expect(result.totals.subcontractorTotal).toBe(800);
   });
 
+  it("applies manual discounts on top of lines set to 0, reporting each separately", () => {
+    const result = calculateBookingPricing({
+      productBreakdowns: [
+        {
+          productName: "Sofa",
+          cardId: 1,
+          nulledLineKeysForCustomer: ["code:SOFA"],
+          nulledLineKeysForSubcontractor: ["code:SOFA"],
+          items: [
+            { kind: "customPrice", code: "SOFA", label: "Sofa delivery", qty: 1, unitPrice: 1000, subcontractorUnitPrice: 400 },
+            { kind: "customPrice", code: "CUSHION", label: "Cushion", qty: 1, unitPrice: 300, subcontractorUnitPrice: 100 },
+          ],
+        },
+      ],
+      priceLookup: {},
+      adjustments: { rabatt: "50", leggTil: "", subcontractorMinus: "20", subcontractorPlus: "" },
+    });
+
+    expect(result.totals.checkboxDiscount).toBe(1000);
+    expect(result.totals.discount).toBe(50);
+    expect(result.totals.totalExVat).toBe(250);
+    expect(result.totals.subcontractorCheckboxDiscount).toBe(400);
+    expect(result.totals.subcontractorMinus).toBe(20);
+    expect(result.totals.subcontractorTotal).toBe(80);
+  });
+
   it("zeroes only the targeted line's customer total when its key is in nulledLineKeysForCustomer, leaving the other line and subcontractor totals untouched", () => {
     const result = calculateBookingPricing({
       productBreakdowns: [

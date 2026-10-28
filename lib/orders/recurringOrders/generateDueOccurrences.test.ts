@@ -90,6 +90,27 @@ describe("generateDueOccurrences", () => {
     });
   });
 
+  it("passes the template's adjustment lines through to the created order", async () => {
+    const adjustmentLines = [{ id: "d1", kind: "discount", description: "Fixed rebate", amount: 300 }];
+    mocks.templateFindManyMock.mockResolvedValue([
+      baseTemplate({
+        orderDefaults: {
+          productCards: [{ cardId: 1 }],
+          customerMembershipId: "customer-membership-1",
+          customerLabel: "Customer",
+          rabatt: "300",
+          adjustmentLines,
+        },
+      }),
+    ]);
+    mocks.occurrenceFindUniqueMock.mockResolvedValue(null);
+    mocks.occurrenceCreateMock.mockResolvedValue({});
+
+    await generateDueOccurrences();
+
+    expect(mocks.createOrderMock.mock.calls[0][0].fields).toMatchObject({ rabatt: "300", adjustmentLines });
+  });
+
   describe("saved locations and coordinates from the template", () => {
     function templateWithAddresses(extra: Record<string, unknown>) {
       return baseTemplate({

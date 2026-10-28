@@ -121,6 +121,7 @@ function buildFieldsFromOrderDefaults(
       leggTil: asString(defaults.leggTil),
       subcontractorMinus: asString(defaults.subcontractorMinus),
       subcontractorPlus: asString(defaults.subcontractorPlus),
+      adjustmentLines: defaults.adjustmentLines,
       customerMembershipId,
       customerLabel: asString(defaults.customerLabel) ?? customerMembershipId,
       // Deliberately omitted (not 0): there is no frozen total to fall back

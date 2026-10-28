@@ -58,7 +58,9 @@ import {
   getPricingSnapshotCustomDeviationSubcontractorPrice,
   getPricingSnapshotNulledOrderExtraKeysForCustomer,
   getPricingSnapshotNulledOrderExtraKeysForSubcontractor,
+  getPricingSnapshotAdjustmentLines,
 } from "@/lib/orders/orderTotals";
+import { resolveOrderAdjustments, storedAdjustmentLines } from "@/lib/booking/pricing/adjustmentLines";
 
 type ProductChangeValue = {
   label: string;
@@ -516,6 +518,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       leggTil: order.leggTil ?? "",
       subcontractorMinus: order.subcontractorMinus ?? "",
       subcontractorPlus: order.subcontractorPlus ?? "",
+      adjustmentLines: storedAdjustmentLines(getPricingSnapshotAdjustmentLines(order.pricingSnapshot), order),
       nulledOrderExtraKeysForCustomer: getPricingSnapshotNulledOrderExtraKeysForCustomer(order.pricingSnapshot),
       nulledOrderExtraKeysForSubcontractor: getPricingSnapshotNulledOrderExtraKeysForSubcontractor(order.pricingSnapshot),
       customDeviationPrice: getPricingSnapshotCustomDeviationPrice(order.pricingSnapshot),
@@ -883,18 +886,30 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
   const nextDnbDiscount = isAdminOrOwner
     ? optionalBoolean(body.dnbDiscount)
     : existingOrder.dnbDiscount;
-  const nextRabatt = body.rabatt !== undefined
-    ? optionalString(body.rabatt)
-    : existingOrder.rabatt;
-  const nextSubcontractorMinus = body.subcontractorMinus !== undefined
-    ? optionalString(body.subcontractorMinus)
-    : existingOrder.subcontractorMinus;
-  const nextLeggTil = body.leggTil !== undefined
-    ? optionalString(body.leggTil)
-    : existingOrder.leggTil;
-  const nextSubcontractorPlus = body.subcontractorPlus !== undefined
-    ? optionalString(body.subcontractorPlus)
-    : existingOrder.subcontractorPlus;
+  const resolvedAdjustments = resolveOrderAdjustments({
+    submittedLines: body.adjustmentLines,
+    fields: {
+      rabatt: body.rabatt !== undefined ? optionalString(body.rabatt) : existingOrder.rabatt,
+      leggTil: body.leggTil !== undefined ? optionalString(body.leggTil) : existingOrder.leggTil,
+      subcontractorMinus: body.subcontractorMinus !== undefined
+        ? optionalString(body.subcontractorMinus)
+        : existingOrder.subcontractorMinus,
+      subcontractorPlus: body.subcontractorPlus !== undefined
+        ? optionalString(body.subcontractorPlus)
+        : existingOrder.subcontractorPlus,
+    },
+    fieldsWereSubmitted:
+      body.rabatt !== undefined ||
+      body.leggTil !== undefined ||
+      body.subcontractorMinus !== undefined ||
+      body.subcontractorPlus !== undefined,
+    existingLines: storedAdjustmentLines(getPricingSnapshotAdjustmentLines(existingOrder.pricingSnapshot), existingOrder),
+  });
+  const nextAdjustmentLines = resolvedAdjustments.lines;
+  const nextRabatt = resolvedAdjustments.fields.rabatt;
+  const nextSubcontractorMinus = resolvedAdjustments.fields.subcontractorMinus;
+  const nextLeggTil = resolvedAdjustments.fields.leggTil;
+  const nextSubcontractorPlus = resolvedAdjustments.fields.subcontractorPlus;
   const nextNulledOrderExtraKeysForCustomer =
     optionalStringArray(body.nulledOrderExtraKeysForCustomer) ??
     getPricingSnapshotNulledOrderExtraKeysForCustomer(existingOrder.pricingSnapshot);
@@ -926,6 +941,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orderI
     customDeviationPrice: nextCustomDeviationPrice,
     customDeviationSubcontractorPrice: nextCustomDeviationSubcontractorPrice,
     customDeviationDescription: nextCustomDeviationDescription,
+    adjustmentLines: nextAdjustmentLines,
   });
   const finalCustomerTotalExVat = pricingSnapshot.customer.totalExVat;
   const nextPriceSubcontractor = pricingSnapshot.subcontractor.total;

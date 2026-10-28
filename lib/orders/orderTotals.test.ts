@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildOrderPricingSnapshot } from "@/lib/orders/orderTotals";
+import { buildOrderPricingSnapshot, getPricingSnapshotAdjustmentLines } from "@/lib/orders/orderTotals";
 
 describe("buildOrderPricingSnapshot", () => {
   it("uses submitted totals as authoritative when line prices are partial", () => {
@@ -84,5 +84,42 @@ describe("buildOrderPricingSnapshot", () => {
     expect(snapshot.customer.totalExVat).toBe(300);
     expect(snapshot.subcontractor.subtotal).toBe(900);
     expect(snapshot.subcontractor.total).toBe(800);
+  });
+
+  it("stores adjustment lines and reads them back", () => {
+    const adjustmentLines = [
+      { id: "1", kind: "discount" as const, description: "Damaged box", amount: 500 },
+      { id: "2", kind: "discount" as const, description: "Late delivery", amount: 200 },
+    ];
+    const snapshot = buildOrderPricingSnapshot({
+      lines: [],
+      rabatt: "700",
+      leggTil: "",
+      subcontractorMinus: "",
+      subcontractorPlus: "",
+      adjustmentLines,
+    });
+
+    expect(snapshot.adjustmentLines).toEqual(adjustmentLines);
+    expect(getPricingSnapshotAdjustmentLines(snapshot)).toEqual(adjustmentLines);
+  });
+
+  it("stores no adjustment lines when none are given", () => {
+    const snapshot = buildOrderPricingSnapshot({
+      lines: [],
+      rabatt: "",
+      leggTil: "",
+      subcontractorMinus: "",
+      subcontractorPlus: "",
+    });
+
+    expect(snapshot.adjustmentLines).toEqual([]);
+  });
+});
+
+describe("getPricingSnapshotAdjustmentLines", () => {
+  it("returns null for snapshots saved before adjustment lines existed", () => {
+    expect(getPricingSnapshotAdjustmentLines({ version: 1, customer: {} })).toBeNull();
+    expect(getPricingSnapshotAdjustmentLines(null)).toBeNull();
   });
 });

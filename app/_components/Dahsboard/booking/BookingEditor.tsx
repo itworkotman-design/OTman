@@ -42,8 +42,17 @@ import { resolveReturnForSubmit } from "@/lib/orders/resolveReturnForSubmit";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 import { appendImpreciseAddressNote, isStreetOnlyMatch, type AddressSelectionMeta } from "@/lib/orders/addressPrecision";
 import { shouldClearWordpressImportReadOnly } from "@/lib/booking/wordpressReadOnlyCleanup";
-import { parseNokAdjustment } from "@/lib/orders/orderTotals";
-import { deriveDiscountSync } from "@/lib/booking/pricing/discountSync";
+import {
+  addAdjustmentLine,
+  adjustmentLinesFromLegacy,
+  removeAdjustmentLine,
+  sumAdjustmentLines,
+  unlinkAdjustmentLines,
+  updateAdjustmentLine,
+  type AdjustmentLine,
+  type AdjustmentLineKind,
+  type AdjustmentLinePatch,
+} from "@/lib/booking/pricing/adjustmentLines";
 import { shouldPromptForPartner } from "@/lib/orders/partnerRequirement";
 import MissingPartnerDialog from "@/app/_components/Dahsboard/booking/MissingPartnerDialog";
 
@@ -117,11 +126,13 @@ export type OrderFormPayload = {
   priceExVat: number;
   priceSubcontractor: number;
 
+  // Summed from adjustmentLines; kept for everything that reads the legacy
+  // single-value fields.
   rabatt: string;
-  dnbDiscount: boolean;
   leggTil: string;
   subcontractorMinus: string;
   subcontractorPlus: string;
+  adjustmentLines: AdjustmentLine[];
   nulledOrderExtraKeysForCustomer: string[];
   nulledOrderExtraKeysForSubcontractor: string[];
   customDeviationPrice: number | null;
@@ -438,12 +449,7 @@ export default function BookingEditor({
   const [catalogRefreshKey, setCatalogRefreshKey] = useState(0);
   const [priceExVat, setPriceExVat] = useState(0);
   const [priceSubcontractor, setPriceSubcontractor] = useState(0);
-  const [rabatt, setRabatt] = useState("");
-  const [manualRabatt, setManualRabatt] = useState("");
-  const [dnbDiscount, setDnbDiscount] = useState(false);
-  const [leggTil, setLeggTil] = useState("");
-  const [subcontractorMinus, setSubcontractorMinus] = useState("");
-  const [subcontractorPlus, setSubcontractorPlus] = useState("");
+  const [adjustmentLines, setAdjustmentLines] = useState<AdjustmentLine[]>([]);
   const [orderNumber, setOrderNumber] = useState(initialValues?.orderNumber ?? "");
   const [description, setDescription] = useState(initialValues?.description ?? "");
   const [modelNr, setModelNr] = useState(initialValues?.modelNr ?? "");
@@ -543,7 +549,6 @@ export default function BookingEditor({
   const previousSelectedCustomerIdRef = useRef<string | null>(null);
   const hasProcessedInitialCustomerSyncRef = useRef(false);
   const hasProcessedInitialReturnSyncRef = useRef(false);
-  const hasProcessedInitialAdjustmentsSyncRef = useRef(false);
   const hasUserEditedPickupAddressRef = useRef(false);
   const hasUserEditedReturnAddressRef = useRef(false);
   const lastUnlockedPickupAddressRef = useRef(isNoPickupAddress(initialValues?.pickupAddress) ? "" : (initialValues?.pickupAddress ?? ""));
@@ -563,7 +568,6 @@ export default function BookingEditor({
   const allowPastDeliveryDates = role === "OWNER" || role === "ADMIN";
   const allowUnrestrictedCustomTime = role === "OWNER" || role === "ADMIN";
   const allowIncompleteRequiredFields = role === "OWNER" || role === "ADMIN";
-  const allowDnbDiscount = role === "OWNER" || role === "ADMIN";
   const showAdminCalculatorAdjustments = role === "OWNER" || role === "ADMIN";
   const userPriceListCount = currentUser?.priceListIds?.length ?? 0;
   const canSelectPriceList = !initialValues?.id && dataset === "default" && (
@@ -845,13 +849,10 @@ export default function BookingEditor({
 
     setPriceExVat(initialValues.priceExVat ?? 0);
     setPriceSubcontractor(initialValues.priceSubcontractor ?? 0);
-    setRabatt(initialValues.rabatt ?? "");
-    setManualRabatt(initialValues.rabatt ?? "");
-    setDnbDiscount(initialValues.dnbDiscount ?? false);
-    setLeggTil(initialValues.leggTil ?? "");
-    setSubcontractorMinus(initialValues.subcontractorMinus ?? "");
-    setSubcontractorPlus(initialValues.subcontractorPlus ?? "");
-    hasProcessedInitialAdjustmentsSyncRef.current = false;
+    // Automatic-order templates and orders saved before adjustment lines
+    // existed only carry the summed fields.
+    // Saved lines are already applied, so none still follow their discount.
+    setAdjustmentLines(unlinkAdjustmentLines(initialValues.adjustmentLines ?? adjustmentLinesFromLegacy(initialValues)));
     setNulledOrderExtraKeysForCustomer(initialValues.nulledOrderExtraKeysForCustomer ?? []);
     setNulledOrderExtraKeysForSubcontractor(initialValues.nulledOrderExtraKeysForSubcontractor ?? []);
     setSubmitError("");
@@ -983,19 +984,7 @@ export default function BookingEditor({
     [],
   );
 
-  const clearBothDiscountFields = useCallback(() => {
-    setRabatt("");
-    setManualRabatt("");
-    setSubcontractorMinus("");
-    if (allowDnbDiscount && dnbDiscount) {
-      setDnbDiscount(false);
-    }
-  }, [allowDnbDiscount, dnbDiscount]);
-
   const toggleLineNulledForCustomer = useCallback((cardId: number, lineKey: string, nulled: boolean) => {
-    if (nulled) {
-      clearBothDiscountFields();
-    }
     setProductCards((current) =>
       current.map((card) => {
         if (card.cardId !== cardId) return card;
@@ -1022,12 +1011,9 @@ export default function BookingEditor({
         };
       }),
     );
-  }, [clearBothDiscountFields]);
+  }, []);
 
   const toggleLineNulledForSubcontractor = useCallback((cardId: number, lineKey: string, nulled: boolean) => {
-    if (nulled) {
-      clearBothDiscountFields();
-    }
     setProductCards((current) =>
       current.map((card) => {
         if (card.cardId !== cardId) return card;
@@ -1040,12 +1026,9 @@ export default function BookingEditor({
         return { ...card, nulledLineKeysForSubcontractor: nextKeys };
       }),
     );
-  }, [clearBothDiscountFields]);
+  }, []);
 
   const toggleOrderExtraLineNulledForCustomer = useCallback((lineKey: string, nulled: boolean) => {
-    if (nulled) {
-      clearBothDiscountFields();
-    }
     setNulledOrderExtraKeysForCustomer((current) =>
       nulled
         ? current.includes(lineKey)
@@ -1062,12 +1045,9 @@ export default function BookingEditor({
           : [...current, lineKey]
         : current.filter((key) => key !== lineKey),
     );
-  }, [clearBothDiscountFields]);
+  }, []);
 
   const toggleOrderExtraLineNulledForSubcontractor = useCallback((lineKey: string, nulled: boolean) => {
-    if (nulled) {
-      clearBothDiscountFields();
-    }
     setNulledOrderExtraKeysForSubcontractor((current) =>
       nulled
         ? current.includes(lineKey)
@@ -1075,7 +1055,7 @@ export default function BookingEditor({
           : [...current, lineKey]
         : current.filter((key) => key !== lineKey),
     );
-  }, [clearBothDiscountFields]);
+  }, []);
 
   const addProductCard = useCallback(() => {
     setProductCards((current) => {
@@ -1290,15 +1270,7 @@ export default function BookingEditor({
     [catalogProducts, catalogSpecialOptions],
   );
 
-  const calculatorAdjustments = useMemo(
-    () => ({
-      rabatt,
-      leggTil,
-      subcontractorMinus,
-      subcontractorPlus,
-    }),
-    [leggTil, rabatt, subcontractorMinus, subcontractorPlus],
-  );
+  const calculatorAdjustments = useMemo(() => sumAdjustmentLines(adjustmentLines), [adjustmentLines]);
 
   const storedSnapshotPricingResult = useMemo(
     () =>
@@ -1323,46 +1295,6 @@ export default function BookingEditor({
   useEffect(() => {
     pricingResultRef.current = storedSnapshotPricingResult;
   }, [storedSnapshotPricingResult]);
-
-  useEffect(() => {
-    if (!allowDnbDiscount) return;
-
-    // This effect's job is narrow: resync `rabatt`/`subcontractorMinus` when
-    // the DNB toggle itself flips. It intentionally does NOT list
-    // manualRabatt/leggTil/pricing totals as dependencies (it reads their
-    // latest values from state/pricingResultRef instead) — a direct user
-    // edit to the rabatt field is already handled synchronously by
-    // handleAdjustmentsChange. If this effect also reacted to totals
-    // changing, it would re-fire (and clobber a manually-entered
-    // subcontractorMinus) any time something unrelated — hours, quantities,
-    // reopening the editor while product cards are still loading —
-    // recalculated the order totals, without the user ever touching the
-    // discount at all. See lib/booking/pricing/discountSync.ts for the full
-    // decision logic and its regression tests.
-    const isInitialSync = !hasProcessedInitialAdjustmentsSyncRef.current;
-    if (isInitialSync) {
-      hasProcessedInitialAdjustmentsSyncRef.current = true;
-    }
-
-    const { subtotalExVat, subcontractorBase } = pricingResultRef.current?.totals ?? { subtotalExVat: 0, subcontractorBase: 0 };
-
-    const result = deriveDiscountSync({
-      dnbDiscount,
-      manualRabatt,
-      leggTil,
-      subtotalExVat,
-      subcontractorBase,
-      isInitialSyncForExistingOrder: isInitialSync && Boolean(initialValues?.id),
-    });
-
-    if (result.skip) return;
-
-    setRabatt(result.rabatt);
-    if (result.subcontractorMinus !== null) {
-      setSubcontractorMinus(result.subcontractorMinus);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally reacts only to the dnbDiscount toggle; manualRabatt/leggTil/totals are read fresh from state/pricingResultRef, not tracked as retrigger sources (see comment above).
-  }, [allowDnbDiscount, dnbDiscount, initialValues?.id]);
 
   const isExistingOrder = Boolean(initialValues?.id);
   const storedOrderPricingTotals = useMemo(
@@ -1717,44 +1649,35 @@ export default function BookingEditor({
     priceListSettingsRef.current = priceListSettings;
   });
 
-  const handleAdjustmentsChange = useCallback((adj: { rabatt: string; leggTil: string; subcontractorMinus: string; subcontractorPlus: string }) => {
-    if (allowDnbDiscount && dnbDiscount && adj.rabatt !== rabatt) {
-      setDnbDiscount(false);
-    }
-    setManualRabatt(adj.rabatt);
+  // Lines are added empty and edited in place so totals (and the linked
+  // partner minus of a discount) update while the amount is being typed.
+  const handleAddAdjustmentLine = useCallback((kind: AdjustmentLineKind) => {
+    setAdjustmentLines((current) => addAdjustmentLine(current, kind));
+  }, []);
 
-    let finalSubcontractorMinus = adj.subcontractorMinus;
+  const handleUpdateAdjustmentLine = useCallback((id: string, patch: AdjustmentLinePatch) => {
+    const { subtotalExVat, subcontractorBase } = pricingResultRef.current?.totals ?? { subtotalExVat: 0, subcontractorBase: 0 };
+    setAdjustmentLines((current) => updateAdjustmentLine(current, id, patch, { subtotalExVat, subcontractorBase }));
+  }, []);
 
-    setRabatt((prevRabatt) => {
-      if (adj.rabatt !== prevRabatt) {
-        const rabattAmount = Number(adj.rabatt.replace(/[^\d.,-]/g, "").replace(",", "."));
-        const { subtotalExVat, subcontractorBase } = pricingResultRef.current?.totals ?? { subtotalExVat: 0, subcontractorBase: 0 };
-        const autoMinus =
-          Number.isFinite(rabattAmount) && rabattAmount > 0 && subtotalExVat > 0
-            ? Math.round(subcontractorBase * rabattAmount / subtotalExVat)
-            : 0;
-        finalSubcontractorMinus = String(autoMinus);
-        setSubcontractorMinus(finalSubcontractorMinus);
-      } else {
-        setSubcontractorMinus(adj.subcontractorMinus);
-      }
-      return adj.rabatt;
-    });
-    setLeggTil(adj.leggTil);
-    setSubcontractorPlus(adj.subcontractorPlus);
+  const handleRemoveAdjustmentLine = useCallback((id: string) => {
+    const { subtotalExVat, subcontractorBase } = pricingResultRef.current?.totals ?? { subtotalExVat: 0, subcontractorBase: 0 };
+    setAdjustmentLines((current) => removeAdjustmentLine(current, id, { subtotalExVat, subcontractorBase }));
+  }, []);
 
-    if (parseNokAdjustment(adj.rabatt) !== 0 || parseNokAdjustment(finalSubcontractorMinus) !== 0) {
-      setProductCards((current) =>
-        current.map((card) =>
-          (card.nulledLineKeysForCustomer?.length ?? 0) > 0 || (card.nulledLineKeysForSubcontractor?.length ?? 0) > 0
-            ? { ...card, nulledLineKeysForCustomer: [], nulledLineKeysForSubcontractor: [] }
-            : card,
-        ),
-      );
-      setNulledOrderExtraKeysForCustomer((current) => (current.length > 0 ? [] : current));
-      setNulledOrderExtraKeysForSubcontractor((current) => (current.length > 0 ? [] : current));
-    }
-  }, [allowDnbDiscount, dnbDiscount, rabatt]);
+  const handleApplyAdjustmentLine = useCallback((id: string) => {
+    setAdjustmentLines((current) => unlinkAdjustmentLines(current, id));
+  }, []);
+
+  const adjustmentLineHandlers = useMemo(
+    () => ({
+      onAdd: handleAddAdjustmentLine,
+      onUpdate: handleUpdateAdjustmentLine,
+      onRemove: handleRemoveAdjustmentLine,
+      onApply: handleApplyAdjustmentLine,
+    }),
+    [handleAddAdjustmentLine, handleApplyAdjustmentLine, handleRemoveAdjustmentLine, handleUpdateAdjustmentLine],
+  );
 
   const handleUseCurrentPrices = useCallback(() => {
     setProductCards((current) =>
@@ -2224,11 +2147,8 @@ export default function BookingEditor({
       priceExVat,
       priceSubcontractor,
 
-      rabatt: manualRabatt,
-      dnbDiscount,
-      leggTil,
-      subcontractorMinus,
-      subcontractorPlus,
+      ...calculatorAdjustments,
+      adjustmentLines,
       nulledOrderExtraKeysForCustomer,
       nulledOrderExtraKeysForSubcontractor,
     };
@@ -2435,9 +2355,6 @@ export default function BookingEditor({
             orderNumberError={visibleFieldErrors.orderNumber}
             orderNumber={orderNumber}
             setOrderNumber={setOrderNumber}
-            showDnbDiscount={allowDnbDiscount}
-            dnbDiscount={dnbDiscount}
-            setDnbDiscount={setDnbDiscount}
             description={description}
             setDescription={setDescription}
             modelNr={modelNr}
@@ -2556,11 +2473,8 @@ export default function BookingEditor({
               priceLookup={priceLookup}
               adminView={dataset === "default" && showAdminCalculatorAdjustments}
               onPriceChange={handlePriceChange}
-              rabatt={rabatt}
-              leggTil={leggTil}
-              subcontractorMinus={subcontractorMinus}
-              subcontractorPlus={subcontractorPlus}
-              onAdjustmentsChange={handleAdjustmentsChange}
+              adjustmentLines={adjustmentLines}
+              adjustmentLineHandlers={adjustmentLineHandlers}
               onToggleCustomerNulled={toggleLineNulledForCustomer}
               onToggleSubcontractorNulled={toggleLineNulledForSubcontractor}
               onToggleCustomerOrderExtraNulled={toggleOrderExtraLineNulledForCustomer}
@@ -2585,11 +2499,8 @@ export default function BookingEditor({
             priceLookup={priceLookup}
             adminView={dataset === "default" && showAdminCalculatorAdjustments}
             onPriceChange={handlePriceChange}
-            rabatt={rabatt}
-            leggTil={leggTil}
-            subcontractorMinus={subcontractorMinus}
-            subcontractorPlus={subcontractorPlus}
-            onAdjustmentsChange={handleAdjustmentsChange}
+            adjustmentLines={adjustmentLines}
+            adjustmentLineHandlers={adjustmentLineHandlers}
             onToggleCustomerNulled={toggleLineNulledForCustomer}
             onToggleSubcontractorNulled={toggleLineNulledForSubcontractor}
             onToggleCustomerOrderExtraNulled={toggleOrderExtraLineNulledForCustomer}

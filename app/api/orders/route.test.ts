@@ -1563,6 +1563,51 @@ describe("routes in /api/orders", () => {
     );
   });
 
+  it("POST stores adjustment lines and derives the summed fields from them", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "USER",
+      membershipPriceLists: [{ priceListId: "price-list-1" }],
+      user: { username: "creator", email: "creator@example.com" },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+
+    const adjustmentLines = [
+      { id: "d1", kind: "discount", description: "Damaged box", amount: 500 },
+      { id: "d2", kind: "discount", description: "Loyal customer", amount: 100 },
+      { id: "e1", kind: "extra", description: "Stairs", amount: 250 },
+    ];
+
+    const res = await POST(
+      new Request("http://localhost/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          orderNumber: "PO-1",
+          rabatt: "1",
+          adjustmentLines,
+          priceExVat: 1000,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.orderCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          rabatt: "600",
+          leggTil: "250",
+          subcontractorMinus: null,
+          pricingSnapshot: expect.objectContaining({ adjustmentLines }),
+        }),
+      }),
+    );
+  });
+
   it("POST treats a bare +47 prefix as an empty optional phone field", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",

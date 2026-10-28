@@ -34,6 +34,7 @@ import {
   getSavedOrderPricingSnapshot,
 } from "@/lib/booking/pricing/snapshot";
 import { buildOrderPricingSnapshot, clampOrderPrice } from "@/lib/orders/orderTotals";
+import { resolveOrderAdjustments } from "@/lib/booking/pricing/adjustmentLines";
 import { computeFullOrderTotal } from "@/lib/booking/pricing/computeOrderTotal";
 
 export type CreateOrderFields = {
@@ -93,6 +94,9 @@ export type CreateOrderFields = {
   leggTil: string | null;
   subcontractorMinus: string | null;
   subcontractorPlus: string | null;
+  // Raw submitted lines; when present they override the four summed fields
+  // above (see resolveOrderAdjustments).
+  adjustmentLines?: unknown;
   nulledOrderExtraKeysForCustomer?: string[];
   nulledOrderExtraKeysForSubcontractor?: string[];
   customDeviationPrice?: number | null;
@@ -131,7 +135,18 @@ export type CreateOrderInput = {
 // callers (the HTTP route, or the recurring-order generator) are
 // responsible for catching and translating failures for their own context.
 export async function createOrder(input: CreateOrderInput): Promise<Order> {
-  const { fields } = input;
+  const resolvedAdjustments = resolveOrderAdjustments({
+    submittedLines: input.fields.adjustmentLines,
+    fields: {
+      rabatt: input.fields.rabatt,
+      leggTil: input.fields.leggTil,
+      subcontractorMinus: input.fields.subcontractorMinus,
+      subcontractorPlus: input.fields.subcontractorPlus,
+    },
+    fieldsWereSubmitted: true,
+    existingLines: null,
+  });
+  const fields = { ...input.fields, ...resolvedAdjustments.fields };
 
   const catalog = await getBookingCatalog(input.priceListId);
   const pricingSource = applyOrderPricingSnapshot({
@@ -201,6 +216,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     customDeviationPrice: fields.customDeviationPrice,
     customDeviationSubcontractorPrice: fields.customDeviationSubcontractorPrice,
     customDeviationDescription: fields.customDeviationDescription,
+    adjustmentLines: resolvedAdjustments.lines,
   });
   const finalCustomerTotalExVat = pricingSnapshot.customer.totalExVat;
   const finalSubcontractorTotal = pricingSnapshot.subcontractor.total;

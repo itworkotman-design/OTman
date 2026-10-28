@@ -2216,6 +2216,110 @@ describe("routes in /api/orders/[orderId]", () => {
     );
   });
 
+  it("PATCH stores adjustment lines and derives the summed fields from them", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "ADMIN",
+      priceListId: "price-list-1",
+      user: { username: "admin", email: "admin@example.com" },
+      permissions: [{ permission: "BOOKING_CREATE" }],
+    });
+    mocks.orderFindFirstMock.mockResolvedValue({
+      id: "order-1",
+      companyId: "company-1",
+      displayId: 20001,
+      orderNumber: "11191323551",
+      productCardsSnapshot: [],
+      priceListId: "price-list-1",
+      customerMembershipId: "membership-2",
+      customerLabel: "POWER Slependen",
+      createdAt: new Date("2026-04-01T00:00:00.000Z"),
+      status: "active",
+      completedAt: null,
+      statusNotes: "",
+      customerName: "",
+      deliveryDate: "",
+      timeWindow: "",
+      expressDelivery: false,
+      contactCustomerForCustomTimeWindow: false,
+      customTimeContactNote: null,
+      pickupAddress: "",
+      extraPickupAddress: [],
+      extraPickupContacts: [],
+      deliveryAddress: "",
+      returnAddress: "",
+      drivingDistance: "",
+      phone: "",
+      phoneTwo: "",
+      email: "",
+      customerComments: "",
+      description: "",
+      productsSummary: "",
+      deliveryTypeSummary: "",
+      servicesSummary: "",
+      cashierName: "",
+      cashierPhone: "",
+      subcontractor: "",
+      driver: "",
+      secondDriver: "",
+      driverInfo: "",
+      licensePlate: "",
+      deviation: "",
+      feeExtraWork: false,
+      extraWorkMinutes: 0,
+      feeAddToOrder: false,
+      dontSendEmail: false,
+      priceExVat: 0,
+      priceSubcontractor: 0,
+      rabatt: "",
+      leggTil: "",
+      subcontractorMinus: "",
+      subcontractorPlus: "",
+      gsmLastTaskState: null,
+    });
+
+    const adjustmentLines = [
+      { id: "d1", kind: "discount", description: "Damaged box", amount: 500 },
+      { id: "d2", kind: "discount", description: "Late delivery", amount: 200 },
+      { id: "m1", kind: "subcontractorMinus", description: "Damaged box", amount: 300, sourceId: "d1" },
+      { id: "p1", kind: "subcontractorPlus", description: "Waiting time", amount: 150 },
+    ];
+
+    const res = await PATCH(
+      new Request("http://localhost/api/orders/order-1", {
+        method: "PATCH",
+        body: JSON.stringify({
+          productCards: [{ cardId: 1, productId: "product-1" }],
+          status: "active",
+          // Stale summed fields must be ignored in favour of the lines.
+          rabatt: "1",
+          subcontractorMinus: "1",
+          adjustmentLines,
+          priceExVat: 1000,
+          priceSubcontractor: 500,
+        }),
+      }),
+      { params: Promise.resolve({ orderId: "order-1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.orderUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          rabatt: "700",
+          leggTil: null,
+          subcontractorMinus: "300",
+          subcontractorPlus: "150",
+          pricingSnapshot: expect.objectContaining({ adjustmentLines }),
+        }),
+      }),
+    );
+  });
+
   it("DELETE returns 404 when no order row is removed", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",

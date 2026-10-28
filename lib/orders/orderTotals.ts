@@ -1,3 +1,5 @@
+import { parseAdjustmentLines, type AdjustmentLine } from "@/lib/booking/pricing/adjustmentLines";
+
 type PricedOrderLine = {
   cardId?: number;
   productCode?: string | null;
@@ -18,6 +20,7 @@ export type OrderPricingSnapshot = {
   customDeviationPrice: number | null;
   customDeviationSubcontractorPrice: number | null;
   customDeviationDescription: string | null;
+  adjustmentLines: AdjustmentLine[];
   customer: {
     subtotalExVat: number;
     discount: number;
@@ -213,6 +216,13 @@ export function getPricingSnapshotCustomDeviationDescription(snapshot: unknown):
   return getSnapshotString(root?.customDeviationDescription);
 }
 
+// null = snapshot predates adjustment lines; callers fall back to the summed
+// rabatt/leggTil/subcontractorMinus/subcontractorPlus fields.
+export function getPricingSnapshotAdjustmentLines(snapshot: unknown): AdjustmentLine[] | null {
+  const root = getSnapshotRecord(snapshot);
+  return parseAdjustmentLines(root?.adjustmentLines);
+}
+
 export function buildOrderPricingSnapshot(params: {
   lines: PricedOrderLine[];
   rabatt: string | null | undefined;
@@ -226,6 +236,7 @@ export function buildOrderPricingSnapshot(params: {
   customDeviationPrice?: number | null;
   customDeviationSubcontractorPrice?: number | null;
   customDeviationDescription?: string | null;
+  adjustmentLines?: AdjustmentLine[];
 }): OrderPricingSnapshot {
   const totals = getOrderLinePriceTotals(params.lines);
   const discount = roundNok(parseNokAdjustment(params.rabatt));
@@ -265,6 +276,7 @@ export function buildOrderPricingSnapshot(params: {
     customDeviationPrice: params.customDeviationPrice ?? null,
     customDeviationSubcontractorPrice: params.customDeviationSubcontractorPrice ?? null,
     customDeviationDescription: params.customDeviationDescription ?? null,
+    adjustmentLines: params.adjustmentLines ?? [],
     customer: {
       subtotalExVat: customerSubtotal,
       discount,

@@ -888,6 +888,7 @@ export async function POST(req: Request) {
       leggTil: optionalString(body.leggTil),
       subcontractorMinus: optionalString(body.subcontractorMinus),
       subcontractorPlus: optionalString(body.subcontractorPlus),
+      adjustmentLines: body.adjustmentLines,
       nulledOrderExtraKeysForCustomer: optionalStringArray(body.nulledOrderExtraKeysForCustomer),
       nulledOrderExtraKeysForSubcontractor: optionalStringArray(body.nulledOrderExtraKeysForSubcontractor),
       customDeviationPrice: optionalPriceNumber(body.customDeviationPrice),

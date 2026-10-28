@@ -27,6 +27,7 @@ import {
 import { usesFullDistanceKmPricing } from "@/lib/booking/pricing/distanceCharges";
 import type { PriceListSettings } from "@/lib/products/priceListSettings";
 import type { PriceLookup } from "@/lib/booking/pricing/types";
+import { adjustmentLinesFromLegacy, type AdjustmentLine } from "@/lib/booking/pricing/adjustmentLines";
 
 type ReadOnlyOrder = {
   id: string;
@@ -106,6 +107,7 @@ type FullOrderResponse = {
     customDeviationPrice?: number | null;
     customDeviationSubcontractorPrice?: number | null;
     customDeviationDescription?: string;
+    adjustmentLines?: AdjustmentLine[];
   };
   reason?: string;
 };
@@ -124,6 +126,7 @@ type AdminCalculatorState = {
   priceExVat: number;
   priceSubcontractor: number;
   hasWordpressReadOnlyRows: boolean;
+  adjustmentLines: AdjustmentLine[] | null;
 };
 
 type PdfDetailRow = {
@@ -589,6 +592,7 @@ function useAdminCalculatorState(order: ReadOnlyOrder | null) {
       priceExVat: fullOrder.priceExVat,
       priceSubcontractor: fullOrder.priceSubcontractor,
       hasWordpressReadOnlyRows,
+      adjustmentLines: fullOrder.adjustmentLines ?? null,
     };
   }, [catalog, fullOrder]);
 
@@ -627,6 +631,14 @@ function AdminStyleReadOnlyCalculator({
 
   const calculatorLocale = locale ?? "nb";
 
+  const allAdjustmentLines =
+    calculatorState.adjustmentLines ?? adjustmentLinesFromLegacy({ rabatt, leggTil, subcontractorMinus, subcontractorPlus });
+  const adjustmentLines = allAdjustmentLines.filter((line) =>
+    isSubcontractor
+      ? !hideSubcontractorAdjustments && (line.kind === "subcontractorMinus" || line.kind === "subcontractorPlus")
+      : line.kind === "discount" || line.kind === "extra",
+  );
+
   return (
     <CalculatorDisplayNew
       productBreakdowns={calculatorState.productBreakdowns}
@@ -636,10 +648,7 @@ function AdminStyleReadOnlyCalculator({
       adminView={false}
       hideWordpressImportWarnings={hideWordpressImportWarnings}
       showSubcontractorPrices={isSubcontractor}
-      rabatt={isSubcontractor ? "" : rabatt}
-      leggTil={isSubcontractor ? "" : leggTil}
-      subcontractorMinus={isSubcontractor && !hideSubcontractorAdjustments ? subcontractorMinus : ""}
-      subcontractorPlus={isSubcontractor && !hideSubcontractorAdjustments ? subcontractorPlus : ""}
+      adjustmentLines={adjustmentLines}
       sidebarMode={false}
       locale={calculatorLocale}
     />
