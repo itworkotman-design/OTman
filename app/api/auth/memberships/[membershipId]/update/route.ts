@@ -154,10 +154,20 @@ export async function PATCH(
 
     const previousLogoPath = previousUser?.logoPath ?? null;
 
+    // Logos can be reused across users (picked from "Previously used" in the
+    // user modal), so only remove the file once nothing references it anymore.
+    const previousLogoStillUsed =
+      previousLogoPath && previousLogoPath !== user.logoPath
+        ? (await prisma.user.count({ where: { logoPath: previousLogoPath } })) > 0 ||
+          (await prisma.invite.count({
+            where: { logoPath: previousLogoPath, status: "PENDING" },
+          })) > 0
+        : true;
+
     if (
       previousLogoPath &&
       isManagedUserLogoPath(previousLogoPath) &&
-      previousLogoPath !== user.logoPath
+      !previousLogoStillUsed
     ) {
       if (isS3StoragePath(previousLogoPath)) {
         deleteAttachmentFromS3(previousLogoPath).catch(() => {});

@@ -28,9 +28,11 @@ import {
 import { ALL_DASHBOARD_SECTIONS, DASHBOARD_SECTION_LABELS } from "@/lib/users/dashboardSections";
 import type { AppModule, Role } from "@/lib/users/types";
 
-const AVATAR_COLOR_SWATCHES = ["#273097", "#7a5cc7", "#2e9e6b", "#c67139", "#c0507a", "#3a8fb7"];
+const AVATAR_COLOR_SWATCHES = ["#273097", "#7a5cc7", "#2e9e6b", "#f96700", "#c0507a", "#3a8fb7"];
 
 type EditSection = "GENERAL" | "ACCESS" | "SECURITY";
+
+type UsedLogo = { logoPath: string; displayPath: string };
 
 const SECTIONS: { id: EditSection; label: string }[] = [
   { id: "GENERAL", label: "General" },
@@ -151,6 +153,7 @@ export default function UserModal({
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(
     getUserLogoDisplayPath(initialValueLogoPath),
   );
+  const [usedLogos, setUsedLogos] = useState<UsedLogo[]>([]);
 
   const { isNonOwnerUmAdmin, canEditTarget, canToggleActive } = getPermissions(isOwner, isUmAdmin, targetRole, isCreateMode);
 
@@ -174,6 +177,27 @@ export default function UserModal({
 
     setLogoPreviewUrl(getUserLogoDisplayPath(initialValueLogoPath));
   }, [isOpen, formResetKey, initialValueLogoPath]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    let cancelled = false;
+
+    fetch("/api/auth/users/logos", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && data?.ok && Array.isArray(data.logos)) {
+          setUsedLogos(data.logos);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     return () => {
@@ -267,6 +291,22 @@ export default function UserModal({
     setForm((prev) => ({
       ...prev,
       logoFile: nextFile,
+    }));
+  }
+
+  function handlePickUsedLogo(logo: UsedLogo) {
+    setLogoPreviewUrl((prev) => {
+      if (prev?.startsWith("blob:")) {
+        URL.revokeObjectURL(prev);
+      }
+
+      return logo.displayPath;
+    });
+
+    setForm((prev) => ({
+      ...prev,
+      logoPath: logo.logoPath,
+      logoFile: null,
     }));
   }
 
@@ -411,6 +451,31 @@ export default function UserModal({
                 </div>
               </div>
             </div>
+
+            {usedLogos.length > 0 && canEditTarget && (
+              <div className="mb-6">
+                <div className="mb-2 text-sm font-semibold text-textcolor">Previously used pictures</div>
+                <div className="flex flex-wrap gap-2">
+                  {usedLogos.map((logo) => {
+                    const isSelected = !form.logoFile && form.logoPath === logo.logoPath;
+                    return (
+                      <button
+                        key={logo.logoPath}
+                        type="button"
+                        onClick={() => handlePickUsedLogo(logo)}
+                        aria-label="Use this picture"
+                        aria-pressed={isSelected}
+                        className={`grid h-12 w-12 cursor-pointer place-items-center overflow-hidden rounded-full border-2 bg-black/5 p-1 hover:bg-black/10 ${
+                          isSelected ? "border-logoblue" : "border-transparent"
+                        }`}
+                      >
+                        <img src={logo.displayPath} alt="" className="h-full w-full object-contain" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
               <div>
