@@ -20,6 +20,8 @@ import { bookingText } from "@/lib/booking/bookingUiText";
 import { useUserLanguage } from "@/lib/users/language";
 import BulkUpdateBar from "@/app/_components/Dahsboard/booking/archive/BulkUpdateBar";
 import SelectionActionBar from "@/app/_components/Dahsboard/booking/archive/SelectionActionBar";
+import type { PrepareEmailGroup, PrepareEmailStop } from "@/lib/orders/prepareOrdersEmailGroups";
+import PrepareEmailModal from "@/app/_components/Dahsboard/booking/archive/PrepareEmailModal";
 import BookingColumnVisibilityModal from "@/app/_components/Dahsboard/booking/archive/BookingColumnVisibilityModal";
 import { exportOrdersToExcel } from "@/lib/booking/exportOrdersToExcel";
 import {
@@ -111,12 +113,20 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
     }),
   );
 
+  // Pickup filter options follow the date filter (like Store). The unfiltered
+  // list only decides whether the filter shows at all, so it doesn't vanish
+  // on a day without pickups.
   const [pickupAddresses, setPickupAddresses] = useState<BookingArchiveOption[]>([]);
+  const [allPickupAddresses, setAllPickupAddresses] = useState<BookingArchiveOption[]>([]);
+  const [prepareResult, setPrepareResult] = useState("");
+  const [prepareEmail, setPrepareEmail] = useState<{
+    groups: PrepareEmailGroup[];
+    unresolved: PrepareEmailStop[];
+  } | null>(null);
   const [subcontractors, setSubcontractors] = useState<BookingArchiveOption[]>(
     [],
   );
   const [creators, setCreators] = useState<BookingArchiveOption[]>([]);
-  const [allCreators, setAllCreators] = useState<BookingArchiveOption[]>([]);
   const [drivers, setDrivers] = useState<BookingArchiveOption[]>([]);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkError, setBulkError] = useState("");
@@ -265,30 +275,6 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
     }
   }
 
-  async function loadAllCreators() {
-    try {
-      const res = await fetch("/api/auth/order-creators?hasOrders=true", {
-        credentials: "include",
-        cache: "no-store",
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (res.ok && data?.ok) {
-        setAllCreators(
-          (data.orderCreators ?? []).map((item: FilterOptionApiItem) => ({
-            id: item.id,
-            label: item.name,
-            email: item.email ?? "",
-            warehouseEmail: item.warehouseEmail ?? "",
-          })),
-        );
-      }
-    } catch {
-      setAllCreators([]);
-    }
-  }
-
   async function loadDriverOptions() {
     if (access.viewMode !== "ADMIN") {
       setDrivers([]);
@@ -341,9 +327,13 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
 
   // Scoped to the caller's active store, same as the order-creation
   // quick-select — see app/api/pickup-addresses/available/route.ts.
-  async function loadPickupAddressOptions() {
+  async function loadPickupAddressOptions(fromDate?: string, toDate?: string) {
     try {
-      const res = await fetch("/api/pickup-addresses/available", {
+      const params = new URLSearchParams();
+      if (fromDate) params.set("fromDate", fromDate);
+      if (toDate) params.set("toDate", toDate);
+
+      const res = await fetch(`/api/pickup-addresses/available?${params.toString()}`, {
         credentials: "include",
         cache: "no-store",
       });
@@ -351,14 +341,14 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
       const data = await res.json().catch(() => null);
 
       if (res.ok && data?.ok) {
-        setPickupAddresses(
-          (data.pickupAddresses ?? []).map(
-            (item: { id: string; name: string }) => ({
-              id: item.id,
-              label: item.name,
-            }),
-          ),
+        const options: BookingArchiveOption[] = (data.pickupAddresses ?? []).map(
+          (item: { id: string; name: string }) => ({
+            id: item.id,
+            label: item.name,
+          }),
         );
+        setPickupAddresses(options);
+        if (!fromDate && !toDate) setAllPickupAddresses(options);
       }
     } catch {
       setPickupAddresses([]);
@@ -406,50 +396,38 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
     }
   }
 
-  async function handleSendSelectedEmail(payload: {
-    recipients: Array<{
-      email: string;
-      name?: string;
-    }>;
-    subject: string;
-    message?: string;
-    recipientName?: string;
-  }): Promise<boolean> {
-    if (payload.recipients.length === 0 || selectedOrderIds.length === 0) {
-      return false;
-    }
+  // One click "prepare orders": the server groups the selected orders by
+  // pickup address main user (else store); PrepareEmailModal shows the groups
+  // for confirmation and sends each through the selected-orders email route.
+  async function handleOpenPrepareEmail() {
+    if (selectedOrderIds.length === 0) return;
 
     try {
       setCustomerActionLoading(true);
       setCustomerActionError("");
+      setPrepareResult("");
 
-      const res = await fetch("/api/orders/send-selected-email", {
+      const res = await fetch("/api/orders/prepare-email-groups", {
         method: "POST",
         credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          orderIds: selectedOrderIds,
-          recipients: payload.recipients,
-          subject: payload.subject,
-          message: payload.message,
-          recipientName: payload.recipientName,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderIds: selectedOrderIds }),
       });
-
-      const data = await res.json().catch(() => null);
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        reason?: string;
+        groups?: PrepareEmailGroup[];
+        unresolved?: PrepareEmailStop[];
+      } | null;
 
       if (!res.ok || !data?.ok) {
         setCustomerActionError(data?.reason || "Failed to send email");
-        return false;
+        return;
       }
 
-      setChangeFlags((prev) => ({ ...prev, hasChangedOrders: true }));
-      return true;
+      setPrepareEmail({ groups: data.groups ?? [], unresolved: data.unresolved ?? [] });
     } catch {
       setCustomerActionError("Failed to send email");
-      return false;
     } finally {
       setCustomerActionLoading(false);
     }
@@ -603,7 +581,6 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
   useEffect(() => {
     void loadOrders(defaultFilters);
     void loadFilterOptions();
-    if (!insuranceCases) void loadAllCreators();
     void loadPricelistOptions();
     void loadPickupAddressOptions();
     return () => {
@@ -659,6 +636,7 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
     setAppliedFilters(next);
     void loadOrders(next);
     void loadFilterOptions(next.fromDate || undefined, next.toDate || undefined);
+    void loadPickupAddressOptions(next.fromDate || undefined, next.toDate || undefined);
   }
 
   function handleResetFilters() {
@@ -666,6 +644,7 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
     setFilterPanelVersion((prev) => prev + 1);
     void loadOrders(defaultFilters);
     void loadFilterOptions();
+    void loadPickupAddressOptions();
   }
 
   function handleToggleOrder(orderId: string) {
@@ -764,7 +743,7 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
           pricelists={pricelists}
           showPricelistFilter={showPricelistColumn}
           pickupAddresses={pickupAddresses}
-          showPickupAddressFilter={pickupAddresses.length > 0}
+          showPickupAddressFilter={allPickupAddresses.length > 0}
           onApply={handleApplyFilters}
           onReset={handleResetFilters}
           onRefresh={() => {
@@ -791,14 +770,11 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
             )}
 
             <SelectionActionBar
-              showStoreEmail={!insuranceCases}
               showSendGsm={!insuranceCases}
-              key={appliedFilters.createdById || "all-stores"}
-              creators={allCreators}
-              selectedStoreId={appliedFilters.createdById || undefined}
+              onSendPrepareToSelected={insuranceCases ? undefined : () => void handleOpenPrepareEmail()}
+              prepareResult={prepareResult}
               selectedCount={selectedOrderIds.length}
               locale={locale}
-              onSendEmail={handleSendSelectedEmail}
               onSendGsm={() => handleSendSelectedToGsm()}
               onCopySelected={handleCopySelected}
               onExportExcel={handleExportSelected}
@@ -968,6 +944,21 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
             : undefined
         }
       />
+
+      {prepareEmail ? (
+        <PrepareEmailModal
+          open
+          groups={prepareEmail.groups}
+          unresolved={prepareEmail.unresolved}
+          orders={orders}
+          locale={locale}
+          onClose={() => setPrepareEmail(null)}
+          onSent={(sent) => {
+            setPrepareResult(`${bookingText(locale, "Prepare email sent to:")} ${sent.join(", ")}`);
+            setChangeFlags((prev) => ({ ...prev, hasChangedOrders: true }));
+          }}
+        />
+      ) : null}
 
       <SendSelectedSmsModal
         open={smsModalOpen}

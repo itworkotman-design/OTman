@@ -549,6 +549,9 @@ model Order {
   gsmLastWebhookAt                   DateTime?
   gsmOrderId                         String?
   gsmSentAt                          DateTime?
+  // Last "prepare orders" email (booking archive) — shown in the alerts-column
+  // marker strip. Kept off the email conversation on purpose.
+  prepareEmailSentAt                 DateTime?
   gsmSyncStatus                      String?
   emailThreadToken                   String?                   @unique
   lastInboundEmailAt                 DateTime?

@@ -113,9 +113,11 @@ const orderArchiveSelect = Prisma.validator<Prisma.OrderSelect>()({
   unreadInboundEmailCount: true,
   needsNotificationAttention: true,
   unreadNotificationCount: true,
-  // Alerts-column marker strip (admin only): GSM send time, count of SMS
-  // that didn't fail, and the latest SMS's status/time.
+  // Alerts-column marker strip (admin only): GSM send time, last prepare
+  // email time, count of SMS that didn't fail, and the latest SMS's
+  // status/time.
   gsmSentAt: true,
+  prepareEmailSentAt: true,
   _count: { select: { smsMessages: { where: { status: { not: "FAILED" } } } } },
   smsMessages: {
     orderBy: { createdAt: "desc" },
@@ -1258,6 +1260,7 @@ export async function GET(req: Request) {
         // Alerts-column marker strip (admin only). smsAt is the latest
         // SMS's status time, else its send time, else when it was created.
         gsmSentAt: isAdminOrOwner ? (order.gsmSentAt ?? null) : null,
+        prepareEmailSentAt: isAdminOrOwner ? (order.prepareEmailSentAt ?? null) : null,
         smsStatus: isAdminOrOwner ? (latestSms?.status ?? null) : null,
         smsAt: isAdminOrOwner && latestSms ? (latestSms.statusUpdatedAt ?? latestSms.sentAt ?? latestSms.createdAt) : null,
         smsCount: isAdminOrOwner ? (order._count?.smsMessages ?? 0) : 0,

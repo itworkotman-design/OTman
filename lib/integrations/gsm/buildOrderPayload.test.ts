@@ -76,6 +76,7 @@ function buildOrder(overrides?: Partial<Order>): Order {
     gsmLastTaskState: null,
     gsmSyncStatus: null,
     gsmSentAt: null,
+    prepareEmailSentAt: null,
     gsmLastWebhookAt: null,
     gsmLastSyncedAt: null,
     emailThreadToken: null,

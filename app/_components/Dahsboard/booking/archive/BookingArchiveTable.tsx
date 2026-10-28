@@ -209,17 +209,27 @@ const SMS_STATUS_STRIP_COLORS = {
   FAILED: "bg-red-500",
 } as const;
 
-// One half of the GSM/SMS tab. Uses an instant CSS tooltip instead of the
-// native `title`: on an 8px-tall target the browser's delayed title tooltip
-// practically never appears before the pointer moves off.
-function MarkerHalf({ side, label, colorClass }: { side: "left" | "right"; label: string; colorClass: string }) {
-  if (!label) return <span className="h-full w-1/2" />;
+// One third of the GSM / prepare email / SMS tab. Uses an instant CSS tooltip
+// instead of the native `title`: on an 8px-tall target the browser's delayed
+// title tooltip practically never appears before the pointer moves off.
+function MarkerSegment({
+  position,
+  label,
+  colorClass,
+}: {
+  position: "left" | "middle" | "right";
+  label: string;
+  colorClass: string;
+}) {
+  if (!label) return <span className="h-full w-1/3" />;
+
+  const corners = position === "left" ? "rounded-tl-md" : position === "right" ? "rounded-tr-md" : "";
 
   return (
     <span
       role="img"
       aria-label={label}
-      className={`group relative h-full w-1/2 ${side === "left" ? "rounded-tl-md" : "rounded-tr-md"} ${colorClass}`}
+      className={`group relative h-full w-1/3 ${corners} ${colorClass}`}
     >
       <span className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white shadow-lg group-hover:block">
         {label}
@@ -240,6 +250,7 @@ function AlertCell({
   t: (text: string) => string;
 }) {
   const gsmTooltip = [t("Sent to GSM"), formatMarkerTime(order.gsmSentAt)].filter(Boolean).join(" ");
+  const prepareTooltip = [t("Prepare email sent"), formatMarkerTime(order.prepareEmailSentAt)].filter(Boolean).join(" ");
   const smsTooltip = order.smsStatus
     ? [
         t(SMS_STATUS_LABELS[order.smsStatus]),
@@ -255,9 +266,9 @@ function AlertCell({
   const hasNotificationAlert =
     order.needsNotificationAttention || order.unreadNotificationCount > 0;
 
-  const hasMarkers = Boolean(order.gsmSentAt || order.smsStatus);
+  const hasMarkers = Boolean(order.gsmSentAt || order.prepareEmailSentAt || order.smsStatus);
 
-  // With the GSM/SMS tab on top, the button's top corners go square so the
+  // With the GSM/prepare/SMS tab on top, the button's top corners go square so the
   // tab (rounded top) and button (rounded bottom) read as one connected shape.
   let buttonClassName = `relative flex h-10 w-full items-center justify-center overflow-hidden ${
     hasMarkers ? "rounded-b-md" : "rounded-md"
@@ -279,7 +290,7 @@ function AlertCell({
   return (
     <td
       data-alert-cell="true"
-      // With the GSM/SMS tab, pt-4 = 8px for the tab + the usual 8px of
+      // With the GSM/prepare/SMS tab, pt-4 = 8px for the tab + the usual 8px of
       // padding above it.
       className={`w-[60] min-w-[60] border-r border-black/3 px-2 pb-2 text-center ${hasMarkers ? "pt-4" : "pt-2"}`}
     >
@@ -289,14 +300,20 @@ function AlertCell({
       <div className="relative">
         {/* Tab sitting directly on top of the button (bottom-full), as wide as
             the button, 8px tall (fits the cell's py-2 padding) with the button's
-            rounded-md top corners. Split 50/50: GSM (green) always on the left
-            half, latest SMS on the right coloured by its status, each shown
-            only when it applies. */}
+            rounded-md top corners. Split in thirds: GSM (green) on the left,
+            prepare email sent to the store/pickup (violet) in the middle,
+            latest SMS on the right coloured by its status, each shown only
+            when it applies. */}
         {hasMarkers ? (
           <span className="absolute bottom-full left-0 right-0 flex h-2">
-            <MarkerHalf side="left" label={order.gsmSentAt ? gsmTooltip : ""} colorClass="bg-green-500" />
-            <MarkerHalf
-              side="right"
+            <MarkerSegment position="left" label={order.gsmSentAt ? gsmTooltip : ""} colorClass="bg-green-500" />
+            <MarkerSegment
+              position="middle"
+              label={order.prepareEmailSentAt ? prepareTooltip : ""}
+              colorClass="bg-violet-500"
+            />
+            <MarkerSegment
+              position="right"
               label={order.smsStatus ? smsTooltip : ""}
               colorClass={order.smsStatus ? SMS_STATUS_STRIP_COLORS[order.smsStatus] : ""}
             />

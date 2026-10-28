@@ -650,7 +650,7 @@ describe("routes in /api/orders", () => {
     });
   });
 
-  describe("GSM / SMS markers for the alerts column", () => {
+  describe("GSM / prepare email / SMS markers for the alerts column", () => {
     function archiveOrder(overrides: Record<string, unknown> = {}) {
       return {
         id: "order-1",
@@ -700,6 +700,7 @@ describe("routes in /api/orders", () => {
         createdByMembership: { user: { username: "store", email: "store@example.com" } },
         lastEditedByMembership: null,
         gsmSentAt: new Date("2030-01-03T00:00:00.000Z"),
+        prepareEmailSentAt: new Date("2030-01-03T12:00:00.000Z"),
         _count: { smsMessages: 2 },
         smsMessages: [
           {
@@ -736,6 +737,7 @@ describe("routes in /api/orders", () => {
         expect.objectContaining({
           select: expect.objectContaining({
             gsmSentAt: true,
+            prepareEmailSentAt: true,
             _count: { select: { smsMessages: { where: { status: { not: "FAILED" } } } } },
           }),
         }),
@@ -755,6 +757,7 @@ describe("routes in /api/orders", () => {
           id: "order-2",
           displayId: 20002,
           gsmSentAt: null,
+          prepareEmailSentAt: null,
           _count: { smsMessages: 0 },
           smsMessages: [
             { status: "FAILED", createdAt: new Date("2030-01-05T10:00:00.000Z"), sentAt: null, statusUpdatedAt: null },
@@ -770,13 +773,14 @@ describe("routes in /api/orders", () => {
           expect.objectContaining({
             id: "order-1",
             gsmSentAt: "2030-01-03T00:00:00.000Z",
+            prepareEmailSentAt: "2030-01-03T12:00:00.000Z",
             smsStatus: "DELIVERED",
             // Status time wins over send time.
             smsAt: "2030-01-04T09:00:05.000Z",
             smsCount: 2,
           }),
           // Falls back to createdAt when the SMS never got sent.
-          expect.objectContaining({ id: "order-2", gsmSentAt: null, smsStatus: "FAILED", smsAt: "2030-01-05T10:00:00.000Z", smsCount: 0 }),
+          expect.objectContaining({ id: "order-2", gsmSentAt: null, prepareEmailSentAt: null, smsStatus: "FAILED", smsAt: "2030-01-05T10:00:00.000Z", smsCount: 0 }),
           expect.objectContaining({ id: "order-3", smsStatus: null, smsAt: null, smsCount: 0 }),
         ]),
       );
@@ -808,6 +812,7 @@ describe("routes in /api/orders", () => {
         expect.objectContaining({
           id: "order-1",
           gsmSentAt: null,
+          prepareEmailSentAt: null,
           smsStatus: null,
           smsAt: null,
           smsCount: 0,

@@ -21,11 +21,12 @@ Renders the archive table for admin, subcontractor, and order-creator views usin
 | `AlertCell` | Renders the shared archive alert/mail button used by admin and order-creator rows and opens the alert/contact modal without triggering row navigation. |
 | `BookingArchiveTable` | Main archive table renderer. It shows the `Alerts` cell as a full-cell button for admin and order-creator views, always renders the grouped `Products` column for admin and subcontractor views, keeps the assigned `Store` column ahead of `Customer name` in the admin table, renders the admin customer column from `customerName`, renders normalized driver values only for admin rows, renders the admin-only DNB discount column, renders customer and subcontractor price cells from the effective archive totals, formats archive dates with the shared slash-date helpers, keeps top and bottom horizontal scrollbars synchronized, lets the archive area fill the available width when the sidebar is collapsed, and renders the optional checkbox column for selected-row actions. |
 
-## GSM / SMS markers
+## GSM / prepare email / SMS markers
 
 An 8px tab sitting directly on top of the alert button. It is anchored to the button through a `relative` wrapper with `bottom-full`, so it stays attached even when a taller row centres the button. It fits the cell's top `py-2` padding, spans the button's width, and its top corners use the button's `rounded-md`. While it is shown, the button switches to `rounded-b-md`, so tab and button connect into one shape. The cell's top padding grows from `pt-2` to `pt-4` on those rows, so the usual 8px of space stays above the tab. It is split 50/50:
 
-- **Left half, green:** shown when `order.gsmSentAt` is set. Tooltip "Sent to GSM dd.mm, HH:MM".
-- **Right half:** shown when the order has an SMS, coloured by the latest SMS (`order.smsStatus`): blue = delivered, grey = sent and waiting for delivery, red = failed. The tooltip shows the status, `order.smsAt`, and `(N SMS)` when more than one was sent.
+- **Left third, green:** shown when `order.gsmSentAt` is set. Tooltip "Sent to GSM dd.mm, HH:MM".
+- **Middle third, violet:** shown when `order.prepareEmailSentAt` is set (last prepare-orders email, see `api/orders-send-prepare-email-route.md`). Tooltip "Prepare email sent dd.mm, HH:MM".
+- **Right third:** shown when the order has an SMS, coloured by the latest SMS (`order.smsStatus`): blue = delivered, grey = sent and waiting for delivery, red = failed. The tooltip shows the status, `order.smsAt`, and `(N SMS)` when more than one was sent.
 
-Each half (`MarkerHalf`) shows an instant CSS tooltip on hover, a dark label above the tab. It replaces the native `title`, which on an 8px target practically never appears. Tooltip texts are translated via `bookingText`. The fields are only set for admins.
+Each segment (`MarkerSegment`) shows an instant CSS tooltip on hover, a dark label above the tab. It replaces the native `title`, which on an 8px target practically never appears. Tooltip texts are translated via `bookingText`. The fields are only set for admins.

@@ -139,6 +139,25 @@ describe("GET /api/pickup-addresses/available", () => {
     expect(json.pickupAddresses).toHaveLength(2);
   });
 
+  it("only returns addresses with orders in the requested delivery date range", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "owner-1", activeCompanyId: "company-1" });
+    mocks.getActiveMembershipMock.mockResolvedValue({ role: "OWNER", permissions: [] });
+    mocks.findManyMock.mockResolvedValue([]);
+
+    await GET(new Request("http://localhost/api/pickup-addresses/available?fromDate=2026-10-29&toDate=2026-10-29"));
+
+    expect(mocks.findManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          isActive: true,
+          ordersUsingThis: {
+            some: { companyId: "company-1", deliveryDate: { gte: "2026-10-29", lte: "2026-10-29" } },
+          },
+        },
+      }),
+    );
+  });
+
   it("treats a missing membership the same as no full access", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "user-1", activeCompanyId: "company-1" });
     mocks.getActiveMembershipMock.mockResolvedValue(null);

@@ -78,6 +78,7 @@ export type OrderRow = {
   unreadNotificationCount: number;
   // Alerts-column markers; only ever true for admins (see /api/orders).
   gsmSentAt?: string | null;
+  prepareEmailSentAt?: string | null;
   smsStatus?: "SENT" | "DELIVERED" | "FAILED" | null;
   smsAt?: string | null;
   smsCount?: number;
