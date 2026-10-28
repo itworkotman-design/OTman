@@ -330,7 +330,7 @@ export default function UserModal({
 
   return (
     <div
-      className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm"
       onKeyDown={(e) => {
         if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") {
           e.preventDefault();
