@@ -27,6 +27,6 @@ Builds calculator-ready product breakdowns from saved product cards, including s
 | `findDemontOption` | Finds the `DEMONT` option for products that support it. |
 | `getAmount` | Resolves the effective quantity for a product card. |
 | `getHoursInput` | Resolves the effective labor hours for labor products. |
-| `appendCustomSectionItems` | Appends custom-section priced options to the current card breakdown when the section is visible for the selected delivery type. |
+| `appendCustomSectionItems` | Appends selected custom-section options to the current card breakdown when the section is visible for the selected delivery type. Options from sections without prices (`usePrices: false`) are still added, as 0 kr lines with qty 1, so they show in the calculator. |
 | `buildItemsForCard` | Builds all delivery, option, custom, and info lines for a single product card, including single-order `RETURNIN` pricing and install-only delivery pricing. |
 | `buildProductBreakdowns` | Returns the final product breakdowns used by the booking calculator and pricing display, including read-only WordPress mismatch rows with saved quantities when a card carries an imported price snapshot. |

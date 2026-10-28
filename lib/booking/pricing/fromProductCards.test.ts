@@ -1414,6 +1414,72 @@ describe("buildProductBreakdowns", () => {
     });
   });
 
+  it("keeps free custom section selections in the calculator as 0 kr lines", () => {
+    const product = buildProduct({
+      allowDeliveryTypes: false,
+      customSections: [
+        {
+          id: "section-free",
+          title: "Etasje",
+          usePrices: false,
+          allowMultiple: false,
+          allowDeselect: true,
+          useAsReturnOptions: false,
+          displayOnDeliveryTypes: [DELIVERY_TYPES.INSTALL_ONLY],
+          options: [
+            { id: "floor-3", code: "ETG3", label: "3. etasje", price: "0" },
+          ],
+        },
+        {
+          id: "section-paid",
+          title: "Bæring",
+          usePrices: true,
+          allowMultiple: false,
+          allowDeselect: true,
+          useAsReturnOptions: false,
+          displayOnDeliveryTypes: [DELIVERY_TYPES.INSTALL_ONLY],
+          options: [
+            {
+              id: "carry",
+              code: "BAER",
+              label: "Ekstra bæring",
+              price: "200",
+              subcontractorPrice: "100",
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = calculateProductCards(
+      [
+        buildCard({
+          amount: 2,
+          customSectionSelections: [
+            { sectionId: "section-free", optionIds: ["floor-3"] },
+            { sectionId: "section-paid", optionIds: ["carry"] },
+          ],
+        }),
+      ],
+      [product],
+      [],
+    );
+
+    expect(getProductLines(result, "Seng")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "ETG3",
+          label: "3. etasje",
+          unitPrice: 0,
+          lineTotal: 0,
+          subcontractorLineTotal: 0,
+        }),
+        expect.objectContaining({ code: "BAER", lineTotal: 400 }),
+      ]),
+    );
+    expect(result.totals.subtotalExVat).toBe(400);
+  });
+
   it("keeps imported install selections visible and prices return on install-only cards", () => {
     const product = buildProduct({
       allowReturnOptions: true,

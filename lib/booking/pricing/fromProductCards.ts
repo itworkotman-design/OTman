@@ -199,7 +199,17 @@ function appendCustomSectionItems(items: ProductCardLineItem[], card: SavedProdu
       const option = section.options.find((item) => item.id === optionId);
       if (!option) continue;
 
+      // Free sections still show in the calculator as 0 kr lines (qty 1, like
+      // the stored OrderItem in buildOrderItemsFromCards).
       if (!section.usePrices) {
+        items.push({
+          kind: "customPrice",
+          code: option.code || section.title,
+          label: option.label,
+          qty: 1,
+          unitPrice: 0,
+          subcontractorUnitPrice: 0,
+        });
         continue;
       }
 
