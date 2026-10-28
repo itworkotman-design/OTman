@@ -3,6 +3,7 @@ import type { Order, OrderItem } from "@prisma/client";
 import { buildLegacyOrderSummaryGroups, buildOrderSummaryGroups, formatOrderSummaryText } from "@/lib/orders/orderSummary";
 import { filterImpreciseAddressNotesForTask } from "@/lib/orders/addressPrecision";
 import { osloWallClockToDate } from "@/lib/dates/isoDate";
+import { computeLineKey } from "@/lib/booking/pricing/lineKey";
 
 type GsmContact = {
   name?: string;
@@ -40,6 +41,7 @@ const NO_PICKUP_ADDRESS = "no shop pickup address";
 const WORDPRESS_ORDER_PRICES_PRODUCT_NAME = "WordPress order prices";
 const RETURN_TO_STORE_CODE = "RETURNSTORE";
 const RETURN_TO_STORE_NOTICE = "❗Retur til butikk❗";
+const DISCOUNTED_SUFFIX = " (DISCOUNTED)";
 const RETURN_LABELS_BY_CODE: Record<string, string> = {
   [RETURN_TO_STORE_CODE]: RETURN_TO_STORE_NOTICE,
   RETURNREC: "Retur til gjenvinningsstasjon",
@@ -219,16 +221,46 @@ function isWordpressKmPriceItem(item: OrderItem) {
   return label === "km pris";
 }
 
-function getGsmSummaryItems(items: OrderItem[]) {
+// Line keys the admin checked off ("Set to 0") in the calculator, per card.
+// They live only on the saved product card snapshot — the order items just
+// carry a 0 price, which can't be told apart from a genuinely free line.
+function getNulledLineKeysByCardId(productCardsSnapshot: unknown) {
+  const result = new Map<number, Set<string>>();
+
+  if (!Array.isArray(productCardsSnapshot)) {
+    return result;
+  }
+
+  for (const card of productCardsSnapshot) {
+    if (!card || typeof card !== "object" || Array.isArray(card)) continue;
+    const record = card as Record<string, unknown>;
+    if (typeof record.cardId !== "number" || !Array.isArray(record.nulledLineKeysForCustomer)) continue;
+
+    const keys = record.nulledLineKeysForCustomer.filter((key): key is string => typeof key === "string");
+    if (keys.length > 0) {
+      result.set(record.cardId, new Set(keys));
+    }
+  }
+
+  return result;
+}
+
+function getGsmSummaryItems(items: OrderItem[], productCardsSnapshot: unknown) {
+  const nulledLineKeysByCardId = getNulledLineKeysByCardId(productCardsSnapshot);
+
   const summaryItems = items.map((item) => {
     const returnLabel = RETURN_LABELS_BY_CODE[getItemOptionCode(item)];
+    const lineKey = computeLineKey({ optionId: item.optionId, code: item.optionCode });
+    const detailSuffix =
+      lineKey !== null && nulledLineKeysByCardId.get(item.cardId)?.has(lineKey) ? DISCOUNTED_SUFFIX : undefined;
 
     if (!returnLabel) {
-      return item;
+      return { ...item, detailSuffix };
     }
 
     return {
       ...item,
+      detailSuffix,
       optionLabel: returnLabel,
       rawData: {
         ...(item.rawData && typeof item.rawData === "object" && !Array.isArray(item.rawData)
@@ -286,7 +318,7 @@ function buildDriverInfo(order: GsmOrderInput) {
 function buildDescription(order: GsmOrderInput) {
   const summaryGroups =
     order.items && order.items.length > 0
-      ? buildOrderSummaryGroups(getGsmSummaryItems(order.items))
+      ? buildOrderSummaryGroups(getGsmSummaryItems(order.items, order.productCardsSnapshot))
       : buildLegacyOrderSummaryGroups({
           productsSummary: order.productsSummary,
           deliveryTypeSummary: order.deliveryTypeSummary,

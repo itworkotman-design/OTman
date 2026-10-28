@@ -383,6 +383,67 @@ describe("buildOrderPayload", () => {
     expect(payload.tasks_data[0]?.description).not.toContain("Legacy product");
   });
 
+  it("marks lines checked off in the calculator as (DISCOUNTED) in the GSM description", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const baseItem = {
+      createdAt: new Date("2026-04-20T09:00:00.000Z"),
+      orderId: "order-1",
+      cardId: 1,
+      productId: "product-1",
+      productCode: "WASHER",
+      productName: "Washer",
+      deliveryType: "Indoor carry",
+      quantity: 2,
+      customerPriceCents: 0,
+      subcontractorPriceCents: 0,
+    };
+
+    const payload = buildOrderPayload({
+      ...buildOrder({
+        productCardsSnapshot: [
+          { cardId: 1, nulledLineKeysForCustomer: ["opt:option-1", "code:CARRY"] },
+        ],
+      }),
+      items: [
+        { ...baseItem, id: "item-1", itemType: "PRODUCT_CARD", optionId: null, optionCode: null, optionLabel: null, rawData: null },
+        {
+          ...baseItem,
+          id: "item-2",
+          itemType: "INSTALL_OPTION",
+          optionId: "option-1",
+          optionCode: "INSTALL_ONLY",
+          optionLabel: "Install only",
+          rawData: { description: "Install only" },
+        },
+        {
+          ...baseItem,
+          id: "item-3",
+          itemType: "EXTRA_OPTION",
+          optionId: null,
+          optionCode: "CARRY",
+          optionLabel: "Carry in",
+          rawData: { description: "Carry in" },
+        },
+        {
+          ...baseItem,
+          id: "item-4",
+          itemType: "EXTRA_OPTION",
+          optionId: "option-2",
+          optionCode: "UNPACK",
+          optionLabel: "Unpack",
+          rawData: { description: "Unpack" },
+        },
+      ],
+    });
+
+    const description = payload.tasks_data[0]?.description;
+    expect(description).toContain("- Install only x2 (DISCOUNTED)");
+    expect(description).toContain("- Carry in x2 (DISCOUNTED)");
+    expect(description).toContain("- Unpack x2");
+    expect(description).not.toContain("Unpack x2 (DISCOUNTED)");
+  });
+
   it("adds lift and floor details to the GSM description", () => {
     process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
 

@@ -28,7 +28,8 @@ The orderer uses the customer/store label and the main custom pickup address pho
 | `getItemOptionCode` | Resolves the best option code for a saved order item from `optionCode`, `mappedOptionCode`, or raw `code`. |
 | `isWordpressOrderPriceItem` | Detects imported global WordPress order-price rows. |
 | `isWordpressKmPriceItem` | Detects imported global WordPress `KM pris` rows that should stay out of GSM descriptions. |
-| `getGsmSummaryItems` | Canonicalizes return option labels so `RETURNSTORE` sends `❗Retur til butikk❗` and `RETURNREC` sends `Retur til gjenvinningsstasjon` in GSM descriptions, and filters imported WordPress `KM pris` rows out before grouping. |
+| `getNulledLineKeysByCardId` | Reads each card's `nulledLineKeysForCustomer` (lines checked off as "Set to 0" in the calculator) from the order's `productCardsSnapshot`. |
+| `getGsmSummaryItems` | Canonicalizes return option labels so `RETURNSTORE` sends `❗Retur til butikk❗` and `RETURNREC` sends `Retur til gjenvinningsstasjon` in GSM descriptions, suffixes lines checked off in the calculator with ` (DISCOUNTED)` (matched by `computeLineKey`), and filters imported WordPress `KM pris` rows out before grouping. |
 | `hasReturnToStore` | Detects a selected `RETURNSTORE` order item. |
 | `buildDriverInfo` | Appends the return-to-store notice to existing driver information without replacing saved text or duplicating an existing notice. |
 | `buildDescription` | Builds the GSM task description from grouped `items` data when available, lift/floor details, fallback legacy summaries for older orders, and augmented driver information. |
