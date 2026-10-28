@@ -60,3 +60,4 @@ Renders the read-only role calculator through the same `CalculatorDisplayNew` co
 
 ### `ReadOnlyOrderModal(props)`
 Renders the read-only modal. Subcontractor and order-creator views use the order-detail table plus calculator panel, order creators no longer get a separate contact button because contact opens from the archive alert column, and other roles keep the previous details and totals layout.
+| `getViewerAdjustmentLines` | The viewer's own adjustment lines (`adjustmentLinesForView`): customer discount/extra for admins and order creators, partner minus/plus for partners (none for partners on WordPress-imported orders with read-only rows). Falls back to the legacy summed fields for older order data. Used by both the on-screen calculator and the PDF, where `renderAdjustmentRowsHtml` prints them as rows above the totals. |

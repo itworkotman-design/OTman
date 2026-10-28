@@ -4,6 +4,7 @@ import {
   updateAdjustmentLine,
   removeAdjustmentLine,
   unlinkAdjustmentLines,
+  adjustmentLinesForView,
   adjustmentLinesFromLegacy,
   parseAdjustmentLines,
   proportionalSubcontractorMinus,
@@ -391,10 +392,41 @@ describe("percentage lines", () => {
     expect(byId(result, "d2")?.amount).toBe(270);
   });
 
+  it("a linked partner minus carries its discount's percent so partners see it", () => {
+    const result = updateAdjustmentLine(base, "d", { percent: 25 }, totals);
+    expect(byId(result, "m")).toMatchObject({ amount: 500, percent: 25 });
+  });
+
+  it("a linked partner minus of a NOK discount has no percent", () => {
+    const pct = updateAdjustmentLine(base, "d", { percent: 25 }, totals);
+    const nok = updateAdjustmentLine(pct, "d", { amount: 600 }, totals);
+    const minus = byId(nok, "m");
+    expect(minus?.amount).toBe(400);
+    expect(minus?.percent).toBeUndefined();
+  });
+
   it("parse keeps a valid percent", () => {
     expect(parseAdjustmentLines([{ id: "1", kind: "discount", description: "", amount: 300, percent: 10 }])).toEqual([
       { id: "1", kind: "discount", description: "", amount: 300, percent: 10 },
     ]);
+  });
+});
+
+describe("adjustmentLinesForView", () => {
+  const all = [
+    line({ id: "d", kind: "discount", amount: 500 }),
+    line({ id: "e", kind: "extra", amount: 20 }),
+    line({ id: "m", kind: "subcontractorMinus", amount: 313 }),
+    line({ id: "p", kind: "subcontractorPlus", amount: 50 }),
+    line({ id: "z", kind: "discount", amount: 0 }),
+  ];
+
+  it("shows customers (and order creators) only discount and extra lines", () => {
+    expect(adjustmentLinesForView(all, "customer").map((l) => l.id)).toEqual(["d", "e"]);
+  });
+
+  it("shows partners only their minus and plus lines, never the customer discount", () => {
+    expect(adjustmentLinesForView(all, "partner").map((l) => l.id)).toEqual(["m", "p"]);
   });
 });
 

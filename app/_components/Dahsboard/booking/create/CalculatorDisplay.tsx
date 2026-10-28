@@ -534,8 +534,10 @@ useEffect(() => {
       <div className="pb-4">
         <AdjustmentLineRows
           lines={adjustmentLines}
-          kinds={["discount", "extra"]}
-          labels={{ discount: t("Discount"), extra: t("Extra") }}
+          // Partner read-only view (showSubcontractorPrices) shows the partner's
+          // own minus/plus rows instead of the customer's discount/extra.
+          kinds={showSubcontractorPrices ? ["subcontractorMinus", "subcontractorPlus"] : ["discount", "extra"]}
+          labels={{ discount: t("Discount"), extra: t("Extra"), subcontractorMinus: "Minus", subcontractorPlus: "Plus" }}
           handlers={adminView ? adjustmentLineHandlers : undefined}
           text={{
             description: t("Description"),

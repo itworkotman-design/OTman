@@ -137,6 +137,16 @@ export function adjustmentLinesFromLegacy(fields: {
   return lines;
 }
 
+// Which lines a viewer may see: customers / order creators get the customer
+// side (discount, extra), partners only their own minus/plus — never the
+// customer's discount. Zero-amount (unfinished) lines are dropped.
+export function adjustmentLinesForView(lines: AdjustmentLine[], view: "customer" | "partner"): AdjustmentLine[] {
+  const kinds: AdjustmentLineKind[] = view === "partner"
+    ? ["subcontractorMinus", "subcontractorPlus"]
+    : ["discount", "extra"];
+  return lines.filter((line) => kinds.includes(line.kind) && line.amount !== 0);
+}
+
 // Lines to show for a saved order. Some writers (bulk edit, GSM webhook,
 // cancelled-status cleanup) change the summed fields without touching the
 // snapshot lines, so the stored lines are only trusted while they still add
@@ -230,7 +240,13 @@ function syncLinkedMinusLines(lines: AdjustmentLine[], totals: LineTotals): Adju
       subtotalExVat: adjustmentLineBase(lines, source, totals),
       subcontractorBase: adjustmentLineBase(lines, line, totals),
     });
-    return amount === line.amount ? line : { ...line, amount };
+    // A % discount's partner minus is the same % of the partner total, so it
+    // carries that percent too (shown to partners as "Minus (25 %)").
+    if (amount === line.amount && source.percent === line.percent) return line;
+    const next: AdjustmentLine = { ...line, amount };
+    if (source.percent !== undefined) next.percent = source.percent;
+    else delete next.percent;
+    return next;
   });
 }
 
