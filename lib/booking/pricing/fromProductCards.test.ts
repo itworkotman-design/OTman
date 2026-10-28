@@ -1414,6 +1414,24 @@ describe("buildProductBreakdowns", () => {
     });
   });
 
+  it("keeps the model number when only the selected delivery type allows it", () => {
+    const product = buildProduct({
+      productType: "LABOR",
+      allowModelNumber: false,
+      deliveryTypes: createDefaultProductDeliveryTypes().map((dt) =>
+        dt.key === "INDOOR" ? { ...dt, enabled: true, allowModelNumber: true } : dt,
+      ),
+    });
+
+    const result = buildProductBreakdowns(
+      [buildCard({ modelNumber: "AP-7", deliveryType: "INDOOR" })],
+      [product],
+      [],
+    );
+
+    expect(result[0]?.productModelNumber).toBe("AP-7");
+  });
+
   it("keeps free custom section selections in the calculator as 0 kr lines", () => {
     const product = buildProduct({
       allowDeliveryTypes: false,

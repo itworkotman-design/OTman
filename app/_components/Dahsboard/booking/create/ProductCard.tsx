@@ -1,7 +1,12 @@
 "use client";
 
 import { dropUnchangedFields } from "@/lib/booking/dropUnchangedFields";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  normalizeHoursInput,
+  parseHoursInputDraft,
+  sanitizeHoursInputDraft,
+} from "@/lib/booking/hoursInput";
 import type { DeliveryType } from "@/lib/booking/pricing/types";
 import type {
   SavedProductCard,
@@ -12,6 +17,7 @@ import { DELIVERY_TYPES, OPTION_CODES } from "@/lib/booking/constants";
 import { getProductDeliveryTypeLabel } from "@/lib/products/deliveryTypes";
 import { canApplyReturnOption } from "@/lib/booking/pricing/sharedDeliveryLogic";
 import { isCustomSectionVisibleForDeliveryType } from "@/lib/products/customSections";
+import { isModelNumberEnabled } from "@/lib/products/modelNumber";
 import {
   normalizedUpper,
   isExtraCheckboxOption,
@@ -22,6 +28,46 @@ import {
   hasCategorizedInstallOptions,
 } from "./_types/installOptions";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
+
+// Keeps the typed text locally so the field can be cleared while typing;
+// the value is snapped to 15 minutes when the field loses focus.
+function HoursInputField({
+  hours,
+  onCommit,
+}: {
+  hours: number;
+  onCommit: (hours: number) => void;
+}) {
+  // null = not editing, show the committed value
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const commit = () => {
+    const parsed = parseHoursInputDraft(draft ?? "");
+    const next = parsed === null ? hours : normalizeHoursInput(parsed);
+    setDraft(null);
+    if (next !== hours) onCommit(next);
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={draft ?? String(hours)}
+      onFocus={() => setDraft(String(hours))}
+      onChange={(e) => {
+        const text = sanitizeHoursInputDraft(e.target.value);
+        setDraft(text);
+        const parsed = parseHoursInputDraft(text);
+        if (parsed !== null && parsed > 0) onCommit(normalizeHoursInput(parsed));
+      }}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+      }}
+      className="customInput w-full"
+    />
+  );
+}
 
 type Props = {
   cardId: number;
@@ -180,11 +226,8 @@ export function ProductCardNew({
   const showDeliveryType = !!value.productId && supportsDeliveryTypes;
   const showAmount = !!value.productId && supportsQuantity;
   const showHoursInput = !!value.productId && supportsHoursInput;
-  const showModelNumber = !!value.productId && supportsModelNumber && (
-    selectedDeliveryTypeConfig
-      ? selectedDeliveryTypeConfig.allowModelNumber
-      : !supportsDeliveryTypes
-  );
+  const showModelNumber =
+    !!value.productId && isModelNumberEnabled(selectedProduct, value.deliveryType);
 
   useEffect(() => {
     if (!selectedProduct) return;
@@ -298,11 +341,7 @@ export function ProductCardNew({
       nextValue.hoursInput = 1;
     }
 
-    const nextShowModelNumber = supportsModelNumber && (
-      nextDeliveryTypeConfig
-        ? nextDeliveryTypeConfig.allowModelNumber
-        : !supportsDeliveryTypes
-    );
+    const nextShowModelNumber = isModelNumberEnabled(selectedProduct, nextDeliveryType);
     if (!nextShowModelNumber && value.modelNumber.trim()) {
       nextValue.modelNumber = "";
     }
@@ -799,17 +838,9 @@ export function ProductCardNew({
               <h1 className="font-semibold text-lg text-textcolor my-2">
                 {t("Hours input")}
               </h1>
-              <input
-                type="number"
-                min={0.5}
-                step={0.5}
-                value={value.hoursInput}
-                onChange={(e) =>
-                  update({
-                    hoursInput: Math.max(0.5, Number(e.target.value) || 0.5),
-                  })
-                }
-                className="customInput w-full"
+              <HoursInputField
+                hours={value.hoursInput}
+                onCommit={(hoursInput) => update({ hoursInput })}
               />
             </>
           )}

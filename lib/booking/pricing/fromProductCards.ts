@@ -1,8 +1,10 @@
 import type { CatalogProduct, CatalogSpecialOption, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { DELIVERY_TYPES, OPTION_CODES } from "@/lib/booking/constants";
+import { normalizeHoursInput } from "@/lib/booking/hoursInput";
 import { getProductDeliveryTypeCode, getProductDeliveryTypeLabel, getProductDeliveryTypePrice } from "@/lib/products/deliveryTypes";
 import { normalizeProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 import { isCustomSectionVisibleForDeliveryType } from "@/lib/products/customSections";
+import { isModelNumberEnabled } from "@/lib/products/modelNumber";
 import type { ProductBreakdown, ProductCardLineItem } from "@/lib/booking/pricing/types";
 import {
   canApplyReturnOption,
@@ -178,7 +180,7 @@ function getAmount(card: SavedProductCard, product: CatalogProduct) {
 
 function getHoursInput(card: SavedProductCard, product: CatalogProduct) {
   if (!product.allowHoursInput) return 1;
-  return Math.max(0.5, card.hoursInput || 1);
+  return normalizeHoursInput(card.hoursInput || 1);
 }
 
 function appendCustomSectionItems(items: ProductCardLineItem[], card: SavedProductCard, product: CatalogProduct, qty: number, returnOnlyPriceOverride?: number) {
@@ -655,7 +657,10 @@ export function buildProductBreakdowns(
           const hoursApply = card.selectedInstallOptionIds.length > 0 || !product.allowInstallOptions;
           return hoursApply ? `${product.label} (${getHoursInput(card, product)} h)` : product.label;
         })(),
-        productModelNumber: product.allowModelNumber && card.modelNumber.trim() ? card.modelNumber.trim() : null,
+        productModelNumber:
+          (product.allowModelNumber || isModelNumberEnabled(product, card.deliveryType)) && card.modelNumber.trim()
+            ? card.modelNumber.trim()
+            : null,
         cardId: card.cardId,
         nulledLineKeysForCustomer: card.nulledLineKeysForCustomer ?? [],
         nulledLineKeysForSubcontractor: card.nulledLineKeysForSubcontractor ?? [],

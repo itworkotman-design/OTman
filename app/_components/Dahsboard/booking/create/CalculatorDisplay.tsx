@@ -28,8 +28,7 @@ function formatSumNOK(n: number) {
 }
 
 function formatQty(qty: number) {
-  const rounded = Math.round(qty * 2) / 2;
-  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+  return String(Math.round(qty * 4) / 4);
 }
 
 function parseAmountInput(value: string) {
