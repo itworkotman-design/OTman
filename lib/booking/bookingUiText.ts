@@ -227,6 +227,7 @@ const NB_TEXT: Record<string, string> = {
   "VAT (25%)": "MVA (25%)",
   "Warning": "Advarsel",
   "Warning: delivery date is in the past": "Advarsel: leveringsdato er i fortiden",
+  "Warning: delivery date is today": "Advarsel: leveringsdato er i dag",
   Yes: "Ja",
   "You do not have access to create orders.": "Du har ikke tilgang til å opprette bestillinger.",
   "failed to create order": "Kunne ikke opprette bestilling",

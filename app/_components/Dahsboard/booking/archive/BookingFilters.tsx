@@ -19,6 +19,13 @@ import {
   type BookingUiLocale,
 } from "@/lib/booking/bookingUiText";
 import { parseIsoDate, toIsoDate } from "@/lib/dates/isoDate";
+import {
+  WEEKDAY_LABELS,
+  addMonths,
+  buildCalendarDays,
+  getMonthLabel,
+  startOfMonth,
+} from "@/lib/dates/calendarMonth";
 
 type Props = {
   initialApplied: BookingArchiveFilters;
@@ -46,50 +53,7 @@ type Props = {
   locale?: BookingUiLocale;
 };
 
-type CalendarDay = {
-  iso: string;
-  dayOfMonth: number;
-  inCurrentMonth: boolean;
-};
-
 const MAX_ARCHIVE_ROWS_PER_PAGE = 10000;
-
-const WEEKDAY_LABELS: Record<BookingUiLocale, string[]> = {
-  en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-  nb: ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"],
-};
-
-function startOfMonth(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
-}
-
-function addMonths(date: Date, count: number): Date {
-  return new Date(date.getFullYear(), date.getMonth() + count, 1);
-}
-
-function buildCalendarDays(month: Date): CalendarDay[] {
-  const firstDay = startOfMonth(month);
-  const firstWeekday = (firstDay.getDay() + 6) % 7;
-  const startDate = new Date(
-    firstDay.getFullYear(),
-    firstDay.getMonth(),
-    1 - firstWeekday,
-  );
-
-  return Array.from({ length: 42 }, (_, index) => {
-    const current = new Date(
-      startDate.getFullYear(),
-      startDate.getMonth(),
-      startDate.getDate() + index,
-    );
-
-    return {
-      iso: toIsoDate(current),
-      dayOfMonth: current.getDate(),
-      inCurrentMonth: current.getMonth() === month.getMonth(),
-    };
-  });
-}
 
 function formatDisplayDate(value: string): string {
   const date = parseIsoDate(value);
@@ -116,13 +80,6 @@ function formatRangeLabel(
   }
 
   return locale === "nb" ? "Velg datoperiode" : "Select date range";
-}
-
-function getMonthLabel(month: Date, locale: BookingUiLocale): string {
-  return month.toLocaleDateString(locale === "nb" ? "nb-NO" : "en-GB", {
-    month: "long",
-    year: "numeric",
-  });
 }
 
 function isIsoWithinRange(value: string, fromDate: string, toDate: string): boolean {

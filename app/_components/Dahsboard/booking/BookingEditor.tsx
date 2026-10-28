@@ -55,6 +55,7 @@ import {
 } from "@/lib/booking/pricing/adjustmentLines";
 import { shouldPromptForPartner } from "@/lib/orders/partnerRequirement";
 import { isExpressDelivery } from "@/lib/booking/expressDelivery";
+import { getDeliveryDateWarning } from "@/lib/booking/deliveryDateWarning";
 import MissingPartnerDialog from "@/app/_components/Dahsboard/booking/MissingPartnerDialog";
 
 export type OrderFormPayload = {
@@ -1584,7 +1585,13 @@ export default function BookingEditor({
   const deliveryDateIsPast = !!deliveryDate.trim() && deliveryDate.trim() < getTodayInputDate();
   const deliveryDateChanged = normalizeInitialDeliveryDate(initialValues?.deliveryDate) !== deliveryDate;
 
-  const deliveryDateWarning = allowPastDeliveryDates && deliveryDateChanged && deliveryDateIsPast ? t("Warning: delivery date is in the past") : null;
+  const deliveryDateWarningKey = getDeliveryDateWarning({
+    deliveryDate,
+    today: getTodayInputDate(),
+    deliveryDateChanged,
+    allowPastDeliveryDates,
+  });
+  const deliveryDateWarning = deliveryDateWarningKey ? t(deliveryDateWarningKey) : null;
   const computedFieldErrors = useMemo(
     (): FieldErrorMap => ({
       orderNumber: requiresOrderNumber && !orderNumber.trim() ? t("Order number is required.") : null,

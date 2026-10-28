@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React from "react";
 import { OrderFields, shown, type HiddenMask } from "@/app/_components/Dahsboard/booking/create/orderFields";
 import { PickupLocations } from "@/app/_components/Dahsboard/booking/create/PickupLocations";
 import { UserOption } from "@/lib/users/types";
@@ -16,6 +16,8 @@ import {
 } from "@/lib/booking/bookingUiText";
 import type { AddressSelectionMeta } from "@/lib/orders/addressPrecision";
 import { ORDER_STATUS_OPTIONS } from "@/lib/orders/statusPresentation";
+import DatePicker from "@/app/_components/utils/DatePicker";
+import { toIsoDate } from "@/lib/dates/isoDate";
 
 const LIMITED_CUSTOM_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
   const hours = String(Math.floor(index / 2)).padStart(2, "0");
@@ -397,10 +399,8 @@ export default function OrderFieldsForm({
   isOrderCreator = false,
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
-  const [sundayBlocked, setSundayBlocked] = useState(false);
   const customDeviationOption = DEVIATION_FEE_OPTIONS.find((o) => o.code === CUSTOM_DEVIATION_CODE);
   const isCustomDeviationSelected = Boolean(customDeviationOption) && deviation === customDeviationOption?.englishLabel;
-  const sundayBlockedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showLiftField = shown(hidden, OrderFields.Lift) && floorNo.trim().length > 0;
   const customTimeFromMinutes = parseCustomTimeToMinutes(customTimeFrom);
   const customTimeToMinutes = parseCustomTimeToMinutes(customTimeTo);
@@ -455,34 +455,16 @@ export default function OrderFieldsForm({
             {t("Delivery date")}
             {!allowIncompleteRequiredFields ? <span className="text-red-600">*</span> : null}
           </h1>
-          <input
+          <DatePicker
             id="order-delivery-date"
-            type="date"
-            lang={locale === "nb" ? "nb" : "en-GB"}
+            locale={locale}
             value={deliveryDate}
-            min={allowPastDeliveryDates ? undefined : new Date().toISOString().slice(0, 10)}
-            onChange={(e) => {
-              const val = e.target.value;
-              if (isOrderCreator && val) {
-                const [y, m, d] = val.split("-").map(Number);
-                if (new Date(y, m - 1, d).getDay() === 0) {
-                  if (sundayBlockedTimerRef.current) clearTimeout(sundayBlockedTimerRef.current);
-                  setSundayBlocked(true);
-                  sundayBlockedTimerRef.current = setTimeout(() => setSundayBlocked(false), 10000);
-                  return;
-                }
-              }
-              setSundayBlocked(false);
-              setDeliveryDate(val);
-            }}
-            className="customInput w-full"
+            min={allowPastDeliveryDates ? undefined : toIsoDate(new Date())}
+            // Order creators can't book Sundays.
+            disabledWeekdays={isOrderCreator ? [0] : undefined}
+            onChange={setDeliveryDate}
           />
           {deliveryDate ? <DeliveryDayLabel dateStr={deliveryDate} locale={locale} /> : null}
-          {sundayBlocked ? (
-            <span className="mt-1 block text-sm font-medium text-red-600">
-              {locale === "nb" ? "Søndager er ikke tilgjengelige." : "Sundays are not available."}
-            </span>
-          ) : null}
           <FieldErrorMessage message={deliveryDateError} />
           <FieldErrorMessage message={deliveryDateWarning} />
         </>
