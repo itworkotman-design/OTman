@@ -282,7 +282,47 @@ describe("POST /api/orders/send-to-gsm", () => {
     expect(body.results[0]).toMatchObject({ ok: true, receiptsSent: 2 });
   });
 
-  it("sends a homepage order's pickup documents to every task: pick-up, drop-off and assignment", async () => {
+  it("puts each pickup document on its own store's pick-up task, and all of them on drop-off and assignment", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "user-1", activeCompanyId: "company-1" });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "OWNER",
+      user: { username: "Owner", email: "owner@example.com" },
+    });
+    mocks.orderFindManyMock.mockResolvedValue([
+      { id: "order-1", gsmOrderId: null, pickupAddress: "Elkjøp Lørenskog", extraPickupAddress: ["Power Alnabru"] },
+    ]);
+    // GSM returns the tasks in any order; the pick-up tasks are told apart by address.
+    mocks.sendOrderToGsmMock.mockResolvedValue({
+      gsmOrderId: "gsm-1",
+      tasks: [
+        { gsmTaskId: "pick-2", category: "pick_up", reference: "r", rawAddress: "Power Alnabru" },
+        { gsmTaskId: "assign", category: "assignment", reference: "r", rawAddress: "Kundeveien 1" },
+        { gsmTaskId: "pick-1", category: "pick_up", reference: "r", rawAddress: "Elkjøp Lørenskog" },
+      ],
+    });
+    const first = { id: "d1", filename: "Pickup 1 - kvittering.pdf", mimeType: "application/pdf", storagePath: "s3://1" };
+    const second = { id: "d2", filename: "Pickup 2 - ordre.png", mimeType: "image/png", storagePath: "s3://2" };
+    mocks.attachmentFindManyMock.mockResolvedValue([
+      { ...first, category: "ATTACHMENT", source: "pickup-document" },
+      { ...second, category: "ATTACHMENT", source: "pickup-document" },
+    ]);
+    mocks.sendReceiptsToGsmTaskMock.mockResolvedValue({ sent: 1, skipped: 0 });
+
+    await POST(
+      new Request("http://localhost/api/orders/send-to-gsm", {
+        method: "POST",
+        body: JSON.stringify({ orderIds: ["order-1"] }),
+      }),
+    );
+
+    expect(mocks.sendReceiptsToGsmTaskMock).toHaveBeenCalledTimes(3);
+    expect(mocks.sendReceiptsToGsmTaskMock).toHaveBeenCalledWith({ gsmTaskId: "pick-1", receipts: [first] });
+    expect(mocks.sendReceiptsToGsmTaskMock).toHaveBeenCalledWith({ gsmTaskId: "pick-2", receipts: [second] });
+    expect(mocks.sendReceiptsToGsmTaskMock).toHaveBeenCalledWith({ gsmTaskId: "assign", receipts: [first, second] });
+  });
+
+  it("puts a pickup document on every pick-up task when its store's task can't be found", async () => {
     mockOwnerSendWithTwoTasks();
     const pickupDocument = {
       id: "att-2",

@@ -1,6 +1,6 @@
 import type { Order, OrderItem } from "@prisma/client";
 import { afterEach, describe, expect, it } from "vitest";
-import { buildOrderPayload } from "@/lib/integrations/gsm/buildOrderPayload";
+import { buildOrderPayload, pickupStopAddresses } from "@/lib/integrations/gsm/buildOrderPayload";
 
 function buildOrder(overrides?: Partial<Order>): Order {
   return {
@@ -1071,42 +1071,22 @@ describe("buildOrderPayload", () => {
     expect(returnTask?.description).not.toContain("Delivery address: exact address not found");
   });
 
-  it("puts each store pickup document's link on the pickup task of its own stop", () => {
+  it("lists the pickup stops with the exact addresses their GSM pick-up tasks get", () => {
     process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
-    const payload = buildOrderPayload({
-      ...buildOrder({ extraPickupAddress: ["Pickup 2"] }),
-      pickupDocuments: [
-        { stopIndex: 1, filename: "Pickup 2 - ordre.png", url: "https://otman.no/doc/2" },
-        { stopIndex: 0, filename: "Pickup 1 - kvittering.pdf", url: "https://otman.no/doc/1" },
-      ],
-    });
-    const [first, second, delivery] = payload.tasks_data;
-    expect(first.description).toContain("Hentedokument (vis til kassen):\nPickup 1 - kvittering.pdf: https://otman.no/doc/1");
-    expect(first.description).not.toContain("https://otman.no/doc/2");
-    expect(second.description).toContain("Pickup 2 - ordre.png: https://otman.no/doc/2");
-    expect(second.description).not.toContain("https://otman.no/doc/1");
-    expect(delivery.description).not.toContain("Hentedokument");
+    const order = buildOrder({ pickupAddress: " Pickup 1 ", extraPickupAddress: ["", "Pickup 3 "] });
+    const sentPickups = buildOrderPayload(order)
+      .tasks_data.filter((task) => task.category === "pick_up")
+      .map((task) => task.address.raw_address);
+
+    // An empty extra stop gets no task but keeps its number (stop 2 = Pickup 3).
+    expect(pickupStopAddresses(order)).toEqual([
+      { stop: 0, address: "Pickup 1" },
+      { stop: 2, address: "Pickup 3" },
+    ]);
+    expect(sentPickups).toEqual(["Pickup 1", "Pickup 3"]);
   });
 
-  it("puts a pickup document whose stop is gone (or unknown) on the first pickup task", () => {
-    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
-    const payload = buildOrderPayload({
-      ...buildOrder(),
-      pickupDocuments: [
-        { stopIndex: 3, filename: "Pickup 4 - x.pdf", url: "https://otman.no/doc/4" },
-        { stopIndex: null, filename: "y.pdf", url: "https://otman.no/doc/5" },
-      ],
-    });
-    expect(payload.tasks_data[0].description).toContain("Pickup 4 - x.pdf: https://otman.no/doc/4");
-    expect(payload.tasks_data[0].description).toContain("y.pdf: https://otman.no/doc/5");
-  });
-
-  it("still tells the driver a pickup document exists when no link could be built", () => {
-    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
-    const payload = buildOrderPayload({
-      ...buildOrder(),
-      pickupDocuments: [{ stopIndex: 0, filename: "Pickup 1 - x.pdf", url: null }],
-    });
-    expect(payload.tasks_data[0].description).toContain("Pickup 1 - x.pdf (se ordren i OTman)");
+  it("has no pickup stops for the placeholder no-shop address", () => {
+    expect(pickupStopAddresses({ pickupAddress: "No shop pickup address", extraPickupAddress: [] })).toEqual([]);
   });
 });

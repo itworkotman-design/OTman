@@ -37,16 +37,16 @@ describe("sendOrderToGsm", () => {
           ],
         };
       }
-      if (path === "/tasks/assignment-task/") return { category: "assignment" };
-      if (path === "/tasks/pickup-task/") return { category: "pick_up" };
+      if (path === "/tasks/assignment-task/") return { category: "assignment", address: { raw_address: "Kundeveien 1" } };
+      if (path === "/tasks/pickup-task/") return { category: "pick_up", address: { raw_address: "Elkjøp Lørenskog" } };
       throw new Error(`unexpected path ${path}`);
     });
 
     const result = await sendOrderToGsm({} as GsmOrderInput);
 
     expect(result.tasks).toEqual([
-      { gsmTaskId: "assignment-task", category: "assignment", reference: "ID1" },
-      { gsmTaskId: "pickup-task", category: "pick_up", reference: "ID1" },
+      { gsmTaskId: "assignment-task", category: "assignment", reference: "ID1", rawAddress: "Kundeveien 1" },
+      { gsmTaskId: "pickup-task", category: "pick_up", reference: "ID1", rawAddress: "Elkjøp Lørenskog" },
     ]);
   });
 
@@ -61,5 +61,7 @@ describe("sendOrderToGsm", () => {
     const result = await sendOrderToGsm({} as GsmOrderInput);
 
     expect(result.tasks[0].category).toBeNull();
+    // No address from GSM: the task just can't be matched to a pickup stop.
+    expect(result.tasks[0].rawAddress).toBeNull();
   });
 });

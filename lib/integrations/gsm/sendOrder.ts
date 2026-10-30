@@ -18,6 +18,9 @@ type GsmSentTask = {
   gsmTaskId: string;
   category: "pick_up" | "drop_off" | "assignment" | null;
   reference: string;
+  // The address as GSM has it; matches a pick-up task to its pickup stop
+  // (lib/integrations/gsm/receiptUploads.ts). null when GSM returns none.
+  rawAddress: string | null;
 };
 
 function isTaskCategory(value: unknown): value is GsmSentTask["category"] {
@@ -54,7 +57,7 @@ export async function sendOrderToGsm(order: GsmOrderInput) {
   // read back from GSM instead of matched by position against tasks_data.
   const tasks: GsmSentTask[] = await Promise.all(
     taskIds.map(async (gsmTaskId) => {
-      const task = await gsmFetch<{ category?: unknown }>(
+      const task = await gsmFetch<{ category?: unknown; address?: { raw_address?: unknown } | null }>(
         `/tasks/${encodeURIComponent(gsmTaskId)}/`,
         { method: "GET" },
       );
@@ -63,6 +66,7 @@ export async function sendOrderToGsm(order: GsmOrderInput) {
         gsmTaskId,
         category: isTaskCategory(task.category) ? task.category : null,
         reference: payload.reference,
+        rawAddress: typeof task.address?.raw_address === "string" ? task.address.raw_address : null,
       };
     }),
   );

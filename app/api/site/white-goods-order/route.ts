@@ -411,7 +411,8 @@ async function createWhiteGoodsOrder(
     await linkPendingQuoteAttachments(prisma, {
       orderId: order.id,
       quoteToken: pickupDocumentToken,
-      // Marks them for the GSM pickup task links (lib/orders/pickupDocumentLinks.ts).
+      // Marks them as store pickup documents: uploaded to their own GSM pick-up
+      // task plus drop-off and assignment (lib/integrations/gsm/receiptUploads.ts).
       source: PICKUP_DOCUMENT_SOURCE,
     });
   }

@@ -5,19 +5,9 @@ import { getAuthenticatedSession } from "@/lib/auth/session";
 import { sendOrderToGsm } from "@/lib/integrations/gsm/sendOrder";
 import { PICKUP_DOCUMENT_SOURCE } from "@/lib/orders/pickupDocuments";
 import { sendReceiptsToGsmTask } from "@/lib/integrations/gsm/sendReceipts";
+import { planReceiptUploads } from "@/lib/integrations/gsm/receiptUploads";
+import { pickupStopAddresses } from "@/lib/integrations/gsm/buildOrderPayload";
 import { createOrderActionEvent } from "@/lib/orders/orderEvents";
-
-// Dashboard receipts are for the delivering driver, not the pick-up stop. A
-// homepage order's store pickup documents (receipt / order confirmation) go on
-// every task: the driver shows them to the cashier at pick-up and keeps them
-// through drop-off.
-function receiptGoesToTask(
-  attachment: { category: string; source: string | null },
-  taskCategory: string | null,
-) {
-  if (attachment.source === PICKUP_DOCUMENT_SOURCE) return true;
-  return taskCategory === "drop_off" || taskCategory === "assignment";
-}
 
 export async function POST(req: Request) {
   const session = await getAuthenticatedSession(req);
@@ -188,17 +178,17 @@ export async function POST(req: Request) {
         if (attachments.length > 0) {
           receiptsSent = 0;
 
-          for (const task of response.tasks) {
-            const receipts = attachments
-              .filter((attachment) => receiptGoesToTask(attachment, task.category))
-              .map(({ id, filename, mimeType, storagePath }) => ({ id, filename, mimeType, storagePath }));
+          // Dashboard receipts: drop-off and assignment. Store pickup
+          // documents: their own stop's pick-up task, plus drop-off and
+          // assignment (see planReceiptUploads).
+          const uploads = planReceiptUploads({
+            tasks: response.tasks,
+            attachments,
+            pickupStops: pickupStopAddresses(order),
+          });
 
-            if (receipts.length === 0) continue;
-
-            const sent = await sendReceiptsToGsmTask({
-              gsmTaskId: task.gsmTaskId,
-              receipts,
-            });
+          for (const { gsmTaskId, receipts } of uploads) {
+            const sent = await sendReceiptsToGsmTask({ gsmTaskId, receipts });
             receiptsSent += sent.sent;
           }
         }

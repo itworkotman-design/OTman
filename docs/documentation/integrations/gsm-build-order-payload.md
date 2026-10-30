@@ -42,6 +42,6 @@ The orderer uses the customer/store label and the main custom pickup address pho
 | `getDeliveryTaskCategory` | Chooses GSM delivery task category using selected install options first, then explicit delivery type mappings for `INSTALL_ONLY`, `RETURNIN`/return-only, `FIRST_STEP`, and `INDOOR`. |
 | `buildOrderPayload` | Validates GSM prerequisites, filters unusable pickup addresses out of the task list, and builds the final GSM order payload with tasks and metafields. |
 
-## Store pickup documents
+## Pickup stops
 
-`GsmOrderInput.pickupDocuments` (built by `buildPickupDocumentLinks`, see `docs/documentation/lib/pickup-document-links.md`) are appended to the pickup tasks as `Hentedokument (vis til kassen):` lines, `<filename>: <link>`. Each document goes on the task of its own stop (0 = `pickupAddress`, `i + 1` = `extraPickupAddress[i]`); one whose stop has no task (or no known stop) goes on the first pickup task. Without a link (secret/base URL not configured) the line says `(se ordren i OTman)` instead.
+`pickupStopAddresses(order)` lists the pickup stops that get a GSM pick-up task, with the exact `raw_address` each task is sent with. Stops are numbered like the homepage order numbers them (0 = `pickupAddress`, `i + 1` = `extraPickupAddress[i]`; empty or "no shop pickup address" stops get no task but keep their number). `planReceiptUploads` uses it to put each store pickup document on its own stop's task (see `gsm-receipt-uploads.md`).

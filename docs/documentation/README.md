@@ -299,6 +299,7 @@ Each documentation file should include:
 - [Integration: GSM POD attachment backfill](./integrations/gsm-pod-attachment-backfill.md)
 - [Integration: GSM resolve file URL](./integrations/gsm-resolve-file-url.md)
 - [Integration: GSM send order](./integrations/gsm-send-order.md)
+- [Integration: GSM receipt uploads](./integrations/gsm-receipt-uploads.md)
 - [Integration: Mapbox route distance](./integrations/mapbox-route-distance.md)
 - [Integration: WordPress attachment backfill](./integrations/wordpress-attachment-backfill.md)
 - [Integration: WordPress catalog mapping](./integrations/wordpress-catalog-mapping.md)
