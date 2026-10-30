@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { orderModalMode } from "./orderModalMode";
+import { orderModalMode, usesWebsiteOrderModal } from "./orderModalMode";
 
 describe("orderModalMode", () => {
   it("opens a homepage website order in the website modal", () => {
@@ -18,5 +18,17 @@ describe("orderModalMode", () => {
     expect(orderModalMode(500, null)).toBe("error");
     expect(orderModalMode(502, null)).toBe("error");
     expect(orderModalMode(null, null)).toBe("error");
+  });
+});
+
+describe("usesWebsiteOrderModal", () => {
+  // These rows skip the Alert Center's "Edit order" tab (the regular editor
+  // would re-price them with dashboard pricing) and open DashboardOrderModal.
+  it.each(["WHITE_GOODS", "MOVING", "SERVICE"])("is true for a homepage %s order", (kind) => {
+    expect(usesWebsiteOrderModal({ websiteOrderKind: kind })).toBe(true);
+  });
+
+  it.each([null, undefined, ""])("is false without a website order kind (%s)", (kind) => {
+    expect(usesWebsiteOrderModal({ websiteOrderKind: kind })).toBe(false);
   });
 });

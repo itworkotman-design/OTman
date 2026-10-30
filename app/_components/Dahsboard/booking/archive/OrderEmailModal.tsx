@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import type { OrderRow } from "@/app/_components/Dahsboard/booking/archive/types";
 import OrderSmsPanel from "@/app/_components/Dahsboard/booking/archive/OrderSmsPanel";
 import OrderEditPanel from "@/app/_components/Dahsboard/booking/OrderEditPanel";
+import { usesWebsiteOrderModal } from "@/app/_components/Dahsboard/booking/orderModalMode";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 
 type SnapshotPayload = {
@@ -504,7 +505,8 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged,
   // The editor mounts on first visit and then stays mounted (hidden) so
   // unsaved edits survive switching to another tab and back.
   const [editVisited, setEditVisited] = useState(false);
-  const canEdit = Boolean(edit);
+  // A homepage order is edited in its website modal, never in the regular editor.
+  const canEdit = Boolean(edit) && !(order && usesWebsiteOrderModal(order));
 
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);

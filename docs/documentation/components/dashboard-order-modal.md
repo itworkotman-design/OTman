@@ -13,6 +13,8 @@ On open it asks `GET /api/orders/[orderId]/website-details`, decided by `orderMo
 - `NOT_WHITE_GOODS_WEBSITE_ORDER`, `NOT_FOUND` or `FORBIDDEN` → the regular `OrderModal`, unchanged;
 - anything else (a server error, a failed request) → an error with "Try again". It never falls back to the regular modal, because a website order opened there would be edited with the wrong pricing.
 
+`usesWebsiteOrderModal(order)` (same file) is true for any row with a `websiteOrderKind` (WHITE_GOODS / MOVING / SERVICE). The booking and Website orders pages use it to send those rows here instead of to the Alert Center's "Edit order" tab, and `OrderEmailModal` uses it to leave that tab out for them.
+
 While deciding, it shows a small "Loading order…" overlay. It handles the scroll lock and Escape for its own UI; `OrderModal` keeps doing that itself. `OrderModal`, `BookingEditor` and `GET/PATCH /api/orders/[orderId]` are not modified.
 
 After an admin action in the website view (`onChanged`), it re-fetches the order in place and calls `onSaved` so the list behind it refreshes.

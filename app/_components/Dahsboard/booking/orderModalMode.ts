@@ -13,3 +13,12 @@ export function orderModalMode(status: number | null, data: unknown): OrderModal
   if (typeof body?.reason === "string" && NOT_A_WEBSITE_ORDER.has(body.reason)) return "standard";
   return "error";
 }
+
+// A homepage order (any websiteOrderKind) is edited in DashboardOrderModal's
+// website modal only — never in the regular editor (OrderEditPanel, e.g. the
+// Alert Center's "Edit order" tab), which would re-price it with dashboard
+// pricing. DashboardOrderModal itself still falls back to the regular modal
+// for a kind the website modal doesn't handle.
+export function usesWebsiteOrderModal(order: { websiteOrderKind?: string | null }): boolean {
+  return Boolean(order.websiteOrderKind);
+}
