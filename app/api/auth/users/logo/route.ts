@@ -5,9 +5,10 @@ import {
   getSignedAttachmentUrl,
   isS3AttachmentStorageConfigured,
   isS3StoragePath,
-  uploadAttachmentToS3,
+  putAttachmentObjectToS3,
 } from "@/lib/orders/orderAttachmentStorage";
 import { normalizeUserLogoPath } from "@/lib/users/profileAppearance";
+import { getSharedUserLogoKey } from "@/lib/users/sharedUserLogo";
 
 const MAX_FILE_SIZE = 3 * 1024 * 1024;
 
@@ -126,9 +127,14 @@ export async function POST(req: Request) {
     );
   }
 
-  const storedFile = await uploadAttachmentToS3({
-    file,
-    scope: `user-logos/${session.userId}`,
+  // Content-addressed: the same picture always maps to the same key, so
+  // re-uploading a logo someone already uses reuses that file instead of
+  // creating a duplicate entry in "Previously used pictures".
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const storedFile = await putAttachmentObjectToS3({
+    key: getSharedUserLogoKey(bytes, ext),
+    bytes,
+    contentType: file.type,
   });
 
   return NextResponse.json(

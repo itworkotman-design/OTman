@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({
   getAuthenticatedSessionMock: vi.fn(),
   isS3AttachmentStorageConfiguredMock: vi.fn(),
   isS3StoragePathMock: vi.fn(),
-  uploadAttachmentToS3Mock: vi.fn(),
+  putAttachmentObjectToS3Mock: vi.fn(),
   getSignedAttachmentUrlMock: vi.fn(),
 }));
 
@@ -16,9 +16,10 @@ vi.mock("@/lib/orders/orderAttachmentStorage", () => ({
   getSignedAttachmentUrl: mocks.getSignedAttachmentUrlMock,
   isS3AttachmentStorageConfigured: mocks.isS3AttachmentStorageConfiguredMock,
   isS3StoragePath: mocks.isS3StoragePathMock,
-  uploadAttachmentToS3: mocks.uploadAttachmentToS3Mock,
+  putAttachmentObjectToS3: mocks.putAttachmentObjectToS3Mock,
 }));
 
+import { createHash } from "crypto";
 import { GET, POST } from "./route";
 
 describe("routes in /api/auth/users/logo", () => {
@@ -28,21 +29,22 @@ describe("routes in /api/auth/users/logo", () => {
     mocks.isS3StoragePathMock.mockImplementation((value: string) =>
       value.startsWith("s3://"),
     );
+    mocks.putAttachmentObjectToS3Mock.mockImplementation(
+      async ({ key }: { key: string }) => ({ key, storagePath: `s3://${key}` }),
+    );
   });
 
-  it("POST uploads user logos to S3", async () => {
+  it("POST stores user logos under a content-addressed S3 key", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",
     });
-    mocks.uploadAttachmentToS3Mock.mockResolvedValue({
-      key: "orders/user-logos/user-1/logo.webp",
-      storagePath: "s3://orders/user-logos/user-1/logo.webp",
-    });
 
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    const hash = createHash("sha256").update(bytes).digest("hex");
     const formData = new FormData();
     formData.append(
       "file",
-      new File([new Uint8Array([1, 2, 3, 4])], "logo.webp", {
+      new File([bytes], "Logo.WEBP", {
         type: "image/webp",
       }),
     );
@@ -55,14 +57,38 @@ describe("routes in /api/auth/users/logo", () => {
     );
 
     expect(res.status).toBe(201);
-    expect(mocks.uploadAttachmentToS3Mock).toHaveBeenCalledWith({
-      file: expect.any(File),
-      scope: "user-logos/user-1",
+    expect(mocks.putAttachmentObjectToS3Mock).toHaveBeenCalledWith({
+      key: `orders/user-logos/shared/${hash}.webp`,
+      bytes: expect.any(Buffer),
+      contentType: "image/webp",
     });
     await expect(res.json()).resolves.toEqual({
       ok: true,
-      logoPath: "s3://orders/user-logos/user-1/logo.webp",
+      logoPath: `s3://orders/user-logos/shared/${hash}.webp`,
     });
+  });
+
+  it("POST returns the same logo path when the same picture is uploaded twice", async () => {
+    const upload = async (userId: string, filename: string) => {
+      mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId });
+      const formData = new FormData();
+      formData.append(
+        "file",
+        new File([new Uint8Array([9, 8, 7])], filename, { type: "image/png" }),
+      );
+      const res = await POST(
+        new Request("http://localhost/api/auth/users/logo", {
+          method: "POST",
+          body: formData,
+        }),
+      );
+      return (await res.json()).logoPath as string;
+    };
+
+    const first = await upload("user-1", "otman.png");
+    const second = await upload("user-2", "otman-copy.png");
+
+    expect(second).toBe(first);
   });
 
   it("POST fails when S3 storage is not configured", async () => {
@@ -87,7 +113,7 @@ describe("routes in /api/auth/users/logo", () => {
     );
 
     expect(res.status).toBe(500);
-    expect(mocks.uploadAttachmentToS3Mock).not.toHaveBeenCalled();
+    expect(mocks.putAttachmentObjectToS3Mock).not.toHaveBeenCalled();
     await expect(res.json()).resolves.toEqual({
       ok: false,
       reason: "S3_ATTACHMENT_STORAGE_NOT_CONFIGURED",

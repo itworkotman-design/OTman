@@ -9,6 +9,12 @@ const mocks = vi.hoisted(() => ({
   transactionMock: vi.fn(),
   sendOrderToGsmMock: vi.fn(),
   createOrderActionEventMock: vi.fn(),
+  attachmentFindManyMock: vi.fn(),
+  sendReceiptsToGsmTaskMock: vi.fn(),
+}));
+
+vi.mock("@/lib/integrations/gsm/sendReceipts", () => ({
+  sendReceiptsToGsmTask: mocks.sendReceiptsToGsmTaskMock,
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -32,6 +38,9 @@ vi.mock("@/lib/db", () => ({
       findMany: mocks.orderFindManyMock,
       update: mocks.orderUpdateMock,
     },
+    orderAttachment: {
+      findMany: mocks.attachmentFindManyMock,
+    },
     orderGsmTask: {
       upsert: mocks.taskUpsertMock,
     },
@@ -46,6 +55,7 @@ describe("POST /api/orders/send-to-gsm", () => {
     vi.clearAllMocks();
     mocks.transactionMock.mockResolvedValue([]);
     mocks.createOrderActionEventMock.mockResolvedValue(undefined);
+    mocks.attachmentFindManyMock.mockResolvedValue([]);
   });
 
   it("returns 400 when no valid order ids are sent", async () => {
@@ -188,5 +198,84 @@ describe("POST /api/orders/send-to-gsm", () => {
         title: "Order sent for GSM",
       }),
     );
+  });
+
+  function mockOwnerSendWithTwoTasks() {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({
+      id: "membership-1",
+      role: "OWNER",
+      user: { username: "Owner", email: "owner@example.com" },
+    });
+    mocks.orderFindManyMock.mockResolvedValue([{ id: "order-1", gsmOrderId: null }]);
+    mocks.sendOrderToGsmMock.mockResolvedValue({
+      gsmOrderId: "gsm-1",
+      tasks: [
+        { gsmTaskId: "task-1", category: "pick_up", reference: "r" },
+        { gsmTaskId: "task-2", category: "drop_off", reference: "r" },
+        { gsmTaskId: "task-3", category: "assignment", reference: "r" },
+      ],
+    });
+  }
+
+  const receipt = {
+    id: "att-1",
+    filename: "receipt.pdf",
+    mimeType: "application/pdf",
+    storagePath: "s3://x",
+  };
+
+  it("sends only the order's receipts, to drop-off and assignment tasks but not pick-up", async () => {
+    mockOwnerSendWithTwoTasks();
+    mocks.attachmentFindManyMock.mockResolvedValue([receipt]);
+    mocks.sendReceiptsToGsmTaskMock.mockResolvedValue({ sent: 1, skipped: 0 });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders/send-to-gsm", {
+        method: "POST",
+        body: JSON.stringify({ orderIds: ["order-1"] }),
+      }),
+    );
+
+    expect(mocks.attachmentFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { orderId: "order-1", category: "RECEIPT" },
+      }),
+    );
+    expect(mocks.sendReceiptsToGsmTaskMock).toHaveBeenCalledTimes(2);
+    expect(mocks.sendReceiptsToGsmTaskMock).toHaveBeenCalledWith({
+      gsmTaskId: "task-2",
+      receipts: [receipt],
+    });
+    expect(mocks.sendReceiptsToGsmTaskMock).toHaveBeenCalledWith({
+      gsmTaskId: "task-3",
+      receipts: [receipt],
+    });
+    const body = await res.json();
+    expect(body.results[0]).toMatchObject({ ok: true, receiptsSent: 2 });
+  });
+
+  it("still reports the order as sent when receipt upload fails", async () => {
+    mockOwnerSendWithTwoTasks();
+    mocks.attachmentFindManyMock.mockResolvedValue([receipt]);
+    mocks.sendReceiptsToGsmTaskMock.mockRejectedValue(new Error("S3 upload failed (403)"));
+
+    const res = await POST(
+      new Request("http://localhost/api/orders/send-to-gsm", {
+        method: "POST",
+        body: JSON.stringify({ orderIds: ["order-1"] }),
+      }),
+    );
+
+    const body = await res.json();
+    expect(body.results[0]).toMatchObject({
+      ok: true,
+      gsmOrderId: "gsm-1",
+      receiptError: "S3 upload failed (403)",
+    });
+    expect(mocks.orderUpdateMock).toHaveBeenCalled();
   });
 });

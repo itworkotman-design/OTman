@@ -20,6 +20,10 @@ type GsmSentTask = {
   reference: string;
 };
 
+function isTaskCategory(value: unknown): value is GsmSentTask["category"] {
+  return value === "pick_up" || value === "drop_off" || value === "assignment";
+}
+
 function extractTaskIdFromUrl(taskUrl: string) {
   const match = taskUrl.match(/\/tasks\/([^/]+)\/?$/);
   return match ? match[1] : null;
@@ -41,20 +45,26 @@ export async function sendOrderToGsm(order: GsmOrderInput) {
 
   const taskUrls = response.order?.tasks || response.tasks || [];
 
-  const tasksWithNullableIds: Array<{
-    gsmTaskId: string | null;
-    category: "pick_up" | "drop_off" | "assignment" | null;
-    reference: string;
-  }> = taskUrls
+  const taskIds = taskUrls
     .filter((taskUrl): taskUrl is string => typeof taskUrl === "string")
-    .map((taskUrl, index) => ({
-      gsmTaskId: extractTaskIdFromUrl(taskUrl),
-      category: payload.tasks_data[index]?.category ?? null,
-      reference: payload.reference,
-    }));
+    .map(extractTaskIdFromUrl)
+    .filter((taskId): taskId is string => taskId !== null);
 
-  const tasks: GsmSentTask[] = tasksWithNullableIds.filter(
-    (task): task is GsmSentTask => task.gsmTaskId !== null,
+  // GSM does not return tasks in payload order, so each task's category is
+  // read back from GSM instead of matched by position against tasks_data.
+  const tasks: GsmSentTask[] = await Promise.all(
+    taskIds.map(async (gsmTaskId) => {
+      const task = await gsmFetch<{ category?: unknown }>(
+        `/tasks/${encodeURIComponent(gsmTaskId)}/`,
+        { method: "GET" },
+      );
+
+      return {
+        gsmTaskId,
+        category: isTaskCategory(task.category) ? task.category : null,
+        reference: payload.reference,
+      };
+    }),
   );
 
   return {

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { sendOrderToGsm } from "@/lib/integrations/gsm/sendOrder";
+import { sendReceiptsToGsmTask } from "@/lib/integrations/gsm/sendReceipts";
 import { createOrderActionEvent } from "@/lib/orders/orderEvents";
 
 export async function POST(req: Request) {
@@ -97,6 +98,8 @@ export async function POST(req: Request) {
     ok: boolean;
     gsmOrderId?: string;
     wasAlreadySent?: boolean;
+    receiptsSent?: number;
+    receiptError?: string;
     error?: string;
   }> = [];
 
@@ -155,12 +158,47 @@ export async function POST(req: Request) {
         createdAt: syncedAt,
       });
 
+      // The order is already in GSM at this point, so a receipt failure is
+      // reported on the result instead of failing the whole send.
+      let receiptsSent: number | undefined;
+      let receiptError: string | undefined;
+
+      try {
+        const receipts = await prisma.orderAttachment.findMany({
+          where: { orderId: order.id, category: "RECEIPT" },
+          select: { id: true, filename: true, mimeType: true, storagePath: true },
+        });
+
+        if (receipts.length > 0) {
+          receiptsSent = 0;
+
+          // Receipts are for the delivering driver, not the pick-up stop.
+          const receiptTasks = response.tasks.filter(
+            (task) =>
+              task.category === "drop_off" || task.category === "assignment",
+          );
+
+          for (const task of receiptTasks) {
+            const sent = await sendReceiptsToGsmTask({
+              gsmTaskId: task.gsmTaskId,
+              receipts,
+            });
+            receiptsSent += sent.sent;
+          }
+        }
+      } catch (error) {
+        receiptError =
+          error instanceof Error ? error.message : "RECEIPT_UPLOAD_FAILED";
+      }
+
       results.push({
         orderId: order.id,
         orderNumber: order.orderNumber ?? undefined,
         ok: true,
         gsmOrderId: response.gsmOrderId,
         wasAlreadySent,
+        ...(receiptsSent !== undefined ? { receiptsSent } : {}),
+        ...(receiptError ? { receiptError } : {}),
       });
     } catch (error) {
       results.push({
