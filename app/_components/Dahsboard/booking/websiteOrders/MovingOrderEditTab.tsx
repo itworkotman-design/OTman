@@ -1,5 +1,6 @@
 "use client";
 
+import { calculatorDraftBody } from "@/lib/orders/websiteOrderCalculator";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PriceChangeRow } from "@/lib/booking/pricing/priceChanges";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
@@ -20,6 +21,7 @@ import type { WebsiteOrderCalculatorView, WebsiteOrderPricingDraft } from "@/lib
 import WebsiteOrderCalculator from "./WebsiteOrderCalculator";
 import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
 import { movingEditBlockers, movingEditBody, type MovingEditBlocker, type MovingEditDraft } from "./movingEditBody";
+import type { AdjustmentLine } from "@/lib/booking/pricing/adjustmentLines";
 
 type Props = {
   orderId: string;
@@ -30,6 +32,7 @@ type Props = {
   // and partner minus/plus, and the stored total.
   calculator: WebsiteOrderCalculatorView;
   adjustments: WebsiteOrderPricingDraft["adjustments"];
+  adjustmentLines?: AdjustmentLine[];
   storedTotal: number;
   // The move's answers at today's prices (website-details): "Use new price" when
   // priceChanges lists any. An edit re-prices at today's catalog, so it needs
@@ -64,6 +67,7 @@ export default function MovingOrderEditTab({
   initial,
   calculator,
   adjustments,
+  adjustmentLines,
   storedTotal,
   currentPricesTotal = null,
   priceChanges = [],
@@ -94,7 +98,7 @@ export default function MovingOrderEditTab({
 
   const body = {
     ...movingEditBody(initial, draft),
-    ...(pricingDraft ? { handling: pricingDraft.adjustments, nulledLines: pricingDraft.nulledLines } : {}),
+    ...calculatorDraftBody(pricingDraft),
     ...(useNewPrices ? { useCurrentPrices: true } : {}),
   };
   const bodyKey = JSON.stringify(body);
@@ -476,6 +480,7 @@ export default function MovingOrderEditTab({
           orderId={orderId}
           calculator={calculator}
           adjustments={adjustments}
+          adjustmentLines={adjustmentLines}
           missingFromLines={0}
           storedTotal={storedTotal}
           currentPricesTotal={currentPricesTotal}

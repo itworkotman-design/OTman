@@ -1,5 +1,6 @@
 "use client";
 
+import { calculatorDraftBody } from "@/lib/orders/websiteOrderCalculator";
 import type { PriceChangeRow } from "@/lib/booking/pricing/priceChanges";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { CatalogProduct, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
@@ -48,9 +49,12 @@ import {
   type EditorBlocker,
   type EditorStop,
 } from "./websiteOrderEditorState";
+import type { AdjustmentLine } from "@/lib/booking/pricing/adjustmentLines";
 
 type Props = {
   orderId: string;
+  // The calculator's stored adjustment lines (from the modal's order).
+  adjustmentLines?: AdjustmentLine[];
   locale: BookingUiLocale;
   // After a successful save — the modal reloads the order and goes back to Overview.
   onSaved: (message: string) => void;
@@ -88,6 +92,7 @@ const SOURCE_ICONS: Record<BookingPickupSource, ReactNode> = {
 // /api/orders/[orderId]/website-items, like before.
 export default function WebsiteOrderEditTab({
   orderId,
+  adjustmentLines,
   locale,
   onSaved,
   onCancel,
@@ -208,7 +213,7 @@ export default function WebsiteOrderEditTab({
       productCards: cards,
       details: saveDetails,
       // The calculator's own choices ride along, so they're priced and saved with the edits.
-      ...(pricingDraft ? { handling: pricingDraft.adjustments, nulledLines: pricingDraft.nulledLines } : {}),
+      ...calculatorDraftBody(pricingDraft),
       // Today's catalog prices only when the admin chose "Use new price";
       // otherwise the order keeps the prices it was saved with.
       ...(useNewPrices ? { useCurrentPrices: true } : {}),
@@ -867,6 +872,7 @@ export default function WebsiteOrderEditTab({
             orderId={orderId}
             calculator={firstCalculator}
             adjustments={adjustments}
+            adjustmentLines={adjustmentLines}
             missingFromLines={0}
             storedTotal={storedTotal}
             currentPricesTotal={currentPricesTotal}

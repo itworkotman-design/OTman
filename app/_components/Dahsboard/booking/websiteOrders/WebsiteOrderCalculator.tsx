@@ -1,14 +1,30 @@
 "use client";
 
 import type { PriceChangeRow } from "@/lib/booking/pricing/priceChanges";
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
+import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
+import {
+  addAdjustmentLine,
+  adjustmentLinesFromLegacy,
+  removeAdjustmentLine,
+  sumAdjustmentLines,
+  unlinkAdjustmentLines,
+  updateAdjustmentLine,
+  type AdjustmentLine,
+  type AdjustmentLineKind,
+  type AdjustmentLinePatch,
+} from "@/lib/booking/pricing/adjustmentLines";
+import {
+  AddAdjustmentLineButtons,
+  AdjustmentLineRows,
+  type AdjustmentLineHandlers,
+  type AdjustmentRowText,
+} from "@/app/_components/Dahsboard/booking/create/CalculatorDisplay";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import {
   calculatorPreviewBody,
   nulledLinesFromView,
-  partnerMinusForDiscount,
   toggleNulledLine,
   type WebsiteOrderCalculatorLine,
   type WebsiteOrderCalculatorView,
@@ -30,6 +46,9 @@ type Props = {
   orderId: string;
   calculator: WebsiteOrderCalculatorView;
   adjustments: Adjustments;
+  // The stored adjustment lines (website-details); without them the four
+  // amounts are shown as plain lines.
+  adjustmentLines?: AdjustmentLine[];
   // What the stored lines don't explain (checkWebsiteOrderTotals), shown in red.
   missingFromLines: number;
   // The saved total.
@@ -100,10 +119,11 @@ function formatQty(qty: number) {
 
 // The calculator in WebsiteOrderModal, like the booking app's
 // (CalculatorDisplayNew + SubcontractorCalculatorDisplay): the customer's
-// lines, discount, extra and total, then the partner's lines, minus, plus and
-// total, each with its inputs underneath. As in the booking app, changing the
-// discount sets the partner minus to the same share of the partner's pay
-// (partnerMinusForDiscount), which can then be overridden.
+// lines, adjustment lines (discounts/extras) and total, then the partner's
+// lines, minus/plus lines and total. The adjustment lines are the booking
+// app's own (AdjustmentLineRows, lib/booking/pricing/adjustmentLines): several
+// per kind, each with a description, in NOK or %, and a discount brings a
+// linked partner minus with the same share of the partner's pay.
 //
 // Changes are priced live (a `dryRun` of PUT /api/orders/[orderId]/website-items
 // with just these four `handling` fields) and compared with what was paid.
@@ -114,6 +134,7 @@ export default function WebsiteOrderCalculator({
   orderId,
   calculator,
   adjustments,
+  adjustmentLines,
   missingFromLines,
   storedTotal,
   currentPricesTotal = null,
@@ -131,8 +152,14 @@ export default function WebsiteOrderCalculator({
   const isAdmin = calculator.partner !== null;
   // Every amount here is ex. VAT, as stored (website prices are ex. VAT, like
   // the booking app's); only the total incl. VAT adds 25%, per line.
-  const shownAdjustments = adjustments;
-  const [adj, setAdj] = useState<Adjustments>(shownAdjustments);
+  // As the booking app loads a saved order: lines linked during setup no longer follow.
+  const initialLines = useMemo(
+    () => unlinkAdjustmentLines(adjustmentLines ?? adjustmentLinesFromLegacy(adjustments)),
+    [adjustmentLines, adjustments],
+  );
+  const [lines, setLines] = useState<AdjustmentLine[]>(initialLines);
+  // The four amounts the order is priced with: the lines' per-kind sums.
+  const adj: Adjustments = useMemo(() => sumAdjustmentLines(lines), [lines]);
   const storedAdj = adj;
   // The booking app's "Set to 0" checkboxes: lines nulled per side.
   const initialNulled = useMemo(() => nulledLinesFromView(calculator), [calculator]);
@@ -153,16 +180,20 @@ export default function WebsiteOrderCalculator({
   const immediatePreview = useRef(false);
 
   const changed =
-    useNewPrice || JSON.stringify(adj) !== JSON.stringify(shownAdjustments) || canonicalNulled(nulled) !== canonicalNulled(initialNulled);
+    useNewPrice || JSON.stringify(lines) !== JSON.stringify(initialLines) || canonicalNulled(nulled) !== canonicalNulled(initialNulled);
   // Same rules as the booking app: lines can only be set to 0 while there is
   // no discount / partner minus, and those inputs hide while lines are set to 0.
   const hasDiscountValue = parseNokAdjustment(adj.rabatt) !== 0 || parseNokAdjustment(adj.subcontractorMinus) !== 0;
   const anyNulled = hasNulled(nulled);
 
   useEffect(() => {
-    onDraftChange(changed ? { adjustments: storedAdj, nulledLines: nulled, ...(useNewPrice ? { useCurrentPrices: true } : {}) } : null);
+    onDraftChange(
+      changed
+        ? { adjustments: storedAdj, adjustmentLines: lines, nulledLines: nulled, ...(useNewPrice ? { useCurrentPrices: true } : {}) }
+        : null,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [changed, storedAdj, nulled, useNewPrice]);
+  }, [changed, storedAdj, lines, nulled, useNewPrice]);
 
   // Always a dry run — this component never saves.
   async function pricePreview() {
@@ -214,21 +245,52 @@ export default function WebsiteOrderCalculator({
 
   const withPriceChangeTarget = (node: ReactNode) => (priceChangeTarget ? createPortal(node, priceChangeTarget) : node);
 
-  function setDiscount(rabatt: string) {
-    // A discount replaces lines set to 0 (booking app: setting one clears them).
-    if (parseNokAdjustment(rabatt) !== 0) setNulled(NO_NULLED);
-    // The booking app's rule: the partner minus follows the discount.
-    setAdj((current) => ({
-      ...current,
-      rabatt,
-      // rabatt and the subtotal it's a share of are both ex. VAT.
-      subcontractorMinus: partnerMinusForDiscount({
-        rabatt,
-        subtotal: view.customer.subtotal,
-        partnerBase: view.partner?.base ?? 0,
-      }),
-    }));
-  }
+  // What a % line is a share of, and what a linked partner minus follows.
+  const lineTotals = { subtotalExVat: view.customer.subtotal, subcontractorBase: view.partner?.base ?? 0 };
+  const lineTotalsRef = useRef(lineTotals);
+  lineTotalsRef.current = lineTotals;
+
+  // A discount or partner minus replaces lines set to 0 (booking app:
+  // setting one clears them).
+  // The latest lines, so consecutive edits each build on the previous one.
+  const linesRef = useRef(lines);
+  linesRef.current = lines;
+  const applyLines = useCallback((update: (current: AdjustmentLine[]) => AdjustmentLine[]) => {
+    const next = update(linesRef.current);
+    linesRef.current = next;
+    setLines(next);
+    const sums = sumAdjustmentLines(next);
+    if (parseNokAdjustment(sums.rabatt) !== 0 || parseNokAdjustment(sums.subcontractorMinus) !== 0) setNulled(NO_NULLED);
+  }, []);
+  const lineHandlers: AdjustmentLineHandlers = useMemo(
+    () => ({
+      onAdd: (kind: AdjustmentLineKind) => applyLines((current) => addAdjustmentLine(current, kind)),
+      onUpdate: (id: string, patch: AdjustmentLinePatch) =>
+        applyLines((current) => updateAdjustmentLine(current, id, patch, lineTotalsRef.current)),
+      onRemove: (id: string) => applyLines((current) => removeAdjustmentLine(current, id, lineTotalsRef.current)),
+      onApply: (id: string) => applyLines((current) => unlinkAdjustmentLines(current, id)),
+    }),
+    [applyLines],
+  );
+  const rowText = (partner: boolean): AdjustmentRowText => {
+    const b = (text: string) => bookingText(locale, text);
+    return {
+      description: b("Description"),
+      descriptionPlaceholder: partner ? b("e.g. Waiting time") : b("e.g. Damaged packaging"),
+      optional: b("optional"),
+      amount: b("Amount (ex VAT)"),
+      remove: b("Remove"),
+      add: b("Add"),
+      apply: b("Apply"),
+      edit: b("Edit"),
+      cancel: b("Cancel"),
+      subtracted: partner ? b("Subtracted from partner total") : b("Subtracted from total"),
+      added: partner ? b("Added to partner total") : b("Added to total"),
+      percent: b("Percent"),
+      switchToPercent: b("Switch to %"),
+      switchToNok: b("Switch to NOK"),
+    };
+  };
 
   // Today's catalog prices the order differently from what's saved.
   const currentTotal = currentPricesTotal ?? calculator.customer.total;
@@ -239,8 +301,6 @@ export default function WebsiteOrderCalculator({
 
   // The VAT is what the per-line incl.-VAT total adds (websiteVat.ts).
   const vat = { exVat: view.customer.total, incVat: view.customer.totalIncVat, vat: Math.round((view.customer.totalIncVat - view.customer.total) * 100) / 100 };
-  const fieldClass = "w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm text-black/85";
-  const labelClass = "text-sm font-medium text-black/60";
 
   function nulledKeys(product: CalculatorProduct, side: Side): string[] {
     const sides = product.isOrderExtras ? nulled.orderExtras : product.cardId !== null ? nulled.cards[product.cardId] : undefined;
@@ -314,7 +374,7 @@ export default function WebsiteOrderCalculator({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-2xl border border-black/10 bg-white p-6">
+      <div className="overflow-hidden rounded-2xl border border-black/10 bg-white p-5">
         <div className="flex items-baseline justify-between gap-3">
           <h3 className="text-lg font-semibold text-logoblue">{t("Calculator", "Kalkulator")}</h3>
           {previewing && <span className="text-xs text-black/50">{t("Calculating…", "Beregner…")}</span>}
@@ -382,21 +442,13 @@ export default function WebsiteOrderCalculator({
         )}
 
         <div className="mt-4 flex flex-col gap-2 border-t border-black/10 pt-4 text-sm text-black/70">
-          {view.customer.discount !== 0 && (
-            <div className="flex justify-between">
-              <span>{t("Discount", "Rabatt")}</span>
-              <span className="tabular-nums">-{formatKr(view.customer.discount)}</span>
-            </div>
-          )}
-          {view.customer.extra !== 0 && (
-            <div className="flex justify-between">
-              <span>{t("Extra", "Tillegg")}</span>
-              <span className="tabular-nums">
-                {view.customer.extra > 0 ? "+" : ""}
-                {formatKr(view.customer.extra)}
-              </span>
-            </div>
-          )}
+          <AdjustmentLineRows
+            lines={lines}
+            kinds={["discount", "extra"]}
+            labels={{ discount: t("Discount", "Rabatt"), extra: t("Extra", "Tillegg") }}
+            handlers={isAdmin ? lineHandlers : undefined}
+            text={rowText(false)}
+          />
           {/* Same order as the booking app's calculator: the ex-VAT total leads. */}
           <div className="mt-1 flex items-center justify-between gap-4 rounded-xl bg-logoblue/10 px-4 py-4">
             <span className="text-base font-semibold text-logoblue">{t("Total", "Totalt")}</span>
@@ -413,91 +465,46 @@ export default function WebsiteOrderCalculator({
         </div>
 
         {isAdmin && (
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            {!anyNulled && (
-              <label className="flex flex-col gap-1">
-                <span className={labelClass}>{t("Discount ex. VAT (kr)", "Rabatt eks. mva (kr)")}</span>
-                <input
-                  inputMode="decimal"
-                  value={adj.rabatt}
-                  onChange={(e) => setDiscount(e.target.value)}
-                  placeholder={t("e.g. 500", "f.eks. 500")}
-                  className={fieldClass}
-                />
-              </label>
-            )}
-            <label className="flex flex-col gap-1">
-              <span className={labelClass}>{t("Extra ex. VAT (kr)", "Tillegg eks. mva (kr)")}</span>
-              <input
-                inputMode="decimal"
-                value={adj.leggTil}
-                onChange={(e) => setAdj((current) => ({ ...current, leggTil: e.target.value }))}
-                placeholder={t("e.g. 300", "f.eks. 300")}
-                className={fieldClass}
-              />
-            </label>
-          </div>
+          <AddAdjustmentLineButtons
+            className="mt-5 border-black/10"
+            actions={[
+              // Lines set to 0 and a discount don't mix (booking app rule).
+              ...(anyNulled ? [] : [{ kind: "discount" as const, label: bookingText(locale, "Add discount") }]),
+              { kind: "extra" as const, label: bookingText(locale, "Add extra") },
+            ]}
+            onAdd={lineHandlers.onAdd}
+          />
         )}
       </div>
 
       {view.partner && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
+        <div className="overflow-hidden rounded-2xl border border-amber-200 bg-amber-50 p-5">
           <h3 className="text-sm font-bold uppercase tracking-wide text-amber-800">{t("Partner view", "Partnervisning")}</h3>
 
           {productList("partner")}
 
           <div className="mt-4 flex flex-col gap-2 border-t border-amber-200 pt-4 text-sm text-black/70">
-            {view.partner.minus !== 0 && (
-              <div className="flex justify-between">
-                <span>{t("Minus", "Minus")}</span>
-                <span className="tabular-nums">-{formatKr(view.partner.minus)}</span>
-              </div>
-            )}
-            {view.partner.plus !== 0 && (
-              <div className="flex justify-between">
-                <span>{t("Plus", "Pluss")}</span>
-                <span className="tabular-nums">+{formatKr(view.partner.plus)}</span>
-              </div>
-            )}
+            <AdjustmentLineRows
+              lines={lines}
+              kinds={["subcontractorMinus", "subcontractorPlus"]}
+              labels={{ subcontractorMinus: t("Minus", "Minus"), subcontractorPlus: t("Plus", "Pluss") }}
+              handlers={lineHandlers}
+              text={rowText(true)}
+            />
             <div className="mt-1 flex items-center justify-between gap-4">
               <span className="text-base font-bold text-amber-900">{t("Total", "Totalt")}</span>
               <span className="whitespace-nowrap text-2xl font-bold tabular-nums text-amber-900">{formatKr(view.partner.total)}</span>
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            {!anyNulled && (
-              <label className="flex flex-col gap-1">
-                <span className={labelClass}>{t("Partner minus (kr)", "Partner minus (kr)")}</span>
-                <input
-                  inputMode="decimal"
-                  value={adj.subcontractorMinus}
-                  onChange={(e) => {
-                    const subcontractorMinus = e.target.value;
-                    if (parseNokAdjustment(subcontractorMinus) !== 0) setNulled(NO_NULLED);
-                    setAdj((current) => ({ ...current, subcontractorMinus }));
-                  }}
-                  placeholder={t("e.g. 200", "f.eks. 200")}
-                  className={fieldClass}
-                />
-              </label>
-            )}
-            <label className="flex flex-col gap-1">
-              <span className={labelClass}>{t("Partner plus (kr)", "Partner pluss (kr)")}</span>
-              <input
-                inputMode="decimal"
-                value={adj.subcontractorPlus}
-                onChange={(e) =>
-                  setAdj((current) => ({
-                    ...current,
-                    subcontractorPlus: e.target.value,
-                  }))
-                }
-                placeholder={t("e.g. 200", "f.eks. 200")}
-                className={fieldClass}
-              />
-            </label>
-          </div>
+          <AddAdjustmentLineButtons
+            className="mt-5 border-amber-200"
+            actions={[
+              ...(anyNulled ? [] : [{ kind: "subcontractorMinus" as const, label: bookingText(locale, "Add partner minus") }]),
+              { kind: "subcontractorPlus" as const, label: bookingText(locale, "Add partner plus") },
+            ]}
+            onAdd={lineHandlers.onAdd}
+          />
         </div>
       )}
 
@@ -528,7 +535,7 @@ export default function WebsiteOrderCalculator({
             <button
               type="button"
               onClick={() => {
-                setAdj(shownAdjustments);
+                setLines(initialLines);
                 setNulled(initialNulled);
                 setUseNewPrice(false);
               }}

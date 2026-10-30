@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { partnerPricesFromCalculator, partnerPricesFromMovingItems, partnerPricesFromServiceItems, partnerViewerRole } from "./partnerOrderView";
+import type { AdjustmentLine } from "@/lib/booking/pricing/adjustmentLines";
 
 describe("partnerViewerRole (who opens a website order read-only, and as what)", () => {
   const order = { subcontractorMembershipId: "m-partner", createdByMembershipId: "m-website", customerMembershipId: "m-website" };
@@ -69,6 +70,54 @@ describe("partnerPricesFromCalculator (a delivery order)", () => {
     const adjusted = { ...calculator, partner: { base: 460, minus: 50, plus: 0, total: 410 } };
     const view = partnerPricesFromCalculator(adjusted, 410);
     expect(view.groups.at(-1)).toEqual({ name: "Justering", lines: [{ label: "Partner minus", qty: 1, price: -50 }] });
+    expect(view.mismatch).toBe(0);
+  });
+});
+
+describe("partner adjustment lines (several minus/plus with descriptions, like a regular order)", () => {
+  const lines: AdjustmentLine[] = [
+    { id: "d1", kind: "discount", description: "Never shown to the partner", amount: 100 },
+    { id: "m1", kind: "subcontractorMinus", description: "Late arrival", amount: 30 },
+    { id: "m2", kind: "subcontractorMinus", description: "", amount: 20, percent: 5 },
+    { id: "p1", kind: "subcontractorPlus", description: "Waiting time", amount: 40 },
+  ];
+
+  it("lists each of the partner's own lines, with its description and percent, never the customer's discount", () => {
+    const adjusted = {
+      products: [
+        {
+          name: "Vaskemaskin",
+          isOrderExtras: false,
+          cardId: 0,
+          lines: [{ label: "Levering", code: "INN", qty: 1, customer: 899, partner: 460, lineKey: null, nulledCustomer: false, nulledPartner: false }],
+        },
+      ],
+      customer: { subtotal: 899, discount: 100, extra: 0, total: 799, totalIncVat: 999 },
+      partner: { base: 460, minus: 50, plus: 40, total: 450 },
+    };
+    const view = partnerPricesFromCalculator(adjusted, 450, lines);
+    expect(view.groups.at(-1)).toEqual({
+      name: "Justering",
+      lines: [
+        { label: "Minus – Late arrival", qty: 1, price: -30 },
+        { label: "Minus (5 %)", qty: 1, price: -20 },
+        { label: "Pluss – Waiting time", qty: 1, price: 40 },
+      ],
+    });
+    expect(view.mismatch).toBe(0);
+  });
+
+  it("does the same for a move", () => {
+    const items = [
+      { productCode: "MOVING_BY_SIZE", optionCode: "S", optionLabel: "Under 40 m²", quantity: 1, customerPriceCents: 0, subcontractorPriceCents: 300000 },
+    ];
+    const view = partnerPricesFromMovingItems(
+      items,
+      2990,
+      { rabatt: "100", leggTil: null, subcontractorMinus: "50", subcontractorPlus: "40" },
+      lines,
+    );
+    expect(view.groups.at(-1)?.lines.map((line) => line.label)).toEqual(["Minus – Late arrival", "Minus (5 %)", "Pluss – Waiting time"]);
     expect(view.mismatch).toBe(0);
   });
 });

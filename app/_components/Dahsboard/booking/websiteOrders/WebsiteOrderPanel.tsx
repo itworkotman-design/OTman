@@ -27,11 +27,15 @@ import WebsiteOrderCustomerLoginButton from "./WebsiteOrderCustomerLoginButton";
 import WebsiteOrderCalculator from "./WebsiteOrderCalculator";
 import type { WebsiteOrderCalculatorView, WebsiteOrderPricingDraft } from "@/lib/orders/websiteOrderCalculator";
 import { isWebsiteOrderLocked } from "@/lib/orders/statusPresentation";
+import type { AdjustmentLine } from "@/lib/booking/pricing/adjustmentLines";
 
 // What GET /api/orders/[orderId]/website-details returns — the same for every
 // website order…
 type WebsiteOrderBase = {
   id: string;
+  // The calculator's adjustment lines (website-details: the stored ones, or
+  // an older order's four amounts as plain lines).
+  adjustmentLines?: AdjustmentLine[];
   displayId: number;
   orderNumber: string | null;
   status: string | null;
@@ -394,6 +398,7 @@ export default function WebsiteOrderPanel({
             }}
             calculator={order.calculator}
             adjustments={calculatorAdjustments}
+            adjustmentLines={order.adjustmentLines}
             storedTotal={order.priceExVat}
             currentPricesTotal={order.currentPricesTotal ?? null}
             priceChanges={order.priceChanges ?? []}
@@ -419,6 +424,7 @@ export default function WebsiteOrderPanel({
             }}
             calculator={order.calculator}
             adjustments={calculatorAdjustments}
+            adjustmentLines={order.adjustmentLines}
             storedTotal={order.priceExVat}
             onDirtyChange={handleEditDirtyChange}
             onCancel={() => switchTab("overview")}
@@ -433,6 +439,7 @@ export default function WebsiteOrderPanel({
         ) : tab === "edit" && order.kind === undefined ? (
           <WebsiteOrderEditTab
             orderId={order.id}
+            adjustmentLines={order.adjustmentLines}
             locale={locale}
             onDirtyChange={handleEditDirtyChange}
             onCancel={() => switchTab("overview")}
@@ -514,6 +521,7 @@ export default function WebsiteOrderPanel({
                 orderId={order.id}
                 calculator={order.calculator}
                 adjustments={calculatorAdjustments}
+                adjustmentLines={order.adjustmentLines}
                 missingFromLines={order.totalsCheck.missingFromLines}
                 storedTotal={order.priceExVat}
                 // A service request has no catalog, so no "Use new price".

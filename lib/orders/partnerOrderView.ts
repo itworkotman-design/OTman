@@ -1,4 +1,5 @@
 import { hasFullAccess, hasPermission } from "@/lib/users/access";
+import { adjustmentLinesForView, type AdjustmentLine } from "@/lib/booking/pricing/adjustmentLines";
 import type { AppPermission, Role } from "@/lib/users/types";
 import { movingOrderCalculatorView, type MovingAdjustments } from "./movingOrderCalculator";
 import type { MovingOrderItem } from "./movingOrderView";
@@ -43,9 +44,26 @@ function withTotal(groups: PartnerPriceView["groups"], storedTotal: number): Par
   return { groups, total: storedTotal, mismatch: roundNok(storedTotal - linesTotal) };
 }
 
+// The partner's own adjustment lines, labelled like a regular order's for a
+// partner (ReadOnlyOrderModal / adjustmentRowsHtml): "Minus – Late arrival (5 %)".
+function partnerAdjustmentLines(lines: AdjustmentLine[]): PartnerPriceLine[] {
+  return adjustmentLinesForView(lines, "partner").map((line) => {
+    const description = line.description ? ` – ${line.description}` : "";
+    const percent = line.percent !== undefined ? ` (${String(line.percent).replace(".", ",")} %)` : "";
+    const subtracts = line.kind === "subcontractorMinus";
+    return { label: `${subtracts ? "Minus" : "Pluss"}${description}${percent}`, qty: 1, price: subtracts ? -line.amount : line.amount };
+  });
+}
+
 // A delivery order: the admin calculator's partner side, line by line (a line
-// set to 0 for the partner at 0), plus the partner's minus/plus.
-export function partnerPricesFromCalculator(calculator: WebsiteOrderCalculatorView, storedTotal: number): PartnerPriceView {
+// set to 0 for the partner at 0), plus the partner's minus/plus — each of
+// the order's adjustment lines when given (storedAdjustmentLines), otherwise
+// the two summed amounts.
+export function partnerPricesFromCalculator(
+  calculator: WebsiteOrderCalculatorView,
+  storedTotal: number,
+  adjustmentLines?: AdjustmentLine[],
+): PartnerPriceView {
   const groups = calculator.products.map((product) => ({
     name: product.name,
     lines: product.lines.map((line) => ({
@@ -54,10 +72,12 @@ export function partnerPricesFromCalculator(calculator: WebsiteOrderCalculatorVi
       price: line.nulledPartner ? 0 : (line.partner ?? 0),
     })),
   }));
-  const adjustments = [
+  const adjustments = adjustmentLines
+    ? partnerAdjustmentLines(adjustmentLines)
+    : [
     ...(calculator.partner?.minus ? [{ label: "Partner minus", qty: 1, price: -calculator.partner.minus }] : []),
     ...(calculator.partner?.plus ? [{ label: "Partner plus", qty: 1, price: calculator.partner.plus }] : []),
-  ];
+      ];
   return withTotal(adjustments.length > 0 ? [...groups, { name: "Justering", lines: adjustments }] : groups, storedTotal);
 }
 
@@ -67,8 +87,9 @@ export function partnerPricesFromMovingItems(
   items: MovingOrderItem[],
   storedTotal: number,
   adjustments: MovingAdjustments = { rabatt: null, leggTil: null, subcontractorMinus: null, subcontractorPlus: null },
+  adjustmentLines?: AdjustmentLine[],
 ): PartnerPriceView {
-  return partnerPricesFromCalculator(movingOrderCalculatorView(items, adjustments, { includePartner: true }), storedTotal);
+  return partnerPricesFromCalculator(movingOrderCalculatorView(items, adjustments, { includePartner: true }), storedTotal, adjustmentLines);
 }
 
 // A service request: staff's quotes (a line per service) and express/deviation,
@@ -78,6 +99,7 @@ export function partnerPricesFromServiceItems(
   items: MovingOrderItem[],
   storedTotal: number,
   adjustments: MovingAdjustments = { rabatt: null, leggTil: null, subcontractorMinus: null, subcontractorPlus: null },
+  adjustmentLines?: AdjustmentLine[],
 ): PartnerPriceView {
-  return partnerPricesFromCalculator(serviceOrderCalculatorView(items, adjustments, { includePartner: true }), storedTotal);
+  return partnerPricesFromCalculator(serviceOrderCalculatorView(items, adjustments, { includePartner: true }), storedTotal, adjustmentLines);
 }

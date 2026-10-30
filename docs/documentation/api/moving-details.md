@@ -16,6 +16,7 @@ at ADMIN level. Tested.
   the move's own lines (`movingHandlingItemRows`, priced from the moving price list's settings), replacing the old ones in a
   transaction (`movingOrderItemWrites`); an `edit` carries the stored ones over as priced. `nulledLines`
   (the calculator's "Set to 0") is stored on the snapshot (`movingNulledLines`) and re-prices the lines too.
+- `adjustmentLines` (optional) — the calculator's adjustment lines (`readSubmittedAdjustmentLines`, `lib/orders/website-order-adjustment-lines.md`): their per-kind sums replace `handling`'s discount/extra/partner minus/plus, and the lines are stored in `pricingSnapshot.adjustmentLines` on whichever snapshot the save writes (the stored one when only descriptions changed). Not a list → `400 INVALID_BODY`.
 - `useCurrentPrices` — "Use new price": the move's own answers (or the `edit`) re-priced at today's catalog. An `edit` of a
   move whose stored prices are outdated (`movingPricesOutdated`) is refused with `409 PRICES_OUTDATED` without it, as on a
   delivery order; changing only the amounts or lines set to 0 re-prices the stored lines and needs nothing.

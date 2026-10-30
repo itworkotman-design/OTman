@@ -46,6 +46,7 @@ import {
   normalizeSavedProductCard,
   type SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
+import { readSubmittedAdjustmentLines, withAdjustmentLines } from "@/lib/orders/websiteOrderAdjustmentLines";
 
 // The admin editor in WebsiteOrderModal (e.g. the customer phones in): GET
 // loads the order's product cards, its editable details (customer, pickup
@@ -253,6 +254,9 @@ export async function PUT(req: Request, { params }: Params) {
     productCards?: unknown;
     details?: unknown;
     handling?: unknown;
+    // The calculator's adjustment lines (several discounts/extras/partner
+    // minus/plus with descriptions); their sums are the handling's four fields.
+    adjustmentLines?: unknown;
     // The calculator's "Set to 0" choices (like the booking app's checkboxes).
     nulledLines?: unknown;
     sendPaymentLink?: unknown;
@@ -268,6 +272,9 @@ export async function PUT(req: Request, { params }: Params) {
   const sendPaymentLink = body?.sendPaymentLink === true;
   const dryRun = body?.dryRun === true;
   const useCurrentPrices = body?.useCurrentPrices === true;
+  const submittedAdjustments = readSubmittedAdjustmentLines(body);
+  if (!submittedAdjustments.ok) return reject("INVALID_BODY", 400);
+  const adjustmentLines = submittedAdjustments.lines;
 
   const { orderId } = await params;
   const order = await findWhiteGoodsOrder(orderId, companyId);
@@ -282,9 +289,9 @@ export async function PUT(req: Request, { params }: Params) {
   let handling: ReturnType<typeof handlingOrderData> | null = null;
   let parsedHandling: WebsiteOrderHandling | null = null;
   let customDeviation: { price: number | null; subcontractorPrice: number | null; description: string | null } | undefined;
-  if (body?.handling !== undefined) {
+  if (submittedAdjustments.handling !== undefined) {
     // Fields left out keep their stored value (the calculator sends only its own).
-    const parsed = parseWebsiteOrderHandling(body.handling, handlingFromOrder(order));
+    const parsed = parseWebsiteOrderHandling(submittedAdjustments.handling, handlingFromOrder(order));
     if (!parsed.ok) return reject(parsed.reason, 422, { errors: parsed.errors });
     parsedHandling = parsed.handling;
     handling = handlingOrderData(parsed.handling);
@@ -453,10 +460,18 @@ export async function PUT(req: Request, { params }: Params) {
                 ...(pricedOrder.websiteBookingDetails !== order.websiteBookingDetails
                   ? { websiteBookingDetails: pricedOrder.websiteBookingDetails as Prisma.InputJsonValue }
                   : {}),
+                // Only the lines' descriptions can change here (their sums would re-price).
+                ...(adjustmentLines
+                  ? { pricingSnapshot: withAdjustmentLines(order.pricingSnapshot, adjustmentLines) as Prisma.InputJsonValue }
+                  : {}),
               },
             }),
           ]
-        : websiteOrderPricingWrites({ id: order.id, websiteBookingDetails: pricedOrder.websiteBookingDetails }, recomputed, data),
+        : websiteOrderPricingWrites(
+            { id: order.id, websiteBookingDetails: pricedOrder.websiteBookingDetails },
+            adjustmentLines ? { ...recomputed, pricingSnapshot: withAdjustmentLines(recomputed.pricingSnapshot, adjustmentLines) } : recomputed,
+            data,
+          ),
     );
   } catch (err) {
     console.error("[website-items] Failed to save order:", err);

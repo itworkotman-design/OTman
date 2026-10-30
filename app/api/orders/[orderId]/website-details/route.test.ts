@@ -295,6 +295,26 @@ describe("GET /api/orders/[orderId]/website-details", () => {
     expect(json.order.handling).not.toHaveProperty("dontSendEmail");
   });
 
+  it("returns the calculator's stored adjustment lines (several discounts with descriptions)", async () => {
+    const lines = [
+      { id: "d1", kind: "discount", description: "Damaged box", amount: 60 },
+      { id: "d2", kind: "discount", description: "Loyal customer", amount: 40 },
+    ];
+    mocks.orderFindFirstMock.mockResolvedValue({
+      ...whiteGoodsOrder,
+      rabatt: "100",
+      pricingSnapshot: { ...(whiteGoodsOrder.pricingSnapshot as object), adjustmentLines: lines },
+    });
+    const json = await (await call()).json();
+    expect(json.order.adjustmentLines).toEqual(lines);
+  });
+
+  it("gives an older order (no stored lines) its four amounts as plain lines", async () => {
+    mocks.orderFindFirstMock.mockResolvedValue({ ...whiteGoodsOrder, rabatt: "100", leggTil: null });
+    const json = await (await call()).json();
+    expect(json.order.adjustmentLines).toEqual([expect.objectContaining({ kind: "discount", description: "", amount: 100 })]);
+  });
+
   it("says whether the customer already has a live My order login for the order's email", async () => {
     const openOrder = { status: "processing", statusChangedAt: null, updatedAt: new Date(), gdprHold: false };
 

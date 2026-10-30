@@ -148,6 +148,21 @@ describe("runDayBeforeDeliverySmsSweep", () => {
     expect(summary).toMatchObject({ scanned: 5, sent: 1, skipped: 4 });
   });
 
+  it("skips orders still in processing (not yet accepted), homepage and dashboard alike", async () => {
+    mocks.orderFindManyMock.mockResolvedValue([
+      makeOrder({ id: "dashboard-processing", status: "processing" }),
+      makeOrder({ id: "homepage-processing", status: "processing", isWebsiteOrder: true }),
+      makeOrder({ id: "homepage-confirmed", status: "confirmed", isWebsiteOrder: true }),
+      makeOrder({ id: "active", status: "active" }),
+    ]);
+
+    const summary = await runDayBeforeDeliverySmsSweep({ now: EVENING_OSLO });
+
+    const texted = mocks.sendOrderSmsMock.mock.calls.map(([args]) => args.order.id);
+    expect(texted).toEqual(["homepage-confirmed", "active"]);
+    expect(summary).toMatchObject({ scanned: 4, sent: 2, skipped: 2 });
+  });
+
   it("skips an order another run already claimed", async () => {
     mocks.orderUpdateManyMock.mockResolvedValue({ count: 0 });
     const summary = await runDayBeforeDeliverySmsSweep({ now: EVENING_OSLO });

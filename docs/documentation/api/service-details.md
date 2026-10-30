@@ -13,6 +13,7 @@ access as `moving-details` (owner/admin or Website orders at ADMIN level). Teste
 - `handling` — the "Handle order" panel's fields and the calculator's discount/extra and partner minus/plus. Express and the
   deviation become the order's own lines, priced from the moving price list's settings (`movingHandlingItemRows`, the same
   line codes a move uses) and kept as priced when the quote changes. `nulledLines` ("Set to 0") is stored on the snapshot.
+- `adjustmentLines` (optional) — the calculator's adjustment lines (`readSubmittedAdjustmentLines`, `lib/orders/website-order-adjustment-lines.md`): their per-kind sums replace `handling`'s discount/extra/partner minus/plus, and the lines are stored in `pricingSnapshot.adjustmentLines` on whichever snapshot the save writes (the stored one when only descriptions changed). Not a list → `400 INVALID_BODY`.
 - `dryRun` — the price, the paid-vs-now `comparison` and `calculator` (`serviceOrderCalculatorView`) without saving.
 Lines are replaced in a transaction (`SERVICE_ITEM_PRODUCT_CODES`). No catalog, so no `useCurrentPrices`. Status and partner
 save through `/api/orders/bulk`. Changes are logged on the order's history.

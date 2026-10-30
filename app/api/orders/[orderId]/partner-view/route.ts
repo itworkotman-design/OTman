@@ -6,7 +6,8 @@ import { getWebsiteOrderCatalog } from "@/lib/content/websiteOrderCatalog";
 import { getMovingCatalog, type MovingCatalogOption } from "@/lib/content/getMovingCatalog";
 import { MOVING_ORDER_KIND } from "@/lib/orders/movingBookingDetails";
 import { movingEditFromOrder } from "@/lib/orders/movingOrderEdit";
-import { getOrderChargeAmountIncVatNok } from "@/lib/orders/orderTotals";
+import { getOrderChargeAmountIncVatNok, getPricingSnapshotAdjustmentLines } from "@/lib/orders/orderTotals";
+import { storedAdjustmentLines } from "@/lib/booking/pricing/adjustmentLines";
 import {
   partnerPricesFromCalculator,
   partnerPricesFromMovingItems,
@@ -102,6 +103,11 @@ export async function GET(req: Request, { params }: Params) {
   // Someone else's order looks just like a missing one.
   if (!order || !role) return reject("NOT_FOUND", 404);
 
+  // The admin calculator's adjustment lines, as stored (or the four amounts as
+  // plain lines): the partner's minus/plus each get their own row, like a
+  // regular order's; partnerPrices* never show the customer's lines.
+  const adjustmentLines = storedAdjustmentLines(getPricingSnapshotAdjustmentLines(order.pricingSnapshot), order);
+
   const common = {
     role,
     displayId: order.displayId,
@@ -143,7 +149,7 @@ export async function GET(req: Request, { params }: Params) {
           drivingDistance: order.drivingDistance ?? "",
         },
         sizeOptions,
-        partner: partnerPricesFromMovingItems(order.items, order.priceSubcontractor, movingAdjustmentsFromOrder(order)),
+        partner: partnerPricesFromMovingItems(order.items, order.priceSubcontractor, movingAdjustmentsFromOrder(order), adjustmentLines),
       },
     });
   }
@@ -165,7 +171,7 @@ export async function GET(req: Request, { params }: Params) {
           preferredDate: order.deliveryDate ?? "",
           timeWindow: order.timeWindow ?? "",
         },
-        partner: partnerPricesFromServiceItems(order.items, order.priceSubcontractor, movingAdjustmentsFromOrder(order)),
+        partner: partnerPricesFromServiceItems(order.items, order.priceSubcontractor, movingAdjustmentsFromOrder(order), adjustmentLines),
       },
     });
   }
@@ -195,7 +201,7 @@ export async function GET(req: Request, { params }: Params) {
       cards: priced.cards,
       products: priced.catalogProducts,
     });
-    partner = partnerPricesFromCalculator(calculator, order.priceSubcontractor);
+    partner = partnerPricesFromCalculator(calculator, order.priceSubcontractor, adjustmentLines);
   } catch (err) {
     console.error("[partner-view] Couldn't price the order:", err);
   }

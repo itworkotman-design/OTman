@@ -165,6 +165,48 @@ describe("GET /api/orders/[orderId]/partner-view", () => {
     expect(mocks.recompute).not.toHaveBeenCalled();
   });
 
+  it("lists the partner's own minus/plus lines with their descriptions, like a regular order — never the customer's discount", async () => {
+    mocks.orderFindFirst.mockResolvedValue({
+      ...whiteGoods,
+      websiteOrderKind: "MOVING",
+      priceSubcontractor: 2960,
+      rabatt: "100",
+      subcontractorMinus: "80",
+      subcontractorPlus: "40",
+      pricingSnapshot: {
+        customer: { totalExVat: 4900, totalIncVat: 6125 },
+        lines: [],
+        adjustmentLines: [
+          { id: "d1", kind: "discount", description: "Customer discount", amount: 100 },
+          { id: "m1", kind: "subcontractorMinus", description: "Late arrival", amount: 50 },
+          { id: "m2", kind: "subcontractorMinus", description: "Scratched floor", amount: 30 },
+          { id: "p1", kind: "subcontractorPlus", description: "Waiting time", amount: 40 },
+        ],
+      },
+      websiteBookingDetails: {
+        version: 1,
+        customerType: "private",
+        origin: { homeType: "APARTMENT", sizeOptionCode: "SIZE_UNDER_40", floors: 1, floorNumber: 1, hasLift: null, parking: "OUTSIDE" },
+        destination: { homeType: "DETACHED", sizeOptionCode: "SIZE_UNDER_40", floors: 2, floorNumber: null, hasLift: null, parking: "OUTSIDE" },
+        serviceCodes: [],
+      },
+      items: [
+        { productCode: "MOVING_BY_SIZE", optionCode: "SIZE_UNDER_40", optionLabel: "Under 40 m²", quantity: 1, customerPriceCents: 500000, subcontractorPriceCents: 300000 },
+      ],
+    });
+    const json = await (await call()).json();
+    expect(json.view.partner.groups.at(-1)).toEqual({
+      name: "Justering",
+      lines: [
+        { label: "Minus – Late arrival", qty: 1, price: -50 },
+        { label: "Minus – Scratched floor", qty: 1, price: -30 },
+        { label: "Pluss – Waiting time", qty: 1, price: 40 },
+      ],
+    });
+    expect(json.view.partner.mismatch).toBe(0);
+    expect(JSON.stringify(json.view)).not.toContain("Customer discount");
+  });
+
   const serviceOrder = {
     ...whiteGoods,
     websiteOrderKind: "SERVICE",

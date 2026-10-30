@@ -95,7 +95,7 @@ function AmountInput({
   );
 }
 
-type AdjustmentRowText = {
+export type AdjustmentRowText = {
   description: string;
   descriptionPlaceholder: string;
   optional: string;
@@ -291,7 +291,7 @@ function DraftAdjustmentRow({
   );
 }
 
-function AdjustmentLineRows({
+export function AdjustmentLineRows({
   lines,
   kinds,
   labels,
@@ -361,7 +361,7 @@ function AdjustmentLineRows({
 // Footer of the calculator card: full-bleed halves split by a divider. The
 // negative margins cancel .customContainer's 20px padding and the 19px radius
 // (20px minus its 1px border) clips the hover fill to the card's corners.
-function AddAdjustmentLineButtons({
+export function AddAdjustmentLineButtons({
   actions,
   onAdd,
   className = "",

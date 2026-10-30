@@ -1,5 +1,6 @@
 "use client";
 
+import { calculatorDraftBody } from "@/lib/orders/websiteOrderCalculator";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
@@ -13,6 +14,7 @@ import type { WebsiteOrderCalculatorView, WebsiteOrderPricingDraft } from "@/lib
 import WebsiteOrderCalculator from "./WebsiteOrderCalculator";
 import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
 import { serviceEditBlockers, serviceEditBody, type ServiceEditBlocker, type ServiceEditDraft } from "./serviceEditBody";
+import type { AdjustmentLine } from "@/lib/booking/pricing/adjustmentLines";
 
 type Props = {
   orderId: string;
@@ -23,6 +25,7 @@ type Props = {
   // and partner minus/plus, and the stored total.
   calculator: WebsiteOrderCalculatorView;
   adjustments: WebsiteOrderPricingDraft["adjustments"];
+  adjustmentLines?: AdjustmentLine[];
   storedTotal: number;
   onSaved: (message: string) => void;
   onCancel: () => void;
@@ -53,6 +56,7 @@ export default function ServiceOrderEditTab({
   initial,
   calculator,
   adjustments,
+  adjustmentLines,
   storedTotal,
   onSaved,
   onCancel,
@@ -78,7 +82,7 @@ export default function ServiceOrderEditTab({
 
   const body = {
     ...serviceEditBody(initial, draft),
-    ...(pricingDraft ? { handling: pricingDraft.adjustments, nulledLines: pricingDraft.nulledLines } : {}),
+    ...calculatorDraftBody(pricingDraft),
   };
   const bodyKey = JSON.stringify(body);
   const dirty = bodyKey !== "{}";
@@ -400,6 +404,7 @@ export default function ServiceOrderEditTab({
           orderId={orderId}
           calculator={calculator}
           adjustments={adjustments}
+          adjustmentLines={adjustmentLines}
           missingFromLines={0}
           storedTotal={storedTotal}
           currentPricesTotal={null}

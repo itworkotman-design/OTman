@@ -42,7 +42,7 @@ export const AUTOMATIC_SMS_TEMPLATE_DEFAULTS: Record<AutomaticSmsKind, { name: s
   DAY_BEFORE_DELIVERY: {
     name: "Automatic SMS the day before delivery",
     description:
-      "Sent at 19:00 the day before the order's delivery date (until 22:00 at the latest) to the customer's phone (Phone 2 if Phone is empty). Skips pending, cancelled, rejected and finished orders.",
+      "Sent at 19:00 the day before the order's delivery date (until 22:00 at the latest) to the customer's phone (Phone 2 if Phone is empty). Skips pending, processing, cancelled, rejected and finished orders.",
     body:
       "Hei {name}! Otman kommer til deg i morgen {date} ({timeWindow}) på {address}. " +
       "Oppdrag: {job}. Spørsmål? Ring oss på +47 402 84 977. Mvh Otman",

@@ -6,6 +6,7 @@ import {
   partnerMinusForDiscount,
   toggleNulledLine,
   websiteItemsSaveBody,
+  calculatorDraftBody,
   calculatorPreviewBody,
   websiteOrderCalculatorView,
 } from "./websiteOrderCalculator";
@@ -147,6 +148,19 @@ describe("websiteItemsSaveBody — one Save for the panel and the calculator", (
     });
   });
 
+  it("sends the calculator's adjustment lines with their summed amounts", () => {
+    const adjustmentLines = [
+      { id: "d1", kind: "discount" as const, description: "Damaged box", amount: 300 },
+      { id: "d2", kind: "discount" as const, description: "", amount: 200 },
+    ];
+    const draft = { adjustments: { rabatt: "500", leggTil: "", subcontractorMinus: "", subcontractorPlus: "" }, adjustmentLines, nulledLines };
+    expect(websiteItemsSaveBody({ driver: "Ola" }, draft)).toEqual({
+      handling: { driver: "Ola", rabatt: "500", leggTil: "", subcontractorMinus: "", subcontractorPlus: "" },
+      adjustmentLines,
+      nulledLines,
+    });
+  });
+
   it("asks for today's prices only when the calculator's \"Use new price\" was chosen", () => {
     const adjustments = { rabatt: "", leggTil: "", subcontractorMinus: "", subcontractorPlus: "" };
     expect(websiteItemsSaveBody({}, { adjustments, nulledLines, useCurrentPrices: true })).toMatchObject({ useCurrentPrices: true });
@@ -200,5 +214,23 @@ describe("calculatorPreviewBody — the calculator's dry run", () => {
       dryRun: true,
       useCurrentPrices: true,
     });
+  });
+});
+
+describe("calculatorDraftBody — what an Edit tab's save sends from its calculator", () => {
+  const nulledLines = { cards: {}, orderExtras: { customer: [], subcontractor: [] } };
+  const adjustments = { rabatt: "100", leggTil: "", subcontractorMinus: "", subcontractorPlus: "" };
+
+  it("is empty without a draft", () => {
+    expect(calculatorDraftBody(null)).toEqual({});
+  });
+
+  it("sends the amounts, the lines set to 0 and the adjustment lines", () => {
+    const adjustmentLines = [{ id: "d1", kind: "discount" as const, description: "Damaged box", amount: 100 }];
+    expect(calculatorDraftBody({ adjustments, adjustmentLines, nulledLines })).toEqual({ handling: adjustments, adjustmentLines, nulledLines });
+  });
+
+  it("leaves the adjustment lines out when the draft has none", () => {
+    expect(calculatorDraftBody({ adjustments, nulledLines })).toEqual({ handling: adjustments, nulledLines });
   });
 });

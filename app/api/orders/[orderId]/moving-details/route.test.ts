@@ -269,6 +269,34 @@ describe("PUT /api/orders/[orderId]/moving-details (admin edit of a homepage mov
     expect(mocks.getMovingCatalog).not.toHaveBeenCalled();
   });
 
+  it("prices with the calculator's adjustment lines and stores them on the pricing snapshot", async () => {
+    const lines = [
+      { id: "d1", kind: "discount", description: "Damaged box", amount: 300 },
+      { id: "d2", kind: "discount", description: "Loyal customer", amount: 200 },
+      { id: "m1", kind: "subcontractorMinus", description: "", amount: 300 },
+    ];
+    const res = await put({ adjustmentLines: lines });
+    expect((await res.json()).ok).toBe(true);
+    const data = mocks.orderUpdate.mock.calls[0][0].data;
+    expect(data).toMatchObject({ rabatt: "500", subcontractorMinus: "300" });
+    expect(data.priceExVat).toBe(5000 - 500);
+    expect(data.pricingSnapshot).toMatchObject({ customer: { discount: 500 }, adjustmentLines: lines });
+  });
+
+  it("stores a description-only change to the lines without re-pricing", async () => {
+    mocks.orderFindFirst.mockResolvedValue(storedOrder({ rabatt: "500" }));
+    const lines = [{ id: "d1", kind: "discount", description: "Now with a reason", amount: 500 }];
+    const res = await put({ adjustmentLines: lines });
+    expect((await res.json()).ok).toBe(true);
+    const data = mocks.orderUpdate.mock.calls[0][0].data;
+    expect(data).not.toHaveProperty("priceExVat");
+    expect(data.pricingSnapshot).toMatchObject({ customer: { totalExVat: 5000 }, adjustmentLines: lines });
+  });
+
+  it("rejects adjustment lines that aren't a list", async () => {
+    expect((await put({ adjustmentLines: "nope" })).status).toBe(400);
+  });
+
   it("keeps the stored discount when an edit re-prices the move", async () => {
     mocks.orderFindFirst.mockResolvedValue(storedOrder({ rabatt: "500", subcontractorMinus: "300" }));
     const json = await (await put({ edit: { ...edit, serviceCodes: ["SERVICE_FLYTTEVASK"] } })).json();

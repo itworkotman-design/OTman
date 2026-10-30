@@ -23,6 +23,7 @@ import { createOrderUpdatedEvent, type OrderEventChange } from "@/lib/orders/ord
 import { isWebsiteOrderLocked } from "@/lib/orders/statusPresentation";
 import { parseWebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import { validateTextField } from "@/lib/orders/websiteOrderValidation";
+import { readSubmittedAdjustmentLines, withAdjustmentLines } from "@/lib/orders/websiteOrderAdjustmentLines";
 
 // The admin's edit of a homepage service request (WebsiteOrderModal,
 // websiteOrderKind SERVICE) — the same API as a move's (moving-details): the
@@ -142,6 +143,11 @@ export async function PUT(req: Request, { params }: Params) {
   const body = record(await req.json().catch(() => null));
   if (!body) return reject("INVALID_BODY", 400);
   const dryRun = body.dryRun === true;
+  // The calculator's adjustment lines: their sums are the handling's four
+  // amounts, and the lines themselves go on the stored pricing snapshot.
+  const submittedAdjustments = readSubmittedAdjustmentLines(body);
+  if (!submittedAdjustments.ok) return reject("INVALID_BODY", 400);
+  const adjustmentLines = submittedAdjustments.lines;
 
   const { orderId } = await params;
   const order = await prisma.order.findFirst({ where: { id: orderId, companyId }, select: ORDER_SELECT });
@@ -166,8 +172,8 @@ export async function PUT(req: Request, { params }: Params) {
   let handlingRowsChanged = false;
 
   // "Handle order": the panel's fields and the calculator's amounts.
-  if (body.handling !== undefined) {
-    const parsed = parseWebsiteOrderHandling(body.handling, storedHandling);
+  if (submittedAdjustments.handling !== undefined) {
+    const parsed = parseWebsiteOrderHandling(submittedAdjustments.handling, storedHandling);
     if (!parsed.ok) return reject(parsed.reason, 422, { errors: parsed.errors });
     const h = parsed.handling;
     if (movingHandlingLinesChanged(storedHandling, h)) {
@@ -279,6 +285,13 @@ export async function PUT(req: Request, { params }: Params) {
       // The admin calculator as it would read after this save (WebsiteOrderCalculator).
       calculator: serviceOrderCalculatorView(save?.itemRows ?? lineRows ?? order.items, adjustments, { includePartner: true }),
     });
+  }
+
+  // The lines go on whichever pricing snapshot this save writes — the stored
+  // one when only their descriptions changed (the sums didn't re-price).
+  if (adjustmentLines) {
+    if (save) save.orderData.pricingSnapshot = withAdjustmentLines(save.orderData.pricingSnapshot, adjustmentLines);
+    else data.pricingSnapshot = withAdjustmentLines(data.pricingSnapshot ?? order.pricingSnapshot, adjustmentLines);
   }
 
   const itemRows = save?.itemRows ?? lineRows;

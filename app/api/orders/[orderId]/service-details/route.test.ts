@@ -222,6 +222,19 @@ describe("PUT /api/orders/[orderId]/service-details (admin edit of a homepage se
     );
   });
 
+  it("prices with the calculator's adjustment lines and stores them on the pricing snapshot", async () => {
+    const lines = [
+      { id: "d1", kind: "discount", description: "First-time customer", amount: 250 },
+      { id: "d2", kind: "discount", description: "", amount: 150 },
+      { id: "m1", kind: "subcontractorMinus", description: "", amount: 500 },
+    ];
+    const res = await put({ adjustmentLines: lines });
+    expect((await res.json()).priceExVat).toBe(3600);
+    const data = mocks.orderUpdate.mock.calls[0][0].data;
+    expect(data).toMatchObject({ rabatt: "400", subcontractorMinus: "500", priceSubcontractor: 2000 });
+    expect(data.pricingSnapshot).toMatchObject({ adjustmentLines: lines });
+  });
+
   it("sets the quote line to 0 from the calculator", async () => {
     const res = await put({ nulledLines: { cards: { 0: { customer: ["SERVICE_QUOTE:QUOTE:option-1"], subcontractor: [] } }, orderExtras: { customer: [], subcontractor: [] } } });
     expect((await res.json()).priceExVat).toBe(0);

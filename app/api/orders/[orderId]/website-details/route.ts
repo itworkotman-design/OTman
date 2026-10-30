@@ -11,7 +11,8 @@ import {
   pricingLinesFromSnapshot,
   checkWebsiteOrderTotals,
 } from "@/lib/orders/websiteOrderProducts";
-import { getOrderChargeAmountIncVatNok } from "@/lib/orders/orderTotals";
+import { getOrderChargeAmountIncVatNok, getPricingSnapshotAdjustmentLines } from "@/lib/orders/orderTotals";
+import { storedAdjustmentLines } from "@/lib/booking/pricing/adjustmentLines";
 import { handlingFromOrder } from "@/lib/orders/websiteOrderHandling";
 import { buildOrderStateSnapshot, compareOrderWithPayments } from "@/lib/orders/paidOrderSnapshot";
 import { recomputeWebsiteOrderPricing, resolveSavedCatalogPricing } from "@/lib/orders/websiteOrderRepricing";
@@ -160,6 +161,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
       !isCustomerAccountExpired(order.customerAccount.orders),
     // The fields only an admin handles (driver, deviation, discount…).
     handling: handlingFromOrder(order),
+    // The calculator's adjustment lines (several discounts/extras/partner
+    // minus/plus with descriptions), like a regular order's; an older order's
+    // four amounts as plain lines. The partner's lines only for those who may
+    // see partner prices.
+    adjustmentLines: storedAdjustmentLines(getPricingSnapshotAdjustmentLines(order.pricingSnapshot), order).filter(
+      (line) => canSeePartnerPrices || line.kind === "discount" || line.kind === "extra",
+    ),
     // Paid so far vs. the order now: what changed and what's due/refundable.
     payment: compareOrderWithPayments({
       payments: order.payments ?? [],

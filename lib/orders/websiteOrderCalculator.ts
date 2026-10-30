@@ -1,4 +1,4 @@
-import { proportionalSubcontractorMinus } from "@/lib/booking/pricing/adjustmentLines";
+import { proportionalSubcontractorMinus, type AdjustmentLine } from "@/lib/booking/pricing/adjustmentLines";
 import { parseNokAdjustment } from "@/lib/orders/orderTotals";
 import type { CalculatorResult } from "@/lib/booking/pricing/types";
 import type { CatalogProduct, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
@@ -157,7 +157,11 @@ export function parseNulledLines(raw: unknown): WebsiteOrderNulledLines | null {
 
 // The calculator's unsaved changes, saved by the modal's one Save button.
 export type WebsiteOrderPricingDraft = {
+  // The four amounts: the per-kind sums of adjustmentLines.
   adjustments: { rabatt: string; leggTil: string; subcontractorMinus: string; subcontractorPlus: string };
+  // The booking app's adjustment lines (several discounts/extras/partner
+  // minus/plus with descriptions); stored on the order's pricing snapshot.
+  adjustmentLines?: AdjustmentLine[];
   nulledLines: WebsiteOrderNulledLines;
   // "Use new price": the Save prices the order with today's catalog.
   useCurrentPrices?: boolean;
@@ -173,9 +177,21 @@ export function websiteItemsSaveBody(
   if (!draft) return { handling: panelHandling, ...extra };
   return {
     handling: { ...panelHandling, ...draft.adjustments },
+    ...(draft.adjustmentLines ? { adjustmentLines: draft.adjustmentLines } : {}),
     nulledLines: draft.nulledLines,
     ...(draft.useCurrentPrices ? { useCurrentPrices: true } : {}),
     ...extra,
+  };
+}
+
+// What an "Edit order" tab's save sends from its calculator: the amounts,
+// the adjustment lines and the lines set to 0 (nothing when unchanged).
+export function calculatorDraftBody(draft: WebsiteOrderPricingDraft | null) {
+  if (!draft) return {};
+  return {
+    handling: draft.adjustments,
+    ...(draft.adjustmentLines ? { adjustmentLines: draft.adjustmentLines } : {}),
+    nulledLines: draft.nulledLines,
   };
 }
 

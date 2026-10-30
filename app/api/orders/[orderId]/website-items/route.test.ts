@@ -578,6 +578,29 @@ describe("/api/orders/[orderId]/website-items", () => {
       );
     });
 
+    it("prices with the calculator's adjustment lines and stores them on the pricing snapshot", async () => {
+      const lines = [
+        { id: "d1", kind: "discount", description: "Damaged box", amount: 100 },
+        { id: "d2", kind: "discount", description: "Loyal customer", amount: 50 },
+        { id: "m1", kind: "subcontractorMinus", description: "", amount: 37 },
+      ];
+      // The calculator also sends its (summed) fields; the lines win.
+      const res = await put({ handling: { rabatt: "1", leggTil: "", subcontractorMinus: "", subcontractorPlus: "" }, adjustmentLines: lines });
+      expect(res.status).toBe(200);
+
+      const [pricedOrder] = mocks.recomputeMock.mock.calls[0]!;
+      expect(pricedOrder).toMatchObject({ rabatt: "150", subcontractorMinus: "37" });
+      const [, written, data] = mocks.pricingWritesMock.mock.calls[0]!;
+      expect(data).toMatchObject({ rabatt: "150", subcontractorMinus: "37" });
+      expect(written.pricingSnapshot).toMatchObject({ customer: { totalExVat: 1500 }, adjustmentLines: lines });
+    });
+
+    it("rejects adjustment lines that aren't a list", async () => {
+      const res = await put({ adjustmentLines: "nope" });
+      expect(res.status).toBe(400);
+      expect(mocks.pricingWritesMock).not.toHaveBeenCalled();
+    });
+
     it("lets them be saved on a completed order, where products and addresses stay locked", async () => {
       mocks.orderFindFirstMock.mockResolvedValue(order({ status: "completed" }));
       expect((await put({ handling })).status).toBe(200);
