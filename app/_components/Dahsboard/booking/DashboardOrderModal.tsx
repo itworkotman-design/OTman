@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import OrderModal from "@/app/_components/Dahsboard/booking/OrderModal";
-import WebsiteOrderModal, {
-  type WebsiteOrderView,
-} from "@/app/_components/Dahsboard/booking/websiteOrders/WebsiteOrderModal";
+import WebsiteOrderModal from "@/app/_components/Dahsboard/booking/websiteOrders/WebsiteOrderModal";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
-import { orderModalMode } from "./orderModalMode";
+import { useResolvedOrder } from "./useResolvedOrder";
 
 type Props = {
   orderId: string | null;
@@ -19,11 +17,6 @@ type Props = {
   locale?: BookingUiLocale;
 };
 
-type Resolved =
-  | { orderId: string; mode: "website"; order: WebsiteOrderView }
-  | { orderId: string; mode: "standard" }
-  | { orderId: string; mode: "error" };
-
 // Drop-in replacement for OrderModal (same props): homepage white-goods
 // website orders open in WebsiteOrderModal, every other order in the regular
 // OrderModal, unchanged. Decided by asking /api/orders/[orderId]/website-details
@@ -32,41 +25,7 @@ type Resolved =
 export default function DashboardOrderModal(props: Props) {
   const { orderId, open, onClose, onSaved, canDelete, onDeleted, locale = "en" } = props;
   const requestedId = open && orderId ? orderId : null;
-  const [resolved, setResolved] = useState<Resolved | null>(null);
-  const current = resolved && resolved.orderId === requestedId ? resolved : null;
-  // Bumped after an admin action in the website view to re-fetch the order
-  // in place (the current view stays up meanwhile).
-  const [reloadCount, setReloadCount] = useState(0);
-
-  useEffect(() => {
-    if (!requestedId) return;
-    let cancelled = false;
-
-    async function resolve(id: string) {
-      try {
-        const res = await fetch(`/api/orders/${id}/website-details`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const data = await res.json().catch(() => null);
-        if (cancelled) return;
-        const mode = orderModalMode(res.status, data);
-        setResolved(
-          mode === "website"
-            ? { orderId: id, mode, order: data.order as WebsiteOrderView }
-            : { orderId: id, mode },
-        );
-      } catch {
-        if (!cancelled) setResolved({ orderId: id, mode: "error" });
-      }
-    }
-
-    void resolve(requestedId);
-    return () => {
-      cancelled = true;
-    };
-    // reloadCount only re-triggers the fetch.
-  }, [requestedId, reloadCount]);
+  const { current, reload, retry } = useResolvedOrder(requestedId);
 
   // Scroll lock + Escape while this component shows its own UI (loading or
   // the website view) — OrderModal handles both itself.
@@ -97,7 +56,7 @@ export default function DashboardOrderModal(props: Props) {
         order={current.order}
         onClose={onClose}
         onChanged={() => {
-          setReloadCount((count) => count + 1);
+          reload();
           onSaved?.();
         }}
         canDelete={canDelete}
@@ -116,10 +75,7 @@ export default function DashboardOrderModal(props: Props) {
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => {
-                setResolved(null);
-                setReloadCount((count) => count + 1);
-              }}
+              onClick={retry}
               className="customButtonEnabled h-10 px-5"
             >
               {t("Try again", "Prøv igjen")}

@@ -6,6 +6,7 @@ import type { OrderRow } from "@/app/_components/Dahsboard/booking/archive/types
 import OrderSmsPanel from "@/app/_components/Dahsboard/booking/archive/OrderSmsPanel";
 import OrderEditPanel from "@/app/_components/Dahsboard/booking/OrderEditPanel";
 import { usesWebsiteOrderModal } from "@/app/_components/Dahsboard/booking/orderModalMode";
+import WebsiteOrderEditPanel from "@/app/_components/Dahsboard/booking/websiteOrders/WebsiteOrderEditPanel";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 
 type SnapshotPayload = {
@@ -505,8 +506,9 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged,
   // The editor mounts on first visit and then stays mounted (hidden) so
   // unsaved edits survive switching to another tab and back.
   const [editVisited, setEditVisited] = useState(false);
-  // A homepage order is edited in its website modal, never in the regular editor.
-  const canEdit = Boolean(edit) && !(order && usesWebsiteOrderModal(order));
+  const canEdit = Boolean(edit);
+  // The website order view reports unsaved edits, so closing can confirm first.
+  const [editUnsaved, setEditUnsaved] = useState(false);
 
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -568,6 +570,7 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged,
           : "conversation";
     setActiveTab(startTab);
     setEditVisited(startTab === "edit");
+    setEditUnsaved(false);
     setRecipientEmail(order.email || order.createdByEmail || "");
     setRecipientName(order.customerLabel || order.customerName || order.createdByName || "");
     setSubject(defaultSubject);
@@ -1114,7 +1117,10 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged,
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => {
+                if (editUnsaved && !window.confirm("Discard your unsaved changes to the order?")) return;
+                onClose();
+              }}
               className="grid h-9 w-9 place-items-center rounded-full bg-logoblue text-white"
               aria-label="Close email modal"
             >
@@ -1176,14 +1182,28 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged,
           <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-6 py-5">
             {edit && editVisited ? (
               <div className={activeTab === "edit" ? "rounded-2xl border border-black/10 bg-white p-4" : "hidden"}>
-                <OrderEditPanel
-                  orderId={order.id}
-                  locale={edit.locale}
-                  canDelete={edit.canDelete}
-                  onSaved={edit.onSaved}
-                  onDeleted={edit.onDeleted}
-                  onDone={onClose}
-                />
+                {/* A homepage order gets its own website view (never the regular
+                    editor, which would re-price it with dashboard pricing). */}
+                {usesWebsiteOrderModal(order) ? (
+                  <WebsiteOrderEditPanel
+                    orderId={order.id}
+                    locale={edit.locale}
+                    canDelete={edit.canDelete}
+                    onSaved={edit.onSaved}
+                    onDeleted={edit.onDeleted}
+                    onDone={onClose}
+                    onUnsavedChange={setEditUnsaved}
+                  />
+                ) : (
+                  <OrderEditPanel
+                    orderId={order.id}
+                    locale={edit.locale}
+                    canDelete={edit.canDelete}
+                    onSaved={edit.onSaved}
+                    onDeleted={edit.onDeleted}
+                    onDone={onClose}
+                  />
+                )}
               </div>
             ) : null}
             {activeTab === "edit" ? null : activeTab === "conversation" ? (

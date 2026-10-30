@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import DashboardOrderModal from "@/app/_components/Dahsboard/booking/DashboardOrderModal";
-import { usesWebsiteOrderModal } from "@/app/_components/Dahsboard/booking/orderModalMode";
 import ReadOnlyOrderModal from "@/app/_components/Dahsboard/booking/orders/ReadOnlyOrderModal";
 import BookingFilters from "@/app/_components/Dahsboard/booking/archive/BookingFilters";
 import BookingArchiveTable from "@/app/_components/Dahsboard/booking/archive/BookingArchiveTable";
@@ -852,10 +851,9 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
               orders={orders}
               viewMode={access.viewMode}
               onRowClick={(orderId) => {
-                // Admins get the Alert Center opened on its "Edit order" tab. A homepage order opens
-                // in its website modal (DashboardOrderModal) instead.
+                // Admins get the Alert Center opened on its "Edit order" tab.
                 const row = access.viewMode === "ADMIN" ? orders.find((order) => order.id === orderId) : undefined;
-                if (row && !usesWebsiteOrderModal(row)) {
+                if (row) {
                   setEmailOrder(row);
                   setEmailInitialTab("edit");
                   setEmailModalOpen(true);

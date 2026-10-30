@@ -22,8 +22,8 @@ describe("orderModalMode", () => {
 });
 
 describe("usesWebsiteOrderModal", () => {
-  // These rows skip the Alert Center's "Edit order" tab (the regular editor
-  // would re-price them with dashboard pricing) and open DashboardOrderModal.
+  // These rows get the website order view in the Alert Center's "Edit order"
+  // tab — the regular editor would re-price them with dashboard pricing.
   it.each(["WHITE_GOODS", "MOVING", "SERVICE"])("is true for a homepage %s order", (kind) => {
     expect(usesWebsiteOrderModal({ websiteOrderKind: kind })).toBe(true);
   });

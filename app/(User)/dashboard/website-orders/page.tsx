@@ -22,7 +22,6 @@ import BulkUpdateBar from "@/app/_components/Dahsboard/booking/archive/BulkUpdat
 import SelectionActionBar from "@/app/_components/Dahsboard/booking/archive/SelectionActionBar";
 import BookingColumnVisibilityModal from "@/app/_components/Dahsboard/booking/archive/BookingColumnVisibilityModal";
 import DashboardOrderModal from "@/app/_components/Dahsboard/booking/DashboardOrderModal";
-import { usesWebsiteOrderModal } from "@/app/_components/Dahsboard/booking/orderModalMode";
 import OrderEmailModal, { type AlertCenterTab } from "@/app/_components/Dahsboard/booking/archive/OrderEmailModal";
 import ShiftLeaderBanner from "@/app/_components/Dahsboard/booking/ShiftLeaderBanner";
 import type { BookingArchiveFilters, BookingArchiveOption, OrderRow } from "@/app/_components/Dahsboard/booking/archive/types";
@@ -458,10 +457,9 @@ export default function WebsiteOrdersPage() {
               orders={orders}
               viewMode="ADMIN"
               onRowClick={(orderId) => {
-                // Opens the Alert Center on its "Edit order" tab. A homepage order opens
-                // in its website modal (DashboardOrderModal) instead.
+                // Opens the Alert Center on its "Edit order" tab.
                 const row = orders.find((order) => order.id === orderId);
-                if (row && !usesWebsiteOrderModal(row)) {
+                if (row) {
                   setEmailOrder(row);
                   setEmailInitialTab("edit");
                   setEmailModalOpen(true);

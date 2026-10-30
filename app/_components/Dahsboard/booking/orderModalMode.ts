@@ -14,11 +14,12 @@ export function orderModalMode(status: number | null, data: unknown): OrderModal
   return "error";
 }
 
-// A homepage order (any websiteOrderKind) is edited in DashboardOrderModal's
-// website modal only — never in the regular editor (OrderEditPanel, e.g. the
-// Alert Center's "Edit order" tab), which would re-price it with dashboard
-// pricing. DashboardOrderModal itself still falls back to the regular modal
-// for a kind the website modal doesn't handle.
+// A homepage order (any websiteOrderKind) is edited in the website order view
+// (WebsiteOrderPanel) — in the Alert Center's "Edit order" tab
+// (WebsiteOrderEditPanel) or WebsiteOrderModal — never in the regular editor
+// (OrderEditPanel), which would re-price it with dashboard pricing. The
+// website view itself still falls back to the regular editor for a kind it
+// doesn't handle.
 export function usesWebsiteOrderModal(order: { websiteOrderKind?: string | null }): boolean {
   return Boolean(order.websiteOrderKind);
 }
