@@ -8,7 +8,8 @@ import type { PickupSource } from "./PickupSourceStep";
 // can check everything before sending. Products and prices are shown by
 // WhiteGoodsOrderSummary next to these.
 
-export type ReviewRow = { label: string; value: string };
+// `copy`: the admin panel shows a copy button beside it (markCopyableRows).
+export type ReviewRow = { label: string; value: string; copy?: boolean };
 // "location" blocks (pickups, delivery, a move's two ends) get a location pin
 // on the review page; "details" (a move's timing) and "contact" don't.
 export type ReviewBlock = { kind: "location" | "details" | "contact"; title: string; rows: ReviewRow[] };
@@ -99,4 +100,16 @@ export function buildOrderReviewBlocks(locale: Locale, input: ReviewInput): Revi
       ]),
     },
   ];
+}
+
+// The admin panel's copy buttons, like the regular order modal's: every
+// address (pickups, delivery, a move's two ends, a service's address) and the
+// customer's phone. Every builder uses the same "Address"/"Phone" labels.
+export function markCopyableRows(blocks: ReviewBlock[], locale: Locale): ReviewBlock[] {
+  const t = (en: string, no: string) => (locale === "no" ? no : en);
+  const copyable = new Set([t("Address", "Adresse"), t("Phone", "Telefon")]);
+  return blocks.map((block) => ({
+    ...block,
+    rows: block.rows.map((row) => (copyable.has(row.label) ? { ...row, copy: true } : row)),
+  }));
 }

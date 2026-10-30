@@ -24,6 +24,7 @@ import {
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import {
   calculatorPreviewBody,
+  formatLineQty,
   nulledLinesFromView,
   toggleNulledLine,
   type WebsiteOrderCalculatorLine,
@@ -111,10 +112,6 @@ function hasNulled(nulled: WebsiteOrderNulledLines) {
 
 function formatKr(n: number) {
   return `${Math.round(n).toLocaleString("nb-NO")} kr`;
-}
-
-function formatQty(qty: number) {
-  return String(Math.round(qty * 2) / 2);
 }
 
 // The calculator in WebsiteOrderModal, like the booking app's
@@ -340,7 +337,7 @@ export default function WebsiteOrderCalculator({
             {/* Option codes (WASHING_MACHINE_NONAPPR_WET) have no natural break
                 point — let them wrap instead of widening the column. */}
             <span className="min-w-0 [overflow-wrap:anywhere]">
-              {line.qty > 1 && <span className="mr-1 opacity-70">x{formatQty(line.qty)}</span>}
+              {line.qty > 1 && <span className="mr-1 opacity-70">x{formatLineQty(line.qty)}</span>}
               {line.code && <span className={`mr-1 ${side === "partner" ? "text-amber-700" : "text-logoblue"}`}>({line.code})</span>}
               {line.label}
             </span>

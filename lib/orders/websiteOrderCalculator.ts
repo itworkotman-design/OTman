@@ -195,6 +195,11 @@ export function calculatorDraftBody(draft: WebsiteOrderPricingDraft | null) {
   };
 }
 
+// A line's quantity as the booking app's calculator shows it: hours to the quarter.
+export function formatLineQty(qty: number) {
+  return String(Math.round(qty * 4) / 4);
+}
+
 // The calculator's dry run (WebsiteOrderCalculator): its amounts and lines
 // set to 0, plus the "Handle order" panel's unsaved express/deviation
 // (pricedHandlingFields), so the lines they add show before Save.

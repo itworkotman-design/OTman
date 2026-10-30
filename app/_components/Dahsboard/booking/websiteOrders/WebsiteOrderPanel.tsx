@@ -2,7 +2,7 @@
 
 import type { PriceChangeRow } from "@/lib/booking/pricing/priceChanges";
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { buildOrderReviewBlocks } from "@/app/_components/site/BookingModal/whiteGoods/orderReview";
+import { buildOrderReviewBlocks, markCopyableRows } from "@/app/_components/site/BookingModal/whiteGoods/orderReview";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 import type { BookingCustomerType, OrderExtraLine, WhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetails";
 import type { MovingCatalogOption } from "@/lib/content/getMovingCatalog";
@@ -460,7 +460,7 @@ export default function WebsiteOrderPanel({
           <div className="flex flex-col gap-4">
             {/* All the order's details in one card, sections split by a line. */}
             <div className="divide-y divide-black/10 rounded-2xl border border-black/10 bg-white">
-              <OrderReviewBlocks blocks={reviewBlocks} bare />
+              <OrderReviewBlocks blocks={markCopyableRows(reviewBlocks, siteLocale)} bare />
 
               {order.statusNotes?.trim() && (
                 <div className="p-6">

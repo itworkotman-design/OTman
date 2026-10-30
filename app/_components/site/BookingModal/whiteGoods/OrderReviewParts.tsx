@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import { PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
+import CopyButton from "@/app/_components/utils/CopyButton";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import type { ReviewBlock } from "./orderReview";
 
@@ -9,6 +10,7 @@ import type { ReviewBlock } from "./orderReview";
 
 // The answers as labelled cards: one per block, a location pin on
 // pickup/delivery/move-end blocks. Notes keep their line breaks.
+// A row marked `copy` (markCopyableRows, admin panel only) gets a copy button.
 // `bare` drops each block's own card, for a parent that puts them all in one card.
 export function OrderReviewBlocks({ blocks, bare = false }: { blocks: ReviewBlock[]; bare?: boolean }) {
   return (
@@ -23,7 +25,10 @@ export function OrderReviewBlocks({ blocks, bare = false }: { blocks: ReviewBloc
             {block.rows.map((row) => (
               <Fragment key={row.label}>
                 <dt className="text-black/50">{row.label}</dt>
-                <dd className="wrap-break-word whitespace-pre-line text-black/85">{row.value}</dd>
+                <dd className="wrap-break-word whitespace-pre-line text-black/85">
+                  {row.value}
+                  {row.copy && <CopyButton value={row.value} ariaLabel={`Copy ${row.label.toLowerCase()}`} className="ml-2" />}
+                </dd>
               </Fragment>
             ))}
           </dl>

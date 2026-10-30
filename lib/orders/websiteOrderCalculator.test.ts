@@ -8,6 +8,7 @@ import {
   websiteItemsSaveBody,
   calculatorDraftBody,
   calculatorPreviewBody,
+  formatLineQty,
   websiteOrderCalculatorView,
 } from "./websiteOrderCalculator";
 
@@ -232,5 +233,14 @@ describe("calculatorDraftBody — what an Edit tab's save sends from its calcula
 
   it("leaves the adjustment lines out when the draft has none", () => {
     expect(calculatorDraftBody({ adjustments, nulledLines })).toEqual({ handling: adjustments, nulledLines });
+  });
+});
+
+describe("formatLineQty — a line's quantity, like the booking app's calculator", () => {
+  it("rounds hours to the quarter", () => {
+    expect(formatLineQty(1.25)).toBe("1.25");
+    expect(formatLineQty(2.75)).toBe("2.75");
+    expect(formatLineQty(1.3)).toBe("1.25");
+    expect(formatLineQty(3)).toBe("3");
   });
 });

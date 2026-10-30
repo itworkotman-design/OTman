@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildOrderReviewBlocks, type ReviewPickup } from "./orderReview";
+import { buildOrderReviewBlocks, markCopyableRows, type ReviewBlock, type ReviewPickup } from "./orderReview";
 
 const pickup: ReviewPickup = {
   source: "store",
@@ -103,5 +103,35 @@ describe("buildOrderReviewBlocks", () => {
     const contact = rows(blocks[blocks.length - 1]);
     expect(contact["Full name"]).toBe("Kari");
     expect(contact).not.toHaveProperty("Org. no.");
+  });
+});
+
+describe("markCopyableRows (the admin panel's copy buttons, like the regular order modal)", () => {
+  const blocks: ReviewBlock[] = [
+    { kind: "location", title: "Henting", rows: [{ label: "Sted", value: "Power" }, { label: "Adresse", value: "Strømmen 1" }] },
+    { kind: "location", title: "Levering", rows: [{ label: "Adresse", value: "Kirkegata 5" }, { label: "Tidsvindu", value: "08-16" }] },
+    { kind: "contact", title: "Dine opplysninger", rows: [{ label: "Navn", value: "Kari" }, { label: "Telefon", value: "87654321" }] },
+  ];
+
+  it("marks every address and the customer's phone as copyable, nothing else", () => {
+    const marked = markCopyableRows(blocks, "no");
+    expect(marked.flatMap((block) => block.rows.filter((row) => row.copy).map((row) => row.value))).toEqual([
+      "Strømmen 1",
+      "Kirkegata 5",
+      "87654321",
+    ]);
+  });
+
+  it("matches the English labels too", () => {
+    const english = buildOrderReviewBlocks("en", {
+      pickups: [],
+      delivery: { address: "Kirkegata 5", floor: null, liftAvailable: false },
+      preferredDate: "",
+      timeWindow: "",
+      drivingDistance: "",
+      contact: { name: "Kari", phone: "87654321", email: "kari@example.no", notes: "" },
+    });
+    const copied = markCopyableRows(english, "en").flatMap((block) => block.rows.filter((row) => row.copy).map((row) => row.value));
+    expect(copied).toEqual(["Kirkegata 5", "87654321"]);
   });
 });

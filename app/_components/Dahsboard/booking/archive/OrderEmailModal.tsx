@@ -6,6 +6,7 @@ import type { OrderRow } from "@/app/_components/Dahsboard/booking/archive/types
 import OrderSmsPanel from "@/app/_components/Dahsboard/booking/archive/OrderSmsPanel";
 import OrderEditPanel from "@/app/_components/Dahsboard/booking/OrderEditPanel";
 import { usesWebsiteOrderModal } from "@/app/_components/Dahsboard/booking/orderModalMode";
+import CopyButton from "@/app/_components/utils/CopyButton";
 import WebsiteOrderEditPanel from "@/app/_components/Dahsboard/booking/websiteOrders/WebsiteOrderEditPanel";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 
@@ -1104,9 +1105,15 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged,
           <div className="flex items-center justify-between border-b border-black/10 px-6 py-4">
             <div>
               <h2 className="text-2xl font-semibold text-logoblue">{activeTab === "edit" ? (typeof order.displayId === "number" && order.displayId > 0 ? `Editing ${order.displayId}` : "Editing order") : "Alert Center"}</h2>
-              {/* The Edit tab's title already carries the order number. */}
+              {/* The Edit tab's title already carries the order number. A website
+                  order's panel has no order-number field, so its copy button is here. */}
               {activeTab === "edit" ? (
-                order.orderNumber ? <p className="mt-1 text-sm text-textColorThird">{order.orderNumber}</p> : null
+                order.orderNumber ? (
+                  <p className="mt-1 text-sm text-textColorThird">
+                    {order.orderNumber}
+                    {usesWebsiteOrderModal(order) && <CopyButton value={order.orderNumber} ariaLabel="Copy order number" className="ml-2" />}
+                  </p>
+                ) : null
               ) : (
                 <p className="mt-1 text-sm text-textColorThird">
                   {orderLabel}

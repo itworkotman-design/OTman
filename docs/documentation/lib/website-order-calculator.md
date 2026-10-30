@@ -11,6 +11,7 @@ The data behind the calculator in `WebsiteOrderModal`, shown like the booking ap
 ## Functions
 
 - `websiteOrderCalculatorView(result, { includePartner, cards?, products? })` — every product and order-extras line with its customer and partner price, plus the customer side (subtotal, discount, extra, total) and the partner side (base, minus, plus, total). Without `includePartner`, partner prices are `null` and `partner` is `null`. Given the order's `cards` and catalog `products` (both routes pass `recomputeWebsiteOrderPricing`'s `cards` / `catalogProducts`), a size-priced item is titled with what it is, "A.M: Piano" (`getCalculatorProductName`, same as the customer's calculator); otherwise the catalog name is kept. A line set to 0 shows 0 kr and is not shown again in `discount` / `minus`.
+- `formatLineQty(qty)` — a line quantity as the booking app shows it: hours rounded to the quarter (`1.25`).
 - `partnerMinusForDiscount({ rabatt, subtotal, partnerBase })` — the booking app's rule: a discount cuts the partner's pay by the same share (`deriveDiscountSync` without DNB). `""` when there's no discount or no subtotal.
 - The view's `customer.totalIncVat` is `websiteCustomerTotals(result).totalIncVat`: what the customer pays, summed per line incl. VAT.
 
