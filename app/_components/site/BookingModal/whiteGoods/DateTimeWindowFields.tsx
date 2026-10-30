@@ -1,6 +1,6 @@
 "use client";
 
-import DatePicker from "@/app/_components/utils/DatePicker";
+import WebsiteDatePicker from "@/app/_components/utils/WebsiteDatePicker";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { addDaysIso, getOsloDateKey } from "@/lib/dates/isoDate";
 import { isNorwegianPublicHoliday } from "@/lib/dates/norwayHolidays";
@@ -38,7 +38,7 @@ export function DateTimeWindowFields({
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <label className="block">
         <FieldLabel icon={<CalendarIcon className="h-4 w-4" />}>{t("Requested date", "Ønsket dato")}</FieldLabel>
-        <DatePicker
+        <WebsiteDatePicker
           value={preferredDate}
           onChange={setPreferredDate}
           locale={locale}

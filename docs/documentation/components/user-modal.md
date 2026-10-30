@@ -6,10 +6,11 @@
 
 ## Responsibility
 
-Renders the create/edit user dialog, including profile fields, the optional `warehouseEmail` alongside the primary email and address fields, role/access settings, price-list assignment, direct-password or invite-based setup for new users, profile logo upload, S3-backed logo preview display, username color selection, password reset actions, and membership activation toggles.
+Renders the create/edit user dialog, including profile fields, the optional `warehouseEmail` alongside the primary email and address fields, role/access settings, price-list assignment, direct-password or invite-based setup for new users, profile logo upload, a "Previously used pictures" picker (logos already used by company members, from `GET /api/auth/users/logos`) so one file can be shared across users, S3-backed logo preview display, username color selection, password reset actions, and membership activation toggles.
 
 ## Functions
 
 | Function | Description |
 | --- | --- |
 | `UserModal` | Main user-management modal. Builds the editable form from the helper module, resets only when a new modal session starts, lets create mode switch between direct password setup and the invite flow, captures the optional warehouse email and profile address, renders managed S3 logo paths through the authenticated display endpoint, manages the optional logo and username color inputs, and sends the full user payload back through `onSave`. |
+| `handlePickUsedLogo` | Selects an already-uploaded logo: sets `form.logoPath` to its managed path and clears any pending `logoFile`, so saving reuses the existing file instead of uploading. |

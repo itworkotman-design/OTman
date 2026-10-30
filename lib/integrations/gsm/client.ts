@@ -6,6 +6,13 @@ const GSM_API_VERSION =
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
 export  async function getGsmToken() {
+  // GSM no longer allows username/password sign-in for integrations — an API
+  // key created in the GSM web app is sent the same way as a login token.
+  const apiKey = process.env.GSM_API_KEY?.trim();
+  if (apiKey) {
+    return apiKey;
+  }
+
   const now = Date.now();
 
   if (cachedToken && cachedToken.expiresAt > now + 30_000) {
@@ -34,7 +41,9 @@ export  async function getGsmToken() {
   const data = await res.json().catch(() => null);
 
   if (!res.ok || !data?.token) {
-    throw new Error("GSM authentication failed");
+    throw new Error(
+      `GSM authentication failed (${res.status}): ${JSON.stringify(data)}`,
+    );
   }
 
   cachedToken = {

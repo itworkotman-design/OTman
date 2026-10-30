@@ -28,6 +28,12 @@ import { usesFullDistanceKmPricing } from "@/lib/booking/pricing/distanceCharges
 import type { PriceListSettings } from "@/lib/products/priceListSettings";
 import type { PriceLookup } from "@/lib/booking/pricing/types";
 import WebsitePartnerOrderView, { downloadWebsitePartnerPdf, useWebsitePartnerView } from "./WebsitePartnerOrderView";
+import {
+  adjustmentLinesForView,
+  adjustmentLinesFromLegacy,
+  type AdjustmentLine,
+} from "@/lib/booking/pricing/adjustmentLines";
+import { renderAdjustmentRowsHtml } from "./adjustmentRowsHtml";
 
 type ReadOnlyOrder = {
   id: string;
@@ -107,6 +113,7 @@ type FullOrderResponse = {
     customDeviationPrice?: number | null;
     customDeviationSubcontractorPrice?: number | null;
     customDeviationDescription?: string;
+    adjustmentLines?: AdjustmentLine[];
   };
   reason?: string;
 };
@@ -125,6 +132,7 @@ type AdminCalculatorState = {
   priceExVat: number;
   priceSubcontractor: number;
   hasWordpressReadOnlyRows: boolean;
+  adjustmentLines: AdjustmentLine[] | null;
 };
 
 type PdfDetailRow = {
@@ -169,8 +177,7 @@ function roundMoney(value: number) {
 }
 
 function formatQty(qty: number) {
-  const rounded = Math.round(qty * 2) / 2;
-  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+  return String(Math.round(qty * 4) / 4);
 }
 
 function escapeHtml(value: string | number | null | undefined) {
@@ -213,7 +220,21 @@ function getPdfDetailRows(order: ReadOnlyOrder): PdfDetailRow[] {
 }
 
 
-function renderAdminCalculatorHtml(state: AdminCalculatorState, isSubcontractor: boolean) {
+// The viewer's own adjustment lines: customer discount/extra for order
+// creators and admins, partner minus/plus for partners. Partners viewing a
+// WordPress-imported order with read-only rows don't get adjustments, same
+// as the on-screen calculator.
+function getViewerAdjustmentLines(
+  state: AdminCalculatorState,
+  isSubcontractor: boolean,
+  legacyFields: Pick<ReadOnlyOrder, "rabatt" | "leggTil" | "subcontractorMinus" | "subcontractorPlus">,
+): AdjustmentLine[] {
+  if (isSubcontractor && state.hasWordpressReadOnlyRows) return [];
+  const lines = state.adjustmentLines ?? adjustmentLinesFromLegacy(legacyFields);
+  return adjustmentLinesForView(lines, isSubcontractor ? "partner" : "customer");
+}
+
+function renderAdminCalculatorHtml(state: AdminCalculatorState, isSubcontractor: boolean, order: ReadOnlyOrder) {
   const result = calculateBookingPricing({
     productBreakdowns: state.productBreakdowns,
     priceLookup: state.priceLookup,
@@ -258,10 +279,15 @@ function renderAdminCalculatorHtml(state: AdminCalculatorState, isSubcontractor:
   const totalExVat = roundMoney(isSubcontractor ? state.priceSubcontractor : state.priceExVat);
   const vat = roundMoney(totalExVat * 0.25);
   const totalIncVat = roundMoney(totalExVat + vat);
+  const adjustmentRowsHtml = renderAdjustmentRowsHtml(
+    getViewerAdjustmentLines(state, isSubcontractor, order),
+    isSubcontractor ? "partner" : "customer",
+  );
 
   return `
     <aside class="calculator-card">
       <div class="calculator-lines">${groupsHtml}</div>
+      ${adjustmentRowsHtml ? `<div class="calculator-adjustments">${adjustmentRowsHtml}</div>` : ""}
       <div class="calculator-summary">
         <div class="priceRow total-row"><div>Total</div><strong>${escapeHtml(formatMoney(totalExVat, { forceDecimals: true }))}</strong></div>
         <div class="priceRow"><div>MVA (25%)</div><strong>${escapeHtml(formatMoney(vat, { forceDecimals: true }))}</strong></div>
@@ -344,6 +370,7 @@ function downloadOrderPdf(order: ReadOnlyOrder, viewMode: BookingArchiveViewMode
           .priceRow:last-child {
             border-bottom: 0;
           }
+          .calculator-adjustments { border-bottom: 2px solid #d8dee8; padding: 8px 0; }
           .calculator-summary { padding-top: 12px; }
           .total-row { font-size: 20px; font-weight: 700; }
           .empty-calculator { margin: 0; color: #64748b; }
@@ -353,7 +380,7 @@ function downloadOrderPdf(order: ReadOnlyOrder, viewMode: BookingArchiveViewMode
         <h1>Ordredetaljer</h1>
         <div class="pdf-layout">
           <table><tbody>${detailRowsHtml}</tbody></table>
-          ${calculatorState ? renderAdminCalculatorHtml(calculatorState, isSubcontractor) : `<p>Calculator missing data.</p>`}
+          ${calculatorState ? renderAdminCalculatorHtml(calculatorState, isSubcontractor, order) : `<p>Calculator missing data.</p>`}
         </div>
         <script>window.onload = function() { window.print(); }</script>
       </body>
@@ -590,6 +617,7 @@ function useAdminCalculatorState(order: ReadOnlyOrder | null) {
       priceExVat: fullOrder.priceExVat,
       priceSubcontractor: fullOrder.priceSubcontractor,
       hasWordpressReadOnlyRows,
+      adjustmentLines: fullOrder.adjustmentLines ?? null,
     };
   }, [catalog, fullOrder]);
 
@@ -624,9 +652,15 @@ function AdminStyleReadOnlyCalculator({
   const isSubcontractor = viewMode === "SUBCONTRACTOR";
   const hideWordpressImportWarnings = viewMode === "SUBCONTRACTOR" || viewMode === "ORDER_CREATOR";
 
-  const hideSubcontractorAdjustments = isSubcontractor && calculatorState.hasWordpressReadOnlyRows;
 
   const calculatorLocale = locale ?? "nb";
+
+  const adjustmentLines = getViewerAdjustmentLines(calculatorState, isSubcontractor, {
+    rabatt,
+    leggTil,
+    subcontractorMinus,
+    subcontractorPlus,
+  });
 
   return (
     <CalculatorDisplayNew
@@ -637,10 +671,7 @@ function AdminStyleReadOnlyCalculator({
       adminView={false}
       hideWordpressImportWarnings={hideWordpressImportWarnings}
       showSubcontractorPrices={isSubcontractor}
-      rabatt={isSubcontractor ? "" : rabatt}
-      leggTil={isSubcontractor ? "" : leggTil}
-      subcontractorMinus={isSubcontractor && !hideSubcontractorAdjustments ? subcontractorMinus : ""}
-      subcontractorPlus={isSubcontractor && !hideSubcontractorAdjustments ? subcontractorPlus : ""}
+      adjustmentLines={adjustmentLines}
       sidebarMode={false}
       locale={calculatorLocale}
     />

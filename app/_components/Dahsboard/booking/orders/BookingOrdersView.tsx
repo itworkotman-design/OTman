@@ -1,0 +1,992 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useCurrentUser } from "@/lib/users/useCurrentUser";
+import DashboardOrderModal from "@/app/_components/Dahsboard/booking/DashboardOrderModal";
+import ReadOnlyOrderModal from "@/app/_components/Dahsboard/booking/orders/ReadOnlyOrderModal";
+import BookingFilters from "@/app/_components/Dahsboard/booking/archive/BookingFilters";
+import BookingArchiveTable from "@/app/_components/Dahsboard/booking/archive/BookingArchiveTable";
+import OrderEmailModal, { type AlertCenterTab } from "@/app/_components/Dahsboard/booking/archive/OrderEmailModal";
+import SendSelectedSmsModal from "@/app/_components/Dahsboard/booking/archive/SendSelectedSmsModal";
+import OrderCreatorContactModal from "@/app/_components/Dahsboard/booking/orders/OrderCreatorContactModal";
+import type {
+  BookingArchiveFilters,
+  BookingArchiveOption,
+  OrderRow,
+} from "@/app/_components/Dahsboard/booking/archive/types";
+import { DEFAULT_BOOKING_ARCHIVE_FILTERS } from "@/lib/orders/archiveFilters";
+import { getBookingArchiveAccess } from "@/lib/orders/archiveAccess";
+import { bookingText } from "@/lib/booking/bookingUiText";
+import { useUserLanguage } from "@/lib/users/language";
+import BulkUpdateBar from "@/app/_components/Dahsboard/booking/archive/BulkUpdateBar";
+import SelectionActionBar from "@/app/_components/Dahsboard/booking/archive/SelectionActionBar";
+import type { PrepareEmailGroup, PrepareEmailStop } from "@/lib/orders/prepareOrdersEmailGroups";
+import PrepareEmailModal from "@/app/_components/Dahsboard/booking/archive/PrepareEmailModal";
+import BookingColumnVisibilityModal from "@/app/_components/Dahsboard/booking/archive/BookingColumnVisibilityModal";
+import { exportOrdersToExcel } from "@/lib/booking/exportOrdersToExcel";
+import {
+  getDefaultVisibleBookingArchiveColumns,
+  getBookingArchiveVisibilityStorageKey,
+  getSelectedArchiveOrdersPriceTotal,
+  sanitizeVisibleBookingArchiveColumns,
+  type BookingArchiveColumnId,
+} from "@/lib/booking/archiveColumns";
+import ShiftLeaderBanner from "@/app/_components/Dahsboard/booking/ShiftLeaderBanner";
+
+type FilterOptionApiItem = {
+  id: string;
+  name: string;
+  email?: string | null;
+  warehouseEmail?: string | null;
+};
+
+type OrdersApiResponse = {
+  ok?: boolean;
+  orders?: OrderRow[];
+};
+
+type DriverOptionsApiResponse = {
+  ok?: boolean;
+  drivers?: BookingArchiveOption[];
+};
+
+type Props = {
+  // Insurance cases page: the same order list, locked to the one store
+  // (membership) that handles every insurance case — no Store filter, no
+  // bulk update bar, no Send to GSM and no store/email-type email sender.
+  // See lib/orders/insuranceCases.ts.
+  insuranceCases?: { storeMembershipId: string; storeLabel: string };
+};
+
+export default function BookingOrdersView({ insuranceCases }: Props) {
+  const currentUser = useCurrentUser();
+  const { locale } = useUserLanguage(currentUser);
+  const lockedStoreId = insuranceCases?.storeMembershipId;
+  const access = useMemo(() => {
+    const base = getBookingArchiveAccess(currentUser);
+    return lockedStoreId
+      ? { ...base, canFilterCreatedBy: false, lockedCreatedById: lockedStoreId }
+      : base;
+  }, [currentUser, lockedStoreId]);
+  const defaultFilters = useMemo<BookingArchiveFilters>(
+    () =>
+      lockedStoreId
+        ? { ...DEFAULT_BOOKING_ARCHIVE_FILTERS, createdById: lockedStoreId }
+        : DEFAULT_BOOKING_ARCHIVE_FILTERS,
+    [lockedStoreId],
+  );
+
+  const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [appliedFilters, setAppliedFilters] = useState<BookingArchiveFilters>(defaultFilters);
+  const [filterPanelVersion, setFilterPanelVersion] = useState(0);
+
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [emailOrder, setEmailOrder] = useState<OrderRow | null>(null);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailInitialTab, setEmailInitialTab] = useState<AlertCenterTab | undefined>(undefined);
+  const [smsModalOpen, setSmsModalOpen] = useState(false);
+  const [contactOrder, setContactOrder] = useState<OrderRow | null>(null);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [columnModalOpen, setColumnModalOpen] = useState(false);
+
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const selectedOrders = useMemo(() => {
+    const selected = new Set(selectedOrderIds);
+    return orders.filter((order) => selected.has(order.id));
+  }, [orders, selectedOrderIds]);
+  const [pricelists, setPricelists] = useState<BookingArchiveOption[]>([]);
+  // ADMIN always sees the Pricelist column/filter; subcontractors and order
+  // creators see it only once their own visible orders actually span more
+  // than one distinct pricelist (never just because they're assigned to
+  // several) — see app/api/orders/pricelists/route.ts.
+  const showPricelistColumn =
+    access.viewMode === "ADMIN" || pricelists.length > 1;
+  const [visibleColumnIds, setVisibleColumnIds] = useState<
+    BookingArchiveColumnId[]
+  >(() =>
+    getDefaultVisibleBookingArchiveColumns(access.viewMode, {
+      includePricelist: showPricelistColumn,
+    }),
+  );
+
+  // Pickup filter options follow the date filter (like Store). The unfiltered
+  // list only decides whether the filter shows at all, so it doesn't vanish
+  // on a day without pickups.
+  const [pickupAddresses, setPickupAddresses] = useState<BookingArchiveOption[]>([]);
+  const [allPickupAddresses, setAllPickupAddresses] = useState<BookingArchiveOption[]>([]);
+  const [prepareResult, setPrepareResult] = useState("");
+  const [prepareEmail, setPrepareEmail] = useState<{
+    groups: PrepareEmailGroup[];
+    unresolved: PrepareEmailStop[];
+  } | null>(null);
+  const [subcontractors, setSubcontractors] = useState<BookingArchiveOption[]>(
+    [],
+  );
+  const [creators, setCreators] = useState<BookingArchiveOption[]>([]);
+  const [drivers, setDrivers] = useState<BookingArchiveOption[]>([]);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkError, setBulkError] = useState("");
+  const [customerActionLoading, setCustomerActionLoading] = useState(false);
+  const [customerActionError, setCustomerActionError] = useState("");
+  const [gsmDuplicateWarning, setGsmDuplicateWarning] = useState<string[]>([]);
+  const gsmDuplicateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const orderLoadRequestIdRef = useRef(0);
+  const orderLoadAbortRef = useRef<AbortController | null>(null);
+  const lastLoadedAtRef = useRef(new Date().toISOString());
+  const [changeFlags, setChangeFlags] = useState({ hasNewOrders: false, hasChangedOrders: false });
+
+  async function loadOrders(
+    filters: BookingArchiveFilters = appliedFilters,
+  ): Promise<boolean> {
+    const requestId = orderLoadRequestIdRef.current + 1;
+    orderLoadRequestIdRef.current = requestId;
+    orderLoadAbortRef.current?.abort();
+
+    const abortController = new AbortController();
+    orderLoadAbortRef.current = abortController;
+
+    try {
+      setLoading(true);
+      setError("");
+
+      const params = new URLSearchParams();
+
+      if (filters.status) params.set("status", filters.status);
+      if (filters.subcontractorId)
+        params.set("subcontractorId", filters.subcontractorId);
+      if (filters.createdById) params.set("createdById", filters.createdById);
+      if (access.viewMode === "ADMIN" && filters.driver) {
+        params.set("driver", filters.driver);
+      }
+      if (filters.pricelistId) params.set("pricelistId", filters.pricelistId);
+      if (filters.customPickupAddressId)
+        params.set("customPickupAddressId", filters.customPickupAddressId);
+      if (filters.fromDate) params.set("fromDate", filters.fromDate);
+      if (filters.toDate) params.set("toDate", filters.toDate);
+      if (filters.search) params.set("search", filters.search);
+
+      params.set("page", String(filters.page));
+      params.set("rowsPerPage", String(filters.rowsPerPage));
+
+      const res = await fetch(`/api/orders?${params.toString()}`, {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+        signal: abortController.signal,
+      });
+
+      const data = (await res.json().catch(() => null)) as OrdersApiResponse | null;
+
+      if (
+        abortController.signal.aborted ||
+        requestId !== orderLoadRequestIdRef.current
+      ) {
+        return false;
+      }
+
+      if (!res.ok || !data?.ok) {
+        setError(bookingText(locale, "failed to load orders"));
+        setOrders([]);
+        setSelectedOrderIds([]);
+        return false;
+      }
+
+      const nextOrders = data.orders ?? [];
+      setOrders(nextOrders);
+      lastLoadedAtRef.current = new Date().toISOString();
+      setChangeFlags({ hasNewOrders: false, hasChangedOrders: false });
+
+      setSelectedOrderIds((prev) =>
+        prev.filter((id) =>
+          nextOrders.some((order: OrderRow) => order.id === id),
+        ),
+      );
+      return true;
+    } catch {
+      if (
+        abortController.signal.aborted ||
+        requestId !== orderLoadRequestIdRef.current
+      ) {
+        return false;
+      }
+
+      setError(bookingText(locale, "failed to load orders"));
+      setOrders([]);
+      setSelectedOrderIds([]);
+      return false;
+    } finally {
+      if (requestId === orderLoadRequestIdRef.current) {
+        setLoading(false);
+        if (orderLoadAbortRef.current === abortController) {
+          orderLoadAbortRef.current = null;
+        }
+      }
+    }
+  }
+
+  async function loadFilterOptions(fromDate?: string, toDate?: string) {
+    try {
+      const creatorsParams = new URLSearchParams({ hasOrders: "true" });
+      if (fromDate) creatorsParams.set("fromDate", fromDate);
+      if (toDate) creatorsParams.set("toDate", toDate);
+
+      const [subsRes, creatorsRes] = await Promise.all([
+        fetch("/api/auth/subcontractors", {
+          credentials: "include",
+          cache: "no-store",
+        }),
+        fetch(`/api/auth/order-creators?${creatorsParams.toString()}`, {
+          credentials: "include",
+          cache: "no-store",
+        }),
+      ]);
+
+      const subsData = await subsRes.json().catch(() => null);
+      const creatorsData = await creatorsRes.json().catch(() => null);
+
+      if (subsRes.ok && subsData?.ok) {
+        setSubcontractors(
+          (subsData.subcontractors ?? []).map((item: FilterOptionApiItem) => ({
+            id: item.id,
+            label: item.name,
+          })),
+        );
+      }
+
+      if (creatorsRes.ok && creatorsData?.ok) {
+        setCreators(
+          (creatorsData.orderCreators ?? []).map(
+            (item: FilterOptionApiItem) => ({
+              id: item.id,
+              label: item.name,
+              email: item.email ?? "",
+              warehouseEmail: item.warehouseEmail ?? "",
+            }),
+          ),
+        );
+      }
+    } catch {
+      setSubcontractors([]);
+      setCreators([]);
+    }
+  }
+
+  async function loadDriverOptions() {
+    if (access.viewMode !== "ADMIN") {
+      setDrivers([]);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/orders/drivers", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const data = (await res.json().catch(() => null)) as DriverOptionsApiResponse | null;
+
+      if (res.ok && data?.ok) {
+        setDrivers(data.drivers ?? []);
+      }
+    } catch {
+      setDrivers([]);
+    }
+  }
+
+  // Scoped to the current user's own authorized orders (not their assigned
+  // pricelists, and not narrowed by the currently-applied Status/Store/
+  // Partner/date filters) — see app/api/orders/pricelists/route.ts. Fetched
+  // once, not re-fetched when other filters change, so the Pricelist
+  // column/filter's visibility doesn't flicker as the user filters.
+  async function loadPricelistOptions() {
+    try {
+      const res = await fetch("/api/orders/pricelists", {
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && data?.ok) {
+        setPricelists(
+          (data.pricelists ?? []).map(
+            (item: { id: string; name: string }) => ({
+              id: item.id,
+              label: item.name,
+            }),
+          ),
+        );
+      }
+    } catch {
+      setPricelists([]);
+    }
+  }
+
+  // Scoped to the caller's active store, same as the order-creation
+  // quick-select — see app/api/pickup-addresses/available/route.ts.
+  async function loadPickupAddressOptions(fromDate?: string, toDate?: string) {
+    try {
+      const params = new URLSearchParams();
+      if (fromDate) params.set("fromDate", fromDate);
+      if (toDate) params.set("toDate", toDate);
+
+      const res = await fetch(`/api/pickup-addresses/available?${params.toString()}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && data?.ok) {
+        const options: BookingArchiveOption[] = (data.pickupAddresses ?? []).map(
+          (item: { id: string; name: string }) => ({
+            id: item.id,
+            label: item.name,
+          }),
+        );
+        setPickupAddresses(options);
+        if (!fromDate && !toDate) setAllPickupAddresses(options);
+      }
+    } catch {
+      setPickupAddresses([]);
+    }
+  }
+
+  async function handleBulkApply(payload: {
+    status?: string;
+    subcontractorId?: string;
+  }): Promise<boolean> {
+    if (selectedOrderIds.length === 0) return false;
+
+    try {
+      setBulkLoading(true);
+      setBulkError("");
+      setError("");
+
+      const res = await fetch("/api/orders/bulk", {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderIds: selectedOrderIds,
+          ...payload,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setBulkError(data?.reason || "Failed to bulk update orders");
+        return false;
+      }
+
+      setSelectedOrderIds([]);
+      await loadOrders(appliedFilters);
+      return true;
+    } catch {
+      setBulkError("Failed to bulk update orders");
+      return false;
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
+  // One click "prepare orders": the server groups the selected orders by
+  // pickup address main user (else store); PrepareEmailModal shows the groups
+  // for confirmation and sends each through the selected-orders email route.
+  async function handleOpenPrepareEmail() {
+    if (selectedOrderIds.length === 0) return;
+
+    try {
+      setCustomerActionLoading(true);
+      setCustomerActionError("");
+      setPrepareResult("");
+
+      const res = await fetch("/api/orders/prepare-email-groups", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderIds: selectedOrderIds }),
+      });
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        reason?: string;
+        groups?: PrepareEmailGroup[];
+        unresolved?: PrepareEmailStop[];
+      } | null;
+
+      if (!res.ok || !data?.ok) {
+        setCustomerActionError(data?.reason || "Failed to send email");
+        return;
+      }
+
+      setPrepareEmail({ groups: data.groups ?? [], unresolved: data.unresolved ?? [] });
+    } catch {
+      setCustomerActionError("Failed to send email");
+    } finally {
+      setCustomerActionLoading(false);
+    }
+  }
+
+  async function handleSendSelectedToGsm(): Promise<boolean> {
+    if (selectedOrderIds.length === 0) return false;
+
+    try {
+      setCustomerActionLoading(true);
+      setCustomerActionError("");
+
+      const res = await fetch("/api/orders/send-to-gsm", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderIds: selectedOrderIds }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setCustomerActionError(data?.reason || "Failed to send to GSM");
+        return false;
+      }
+
+      const results: Array<{ ok: boolean; orderNumber?: string; wasAlreadySent?: boolean }> =
+        Array.isArray(data.results) ? data.results : [];
+
+      const duplicates = results
+        .filter((r) => r.ok && r.wasAlreadySent)
+        .map((r) => r.orderNumber ?? "unknown");
+
+      if (duplicates.length > 0) {
+        if (gsmDuplicateTimerRef.current) clearTimeout(gsmDuplicateTimerRef.current);
+        setGsmDuplicateWarning(duplicates);
+        gsmDuplicateTimerRef.current = setTimeout(() => setGsmDuplicateWarning([]), 2 * 60 * 1000);
+      }
+
+      const successCount = results.filter((r) => r.ok).length;
+
+      if (successCount > 0) {
+        setChangeFlags((prev) => ({ ...prev, hasChangedOrders: true }));
+        return true;
+      }
+
+      setCustomerActionError("No orders were sent to GSM");
+      return false;
+    } catch {
+      setCustomerActionError("Failed to send to GSM");
+      return false;
+    } finally {
+      setCustomerActionLoading(false);
+    }
+  }
+
+  async function handleCopySelected() {
+    if (selectedOrderIds.length === 0) return;
+
+    try {
+      setCustomerActionLoading(true);
+      setCustomerActionError("");
+
+      const res = await fetch("/api/orders/duplicate", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderIds: selectedOrderIds,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setCustomerActionError(
+          data?.reason || "Failed to copy selected orders",
+        );
+        return;
+      }
+
+      setChangeFlags((prev) => ({ ...prev, hasNewOrders: true }));
+
+      if (selectedOrderIds.length === 1 && data.orderIds?.[0]) {
+        setSelectedOrderId(data.orderIds[0]);
+        setModalOpen(true);
+      }
+    } catch {
+      setCustomerActionError("Failed to copy selected orders");
+    } finally {
+      setCustomerActionLoading(false);
+    }
+  }
+
+  function handleExportSelected() {
+    if (selectedOrderIds.length === 0) return;
+
+    exportOrdersToExcel({
+      rows: orders,
+      selectedIds: selectedOrderIds,
+      viewMode: access.viewMode,
+      visibleColumnIds,
+      includePricelistColumn: showPricelistColumn,
+    });
+  }
+
+  useEffect(() => {
+    const columnOptions = { includePricelist: showPricelistColumn };
+    const defaultColumns = getDefaultVisibleBookingArchiveColumns(
+      access.viewMode,
+      columnOptions,
+    );
+    const storageKey = getBookingArchiveVisibilityStorageKey(access.viewMode);
+    const storedValue = window.localStorage.getItem(storageKey);
+
+    if (!storedValue) {
+      setVisibleColumnIds(defaultColumns);
+      return;
+    }
+
+    try {
+      const parsedValue: unknown = JSON.parse(storedValue);
+
+      if (Array.isArray(parsedValue)) {
+        const storedColumnIds = parsedValue.filter(
+          (columnId): columnId is string => typeof columnId === "string",
+        );
+        setVisibleColumnIds(
+          sanitizeVisibleBookingArchiveColumns(
+            access.viewMode,
+            storedColumnIds,
+            columnOptions,
+          ),
+        );
+        return;
+      }
+    } catch {
+      // Ignore invalid persisted column state.
+    }
+
+    setVisibleColumnIds(defaultColumns);
+  }, [access.viewMode, showPricelistColumn]);
+
+  useEffect(() => {
+    const storageKey = getBookingArchiveVisibilityStorageKey(access.viewMode);
+    window.localStorage.setItem(storageKey, JSON.stringify(visibleColumnIds));
+  }, [access.viewMode, visibleColumnIds]);
+
+  useEffect(() => {
+    void loadOrders(defaultFilters);
+    void loadFilterOptions();
+    void loadPricelistOptions();
+    void loadPickupAddressOptions();
+    return () => {
+      orderLoadAbortRef.current?.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // The current user loads asynchronously, so viewMode is not "ADMIN" on the
+  // first render — load drivers once admin access is actually known.
+  useEffect(() => {
+    void loadDriverOptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [access.viewMode]);
+
+  useEffect(() => {
+    if (access.viewMode !== "ADMIN") return;
+
+    let cancelled = false;
+
+    const check = async () => {
+      if (cancelled) return;
+      try {
+        const res = await fetch("/api/auth/heartbeat", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lastChecked: lastLoadedAtRef.current }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!cancelled && res.ok && data?.ok) {
+          setChangeFlags({
+            hasNewOrders: !!data.hasNewOrders,
+            hasChangedOrders: !!data.hasChangedOrders,
+          });
+        }
+      } catch {
+        // silently ignore heartbeat errors
+      }
+    };
+
+    const initialTimer = setTimeout(check, 3_000);
+    const interval = setInterval(check, 60_000);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
+  }, [access.viewMode]);
+
+  function handleApplyFilters(next: BookingArchiveFilters) {
+    setAppliedFilters(next);
+    void loadOrders(next);
+    void loadFilterOptions(next.fromDate || undefined, next.toDate || undefined);
+    void loadPickupAddressOptions(next.fromDate || undefined, next.toDate || undefined);
+  }
+
+  function handleResetFilters() {
+    setAppliedFilters(defaultFilters);
+    setFilterPanelVersion((prev) => prev + 1);
+    void loadOrders(defaultFilters);
+    void loadFilterOptions();
+    void loadPickupAddressOptions();
+  }
+
+  function handleToggleOrder(orderId: string) {
+    setSelectedOrderIds((prev) =>
+      prev.includes(orderId)
+        ? prev.filter((id) => id !== orderId)
+        : [...prev, orderId],
+    );
+  }
+
+  function handleToggleAllVisible() {
+    const visibleIds = orders.map((order) => order.id);
+
+    setSelectedOrderIds((prev) => {
+      const allSelected =
+        visibleIds.length > 0 && visibleIds.every((id) => prev.includes(id));
+
+      if (allSelected) {
+        return prev.filter((id) => !visibleIds.includes(id));
+      }
+
+      return Array.from(new Set([...prev, ...visibleIds]));
+    });
+  }
+
+  function handleToggleVisibleColumn(columnId: BookingArchiveColumnId) {
+    setVisibleColumnIds((prev) => {
+      const isVisible = prev.includes(columnId);
+
+      if (isVisible) {
+        if (prev.length === 1) return prev;
+        return prev.filter((id) => id !== columnId);
+      }
+
+      const next = [...prev, columnId];
+      return sanitizeVisibleBookingArchiveColumns(access.viewMode, next, {
+        includePricelist: showPricelistColumn,
+      });
+    });
+  }
+
+  function handleResetVisibleColumns() {
+    setVisibleColumnIds(
+      getDefaultVisibleBookingArchiveColumns(access.viewMode, {
+        includePricelist: showPricelistColumn,
+      }),
+    );
+  }
+
+  const canSelectOrders =
+    access.viewMode === "ADMIN" ||
+    access.viewMode === "SUBCONTRACTOR" ||
+    access.viewMode === "ORDER_CREATOR";
+  const selectedPriceTotal = getSelectedArchiveOrdersPriceTotal(
+    orders,
+    selectedOrderIds,
+    access.viewMode,
+  );
+  const selectedPriceLabel = selectedPriceTotal.toLocaleString(
+    "no-NO",
+    {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    },
+  );
+  const selectedPriceCaption =
+    access.viewMode === "SUBCONTRACTOR"
+      ? bookingText(locale, "Partner price")
+      : bookingText(locale, "Price ex. VAT");
+
+  return (
+    <div className="w-full">
+      <h1 className="mb-4 sm:mb-10 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl text-weird-landscape-large margin-weird-landscape">
+        {insuranceCases ? bookingText(locale, "Insurance cases") : bookingText(locale, "Booking orders")}
+      </h1>
+
+      {insuranceCases ? (
+        <p className="-mt-2 mb-4 text-sm text-textColorThird sm:-mt-8 sm:mb-8">
+          {bookingText(locale, "Store")}: {insuranceCases.storeLabel}
+        </p>
+      ) : null}
+
+      {access.viewMode === "ADMIN" ? (
+        <ShiftLeaderBanner currentUserId={currentUser?.id} />
+      ) : null}
+
+      <div className="flex w-full sm:w-fit max-w-full flex-col items-stretch gap-3 padding-weird-landscape">
+        <BookingFilters
+          key={`${filterPanelVersion}:${access.lockedCreatedById ?? ""}:${access.lockedSubcontractorId ?? ""}`}
+          initialApplied={appliedFilters}
+          access={access}
+          subcontractors={subcontractors}
+          creators={creators}
+          drivers={drivers}
+          showDriverFilter={access.viewMode === "ADMIN"}
+          pricelists={pricelists}
+          showPricelistFilter={showPricelistColumn}
+          pickupAddresses={pickupAddresses}
+          showPickupAddressFilter={allPickupAddresses.length > 0}
+          onApply={handleApplyFilters}
+          onReset={handleResetFilters}
+          onRefresh={() => {
+            void loadOrders(appliedFilters);
+            void loadDriverOptions();
+          }}
+          displayedOrderCount={!loading && !error ? orders.length : undefined}
+          locale={locale}
+        />
+
+        {access.viewMode === "ADMIN" && (
+          <>
+            {!insuranceCases && (
+              <BulkUpdateBar
+                selectedCount={selectedOrderIds.length}
+                selectedOrders={selectedOrders}
+                subcontractors={subcontractors}
+                onApply={handleBulkApply}
+                onClear={() => setSelectedOrderIds([])}
+                loading={bulkLoading}
+                error={bulkError}
+                locale={locale}
+              />
+            )}
+
+            <SelectionActionBar
+              showSendGsm={!insuranceCases}
+              onSendPrepareToSelected={insuranceCases ? undefined : () => void handleOpenPrepareEmail()}
+              prepareResult={prepareResult}
+              selectedCount={selectedOrderIds.length}
+              locale={locale}
+              onSendGsm={() => handleSendSelectedToGsm()}
+              onCopySelected={handleCopySelected}
+              onExportExcel={handleExportSelected}
+              onManageColumns={() => setColumnModalOpen(true)}
+              onSendSms={insuranceCases ? undefined : () => setSmsModalOpen(true)}
+              loading={customerActionLoading}
+              error={customerActionError}
+              gsmDuplicateWarning={gsmDuplicateWarning}
+            />
+          </>
+        )}
+      </div>
+      <div className="min-w-0 w-full overflow-x-auto">
+        <div className="min-w-0 w-full">
+          <div className="relative my-4 flex items-center gap-2">
+            <div className="my-2 flex flex-col items-start gap-2">
+              {access.viewMode !== "ADMIN" ? (
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className="customButtonDefault" onClick={() => setColumnModalOpen(true)}>
+                    {bookingText(locale, "Hide columns")}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="customButtonDefault disabled:opacity-50! disabled:cursor-auto!"
+                    onClick={handleExportSelected}
+                    disabled={selectedOrderIds.length === 0}
+                  >
+                    Last ned valgte ({selectedOrderIds.length})
+                  </button>
+                </div>
+              ) : null}
+
+              <div className="text-sm text-textColorThird">
+                {canSelectOrders
+                  ? `${selectedOrderIds.length} ${bookingText(locale, "selected")} - ${selectedPriceCaption}: NOK ${selectedPriceLabel}`
+                  : ""}
+              </div>
+            </div>
+
+            {access.viewMode === "ADMIN" && (
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  className={`customButtonDefault${changeFlags.hasNewOrders || changeFlags.hasChangedOrders ? " bg-red-600! text-white! border-red-600!" : ""}`}
+                  onClick={() => {
+                    void loadOrders(appliedFilters);
+                    void loadDriverOptions();
+                  }}
+                  disabled={loading}
+                >
+                  {bookingText(locale, "Refresh")}
+                </button>
+
+                <span className={`text-xs font-medium ${changeFlags.hasNewOrders || changeFlags.hasChangedOrders ? " text-red-600" : " text-textColorThird"}`}>
+                  {changeFlags.hasNewOrders && changeFlags.hasChangedOrders
+                    ? `${bookingText(locale, "New order")} · ${bookingText(locale, "Order changed")}`
+                    : changeFlags.hasNewOrders
+                      ? bookingText(locale, "New order")
+                      : changeFlags.hasChangedOrders
+                        ? bookingText(locale, "Order changed")
+                        : bookingText(locale, "Up to date")}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {loading ? (
+            <div className="py-6 text-textColorThird">{bookingText(locale, "Loading orders...")}</div>
+          ) : error ? (
+            <div className="py-6 text-red-600">{error}</div>
+          ) : (
+            <BookingArchiveTable
+              orders={orders}
+              viewMode={access.viewMode}
+              onRowClick={(orderId) => {
+                // Admins get the Alert Center opened on its "Edit order" tab.
+                const row = access.viewMode === "ADMIN" ? orders.find((order) => order.id === orderId) : undefined;
+                if (row) {
+                  setEmailOrder(row);
+                  setEmailInitialTab("edit");
+                  setEmailModalOpen(true);
+                  return;
+                }
+                setSelectedOrderId(orderId);
+                setModalOpen(true);
+              }}
+              onAlertClick={(order) => {
+                if (access.viewMode === "ADMIN") {
+                  setEmailOrder(order);
+                  setEmailInitialTab(undefined);
+                  setEmailModalOpen(true);
+                } else {
+                  setContactOrder(order);
+                  setContactModalOpen(true);
+                }
+              }}
+              selectable={canSelectOrders}
+              selectedOrderIds={selectedOrderIds}
+              onToggleOrder={handleToggleOrder}
+              onToggleAllVisible={handleToggleAllVisible}
+              visibleColumnIds={visibleColumnIds}
+              showPricelistColumn={showPricelistColumn}
+              locale={locale}
+            />
+          )}
+        </div>
+      </div>
+
+      {access.viewMode === "ADMIN" ? (
+        <DashboardOrderModal
+          orderId={selectedOrderId}
+          open={modalOpen}
+          onClose={() => {
+            setModalOpen(false);
+            setSelectedOrderId(null);
+          }}
+          onSaved={() => {
+            void loadOrders(appliedFilters);
+            void loadDriverOptions();
+          }}
+          canDelete
+          locale={locale}
+          onDeleted={() => {
+            setModalOpen(false);
+            setSelectedOrderId(null);
+            void loadOrders(appliedFilters);
+            void loadDriverOptions();
+          }}
+        />
+      ) : (
+        <ReadOnlyOrderModal
+          open={modalOpen}
+          viewMode={access.viewMode}
+          order={selectedOrderId ? (orders.find((order) => order.id === selectedOrderId) ?? null) : null}
+          locale={locale}
+          onClose={() => {
+            setModalOpen(false);
+            setSelectedOrderId(null);
+          }}
+        />
+      )}
+
+      <OrderEmailModal
+        open={emailModalOpen}
+        order={emailOrder}
+        onClose={() => {
+          setEmailModalOpen(false);
+          setEmailOrder(null);
+        }}
+        onAlertsChanged={() => void loadOrders(appliedFilters)}
+        initialTab={emailInitialTab}
+        edit={
+          access.viewMode === "ADMIN"
+            ? {
+                locale,
+                canDelete: true,
+                onSaved: () => {
+                  void loadOrders(appliedFilters);
+                  void loadDriverOptions();
+                },
+                onDeleted: () => {
+                  void loadOrders(appliedFilters);
+                  void loadDriverOptions();
+                },
+              }
+            : undefined
+        }
+      />
+
+      {prepareEmail ? (
+        <PrepareEmailModal
+          open
+          groups={prepareEmail.groups}
+          unresolved={prepareEmail.unresolved}
+          orders={orders}
+          locale={locale}
+          onClose={() => setPrepareEmail(null)}
+          onSent={(sent) => {
+            setPrepareResult(`${bookingText(locale, "Prepare email sent to:")} ${sent.join(", ")}`);
+            setChangeFlags((prev) => ({ ...prev, hasChangedOrders: true }));
+          }}
+        />
+      ) : null}
+
+      <SendSelectedSmsModal
+        open={smsModalOpen}
+        orderIds={selectedOrderIds}
+        onClose={() => setSmsModalOpen(false)}
+        onSent={() => setChangeFlags((prev) => ({ ...prev, hasChangedOrders: true }))}
+      />
+
+      <OrderCreatorContactModal
+        open={contactModalOpen}
+        order={contactOrder}
+        onClose={() => {
+          setContactModalOpen(false);
+          setContactOrder(null);
+        }}
+        onConversationChanged={() => void loadOrders(appliedFilters)}
+      />
+
+      <BookingColumnVisibilityModal
+        open={columnModalOpen}
+        viewMode={access.viewMode}
+        visibleColumnIds={visibleColumnIds}
+        showPricelistColumn={showPricelistColumn}
+        onToggleColumn={handleToggleVisibleColumn}
+        onReset={handleResetVisibleColumns}
+        onClose={() => setColumnModalOpen(false)}
+      />
+    </div>
+  );
+}
+

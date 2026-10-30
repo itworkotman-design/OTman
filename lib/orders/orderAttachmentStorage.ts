@@ -190,11 +190,28 @@ async function putAttachmentBuffer(params: {
   contentType?: string | null;
   keyPrefix: string;
 }): Promise<StoredAttachment> {
-  const config = getRequiredS3Config();
-  const client = getS3Client(config);
   const key = `${params.keyPrefix}/${params.scope}/${Date.now()}-${randomUUID()}-${sanitizeFilename(
     params.filename,
   )}`;
+
+  return putAttachmentObjectToS3({
+    key,
+    bytes: params.bytes,
+    contentType: params.contentType,
+  });
+}
+
+// Writes to an exact key (overwriting whatever is there). Used for
+// content-addressed files such as user logos, where the same bytes must
+// always land on the same path.
+export async function putAttachmentObjectToS3(params: {
+  key: string;
+  bytes: Buffer;
+  contentType?: string | null;
+}): Promise<StoredAttachment> {
+  const config = getRequiredS3Config();
+  const client = getS3Client(config);
+  const { key } = params;
 
   await client.send(
     new PutObjectCommand({

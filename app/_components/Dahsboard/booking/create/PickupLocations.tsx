@@ -13,6 +13,7 @@ import {
   type ExtraPickupInput,
 } from "@/lib/orders/extraPickups";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
+import CopyButton from "@/app/_components/utils/CopyButton";
 import type { AddressSelectionMeta } from "@/lib/orders/addressPrecision";
 
 type Pickup = {
@@ -92,6 +93,7 @@ export function PickupLocations({
         <label className="font-bold">
           {t("Pickup address")}
           {required ? <span className="text-red-600">*</span> : null}
+          {!disabled ? <CopyButton value={mainAddress} ariaLabel={t("Copy pickup address")} className="ml-2" /> : null}
         </label>
         {!disabled && onSelectCustomPickupAddress ? (
           <PickupAddressCombobox
@@ -150,6 +152,7 @@ export function PickupLocations({
                     <span className="text-md pl-1 font-semibold">
                       {idx === 0 ? t("Extra pickup") : `${t("Extra pickup")} ${idx + 1}`}
                       {required ? <span className="text-red-600">*</span> : null}
+                      <CopyButton value={pickup.address} ariaLabel={t("Copy pickup address")} className="ml-2" />
                     </span>
 
                     <button

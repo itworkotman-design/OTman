@@ -10,10 +10,15 @@ const mocks = vi.hoisted(() => ({
   transactionMock: vi.fn(),
   createMock: vi.fn(),
   createManyMock: vi.fn(),
+  copyPriceListProductConfigsMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
   getAuthenticatedSession: mocks.getAuthenticatedSessionMock,
+}));
+
+vi.mock("@/lib/products/productConfig", () => ({
+  copyPriceListProductConfigs: mocks.copyPriceListProductConfigsMock,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -121,6 +126,40 @@ describe("POST /api/products/pricelists", () => {
         }),
       ],
     });
+  });
+
+  it("copies the source price list's own delivery prices onto the new price list", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({
+      userId: "user-1",
+      activeCompanyId: "company-1",
+    });
+    mocks.membershipFindFirstMock.mockResolvedValue({ role: "OWNER" });
+    mocks.findUniqueMock.mockResolvedValue({
+      id: "source-price-list",
+      description: null,
+      specialOptions: [],
+    });
+    mocks.countMock.mockResolvedValue(1);
+    mocks.findFirstMock.mockResolvedValue(null);
+    mocks.createMock.mockResolvedValue({
+      id: "new-price-list",
+      name: "Pricelist 2",
+      code: "PRICE_2",
+    });
+
+    const response = await POST(
+      new Request("http://localhost/api/products/pricelists", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourcePriceListId: "source-price-list" }),
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(mocks.copyPriceListProductConfigsMock).toHaveBeenCalledWith(
+      expect.anything(),
+      { fromPriceListId: "source-price-list", toPriceListId: "new-price-list" },
+    );
   });
 
   it("returns FORBIDDEN when a non-full-access member tries to create a price list", async () => {

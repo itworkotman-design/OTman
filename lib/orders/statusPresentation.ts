@@ -1,4 +1,5 @@
 export const ORDER_STATUS_OPTIONS = [
+  "pending",
   "processing",
   "approved",
   "rejected",
@@ -49,6 +50,10 @@ export function normalizeOrderStatus(status: string | null | undefined) {
   const key = (status ?? "").toString().trim().toLowerCase();
 
   switch (key) {
+    case "på vent":
+    case "venter":
+    case "avventer":
+      return "pending";
     case "behandles":
     case "behandling":
       return "processing";
@@ -84,6 +89,8 @@ export function getOrderStatusStyle(status: string | null | undefined) {
   const key = normalizeOrderStatus(status);
 
   switch (key) {
+    case "pending":
+      return { color: "#be185d", backgroundColor: "#fce7f3" };
     case "processing":
       return { color: "#b45309", backgroundColor: "#fef3c7" };
     case "godkjent":

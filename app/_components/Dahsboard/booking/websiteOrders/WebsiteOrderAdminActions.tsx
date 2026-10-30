@@ -14,7 +14,7 @@ import {
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import { websiteItemsSaveBody, type WebsiteOrderPricingDraft } from "@/lib/orders/websiteOrderCalculator";
 import { CUSTOM_DEVIATION_CODE, DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
-import DatePicker from "@/app/_components/utils/DatePicker";
+import WebsiteDatePicker from "@/app/_components/utils/WebsiteDatePicker";
 import { TimeWindowField } from "@/app/_components/site/BookingModal/whiteGoods/timeWindowField";
 import {
   EMPTY_ATTACHMENT_DRAFT,
@@ -371,7 +371,7 @@ export default function WebsiteOrderAdminActions({
           <div className="flex flex-col gap-3">
             <label className="flex flex-col gap-1">
               <span className={labelClass}>{t("Delivery date", "Leveringsdato")}</span>
-              <DatePicker
+              <WebsiteDatePicker
                 value={handling.deliveryDate}
                 onChange={(value) => setField("deliveryDate", value)}
                 locale={siteLocale}

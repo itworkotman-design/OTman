@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { canAccessShiftLeader } from "@/lib/booking/shiftLeaderAccess";
 
 export async function GET(req: Request) {
   const session = await getAuthenticatedSession(req);
@@ -12,6 +13,10 @@ export async function GET(req: Request) {
   const companyId = session.activeCompanyId;
   if (!companyId) {
     return NextResponse.json({ ok: true, admins: [] });
+  }
+
+  if (!(await canAccessShiftLeader(session.userId, companyId))) {
+    return NextResponse.json({ ok: false, reason: "FORBIDDEN" }, { status: 403 });
   }
 
   const memberships = await prisma.membership.findMany({

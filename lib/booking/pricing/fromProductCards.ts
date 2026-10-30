@@ -1,8 +1,10 @@
 import type { CatalogProduct, CatalogSpecialOption, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { DELIVERY_TYPES, OPTION_CODES } from "@/lib/booking/constants";
+import { normalizeHoursInput } from "@/lib/booking/hoursInput";
 import { getProductDeliveryTypeCode, getProductDeliveryTypeLabel, getProductDeliveryTypePrice } from "@/lib/products/deliveryTypes";
 import { normalizeProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 import { isCustomSectionVisibleForDeliveryType } from "@/lib/products/customSections";
+import { isModelNumberEnabled } from "@/lib/products/modelNumber";
 import type { ProductBreakdown, ProductCardLineItem } from "@/lib/booking/pricing/types";
 import {
   canApplyReturnOption,
@@ -205,7 +207,7 @@ function getAmount(card: SavedProductCard, product: CatalogProduct) {
 
 function getHoursInput(card: SavedProductCard, product: CatalogProduct) {
   if (!product.allowHoursInput) return 1;
-  return Math.max(0.5, card.hoursInput || 1);
+  return normalizeHoursInput(card.hoursInput || 1);
 }
 
 function appendCustomSectionItems(items: ProductCardLineItem[], card: SavedProductCard, product: CatalogProduct, qty: number, returnOnlyPriceOverride?: number) {
@@ -226,7 +228,17 @@ function appendCustomSectionItems(items: ProductCardLineItem[], card: SavedProdu
       const option = section.options.find((item) => item.id === optionId);
       if (!option) continue;
 
+      // Free sections still show in the calculator as 0 kr lines (qty 1, like
+      // the stored OrderItem in buildOrderItemsFromCards).
       if (!section.usePrices) {
+        items.push({
+          kind: "customPrice",
+          code: option.code || section.title,
+          label: option.label,
+          qty: 1,
+          unitPrice: 0,
+          subcontractorUnitPrice: 0,
+        });
         continue;
       }
 
@@ -699,7 +711,10 @@ export function buildProductBreakdowns(
           const hoursApply = card.selectedInstallOptionIds.length > 0 || !product.allowInstallOptions;
           return hoursApply ? `${product.label} (${getHoursInput(card, product)} h)` : product.label;
         })(),
-        productModelNumber: product.allowModelNumber && card.modelNumber.trim() ? card.modelNumber.trim() : null,
+        productModelNumber:
+          (product.allowModelNumber || isModelNumberEnabled(product, card.deliveryType)) && card.modelNumber.trim()
+            ? card.modelNumber.trim()
+            : null,
         cardId: card.cardId,
         nulledLineKeysForCustomer: card.nulledLineKeysForCustomer ?? [],
         nulledLineKeysForSubcontractor: card.nulledLineKeysForSubcontractor ?? [],

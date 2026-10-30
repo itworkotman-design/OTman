@@ -5,7 +5,7 @@ Stores the shared default archive filter state and the quick date-range helpers 
 
 ## Constants
 ### `DEFAULT_BOOKING_ARCHIVE_FILTERS`
-Provides the shared initial archive filter state, including the default `rowsPerPage` value of `50`.
+Provides the shared initial archive filter state, including an empty driver filter and the default `rowsPerPage` value of `50`.
 
 ## Functions
 ### `getTodayRange()`
@@ -13,6 +13,9 @@ Returns today's delivery-date range in ISO format.
 
 ### `getTomorrowRange()`
 Returns tomorrow's delivery-date range in ISO format.
+
+### `getAfterTomorrowRange()`
+Returns the day-after-tomorrow delivery-date range in ISO format.
 
 ### `getThisWeekRange()`
 Returns the current Monday-through-Sunday delivery-date range in ISO format.

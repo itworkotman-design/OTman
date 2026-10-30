@@ -69,7 +69,10 @@ export async function POST(
     },
   });
 
-  const productConfigMap = await getProductConfigMap([item.productOption.product.id]);
+  const productConfigMap = await getProductConfigMap(
+    [item.productOption.product.id],
+    pricelistId,
+  );
   const productConfig = productConfigMap.get(item.productOption.product.id);
 
   return NextResponse.json({

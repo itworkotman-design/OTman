@@ -20,7 +20,7 @@ export async function getDeliveryOnlyProducts(
     orderBy: { product: { sortOrder: "asc" } },
   });
 
-  const configMap = await getProductConfigMap(links.map((link) => link.product.id));
+  const configMap = await getProductConfigMap(links.map((link) => link.product.id), priceListId);
 
   return links.flatMap(({ product }) => {
     const config = configMap.get(product.id);

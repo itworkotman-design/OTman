@@ -16,6 +16,7 @@ Centralizes S3-backed order attachment storage. The helper detects whether S3 st
 | `isS3StoragePath` | Checks whether a stored attachment path points at an S3 object. |
 | `uploadAttachmentToS3` | Uploads a file to S3 under an order-scoped key and returns its storage path. |
 | `uploadAttachmentBufferToS3` | Uploads generated attachment bytes, such as GSM POD PDFs, to S3 under an order-scoped key and returns its storage path. |
+| `putAttachmentObjectToS3` | Writes bytes to an exact S3 key (overwriting), for content-addressed files such as shared user logos; `uploadAttachmentBufferToS3` delegates to it after generating its unique key. |
 | `downloadAttachmentFromS3` | Downloads an S3-backed attachment and returns its bytes, content type, and size. |
 | `deleteAttachmentFromS3` | Deletes an S3-backed attachment object when its app record is removed. |
 | `getSignedAttachmentUrl` | Builds a short-lived signed S3 URL for inline open or forced download access. |

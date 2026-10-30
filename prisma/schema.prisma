@@ -53,6 +53,7 @@ model Company {
   orders                  Order[]
   activeSessions          Session[]                @relation("SessionActiveCompany")
   recurringOrderTemplates RecurringOrderTemplate[]
+  smsTemplates            SmsTemplate[]
 
   @@index([status])
 }
@@ -77,6 +78,7 @@ model Membership {
   orders                         Order[]
   ordersLastEdited               Order[]                      @relation("OrderLastEditedByMembership")
   sentOrderEmails                OrderEmailMessage[]          @relation("OrderEmailSentByMembership")
+  sentOrderSms                   OrderSmsMessage[]            @relation("OrderSmsSentByMembership")
   orderEvents                    OrderEvent[]
   resolvedOrderNotifications     OrderNotification[]          @relation("OrderNotificationResolvedByMembership")
   createdRecurringOrderTemplates RecurringOrderTemplate[]     @relation("RecurringOrderTemplateCreatedByMembership")
@@ -336,31 +338,32 @@ model Service {
 }
 
 model Product {
-  id                  String             @id @default(cuid())
+  id                  String                   @id @default(cuid())
   name                String
-  code                String             @unique
+  code                String                   @unique
   description         String?
-  sortOrder           Int                @default(0)
-  isActive            Boolean            @default(true)
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  allowDeliveryTypes  Boolean            @default(true)
-  allowDemont         Boolean            @default(true)
-  allowExtraServices  Boolean            @default(true)
-  allowHoursInput     Boolean            @default(false)
-  allowInstallOptions Boolean            @default(true)
-  allowPeopleCount    Boolean            @default(false)
-  allowQuantity       Boolean            @default(true)
-  allowReturnOptions  Boolean            @default(true)
-  autoXtraPerPallet   Boolean            @default(false)
-  productType         ProductType        @default(PHYSICAL)
+  sortOrder           Int                      @default(0)
+  isActive            Boolean                  @default(true)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  allowDeliveryTypes  Boolean                  @default(true)
+  allowDemont         Boolean                  @default(true)
+  allowExtraServices  Boolean                  @default(true)
+  allowHoursInput     Boolean                  @default(false)
+  allowInstallOptions Boolean                  @default(true)
+  allowPeopleCount    Boolean                  @default(false)
+  allowQuantity       Boolean                  @default(true)
+  allowReturnOptions  Boolean                  @default(true)
+  autoXtraPerPallet   Boolean                  @default(false)
+  productType         ProductType              @default(PHYSICAL)
   autoDeliveryPrice   Json?
   customSections      Json?
   deliveryTypes       Json?
-  allowModelNumber    Boolean            @default(true)
+  allowModelNumber    Boolean                  @default(true)
   iconKey             String?
   options             ProductOption[]
   priceListProducts   PriceListProduct[]
+  priceListConfigs    PriceListProductConfig[]
 }
 
 model ProductOption {
@@ -427,6 +430,7 @@ model PriceList {
   items                PriceListItem[]
   specialOptions       PriceListSpecialOption[]
   deliveryOnlyProducts PriceListProduct[]
+  productConfigs       PriceListProductConfig[]
 }
 
 // Links a delivery-only product (no ProductOption, so no PriceListItem — its
@@ -440,6 +444,24 @@ model PriceListProduct {
   createdAt   DateTime  @default(now())
   priceList   PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
   product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([priceListId, productId])
+  @@index([productId])
+}
+
+// Per-price-list delivery pricing for a product. A null column falls back to
+// the matching Product column, so editing one price list never changes another.
+model PriceListProductConfig {
+  id                String    @id @default(cuid())
+  priceListId       String
+  productId         String
+  autoDeliveryPrice Json?
+  deliveryTypes     Json?
+  customSections    Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  priceList         PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  product           Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([priceListId, productId])
   @@index([productId])
@@ -528,6 +550,9 @@ model Order {
   gsmLastWebhookAt                   DateTime?
   gsmOrderId                         String?
   gsmSentAt                          DateTime?
+  // Last "prepare orders" email (booking archive) — shown in the alerts-column
+  // marker strip. Kept off the email conversation on purpose.
+  prepareEmailSentAt                 DateTime?
   gsmSyncStatus                      String?
   emailThreadToken                   String?                   @unique
   lastInboundEmailAt                 DateTime?
@@ -565,6 +590,7 @@ model Order {
   lastEditedByMembership             Membership?               @relation("OrderLastEditedByMembership", fields: [lastEditedByMembershipId], references: [id])
   orderAttachments                   OrderAttachment[]
   emailMessages                      OrderEmailMessage[]
+  smsMessages                        OrderSmsMessage[]
   events                             OrderEvent[]
   gsmTasks                           OrderGsmTask[]
   items                              OrderItem[]
@@ -586,31 +612,39 @@ model Order {
   gdprHoldReason String?
   gdprHoldSetAt  DateTime?
 
-  isWebsiteOrder           Boolean          @default(false)
+  isWebsiteOrder             Boolean          @default(false)
   // "WHITE_GOODS" for homepage white-goods orders (they open in the admin
   // WebsiteOrderModal); null for every other order, website or not.
-  websiteOrderKind         String?
+  websiteOrderKind           String?
   // What the customer entered (pickup stops, delivery, customer type) — see
   // lib/orders/websiteBookingDetails.ts.
-  websiteBookingDetails    Json?
-  approvedAt               DateTime?
-  rejectedAt               DateTime?
+  websiteBookingDetails      Json?
+  approvedAt                 DateTime?
+  rejectedAt                 DateTime?
   // Last time `status` actually changed via the order editor, bulk update or
   // GSM webhook (the paths that can set failed/completed/invoiced/paid). Drives
   // the daily missing-partner alert cron. Defaults to now() for new orders;
   // existing rows were backfilled from order history. Never derive this from
   // updatedAt — notification activity bumps that.
-  statusChangedAt          DateTime?        @default(now())
-  actionToken              String?          @unique
-  stripeCheckoutSessionId  String?
-  stripePaymentIntentId    String?
-  stripeAmountChargedCents Int?
-  paymentRequestSentAt     DateTime?
-  paymentReminderSentAt    DateTime?
+  statusChangedAt            DateTime?        @default(now())
+  actionToken                String?          @unique
+  stripeCheckoutSessionId    String?
+  stripePaymentIntentId      String?
+  stripeAmountChargedCents   Int?
+  paymentRequestSentAt       DateTime?
+  paymentReminderSentAt      DateTime?
   // The temporary customer account ("My order") a homepage order belongs to —
   // see lib/customerAccounts/. Cleared when the account is deleted.
-  customerAccountId        String?
-  customerAccount          CustomerAccount? @relation(fields: [customerAccountId], references: [id], onDelete: SetNull)
+  customerAccountId          String?
+  customerAccount            CustomerAccount? @relation(fields: [customerAccountId], references: [id], onDelete: SetNull)
+  // Set (claimed) by the 19:00 day-before-delivery SMS sweep before it sends, so
+  // repeated cron runs and parallel runs never text the same customer twice.
+  dayBeforeDeliverySmsSentAt DateTime?
+  // Same claim pattern for the review-request SMS sent after completion.
+  reviewSmsSentAt            DateTime?
+  // Set only by the GSM webhook when it auto-completes the order (never by
+  // manual/bulk status changes). The review-request SMS keys off this.
+  gsmCompletedAt             DateTime?
 
   @@unique([companyId, displayId])
   @@unique([recurringOrderTemplateId, recurringOrderOccurrenceDate])
@@ -764,6 +798,51 @@ model OrderEmailMessage {
   @@index([status, createdAt])
   @@index([sentByMembershipId, createdAt])
   @@index([externalMessageId])
+}
+
+model OrderSmsMessage {
+  id                 String         @id @default(cuid())
+  orderId            String
+  companyId          String
+  kind               OrderSmsKind   @default(MANUAL)
+  status             OrderSmsStatus
+  // Raw GatewayAPI delivery state (ENROUTE, DELIVERED, REJECTED, ...) from the
+  // status webhook; `status` is the app-level summary of it.
+  providerStatus     String?
+  errorMessage       String?
+  toPhone            String
+  body               String
+  externalMessageId  String?        @unique
+  sentByMembershipId String?
+  createdAt          DateTime       @default(now())
+  sentAt             DateTime?
+  statusUpdatedAt    DateTime?
+  order              Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sentByMembership   Membership?    @relation("OrderSmsSentByMembership", fields: [sentByMembershipId], references: [id])
+
+  @@index([orderId, createdAt])
+  @@index([companyId, createdAt])
+}
+
+// Editable SMS texts per company. MANUAL templates are picked in the SMS
+// composers. Each automatic kind (DAY_BEFORE_DELIVERY = 19:00 the day before delivery,
+// REVIEW_REQUEST = after completion) has exactly one template per company,
+// and its `enabled` flag is the on/off switch for that automatic SMS.
+model SmsTemplate {
+  id          String          @id @default(cuid())
+  companyId   String
+  kind        SmsTemplateKind @default(MANUAL)
+  name        String
+  // Admin-facing note on what the template is for / when it is sent. Never
+  // part of the SMS itself.
+  description String?
+  body        String
+  enabled     Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, kind])
 }
 
 model OrderNotification {
@@ -1088,6 +1167,24 @@ enum OrderEventType {
 enum OrderEmailDirection {
   OUTBOUND
   INBOUND
+}
+
+enum OrderSmsKind {
+  MANUAL
+  DAY_BEFORE_DELIVERY
+  REVIEW_REQUEST
+}
+
+enum OrderSmsStatus {
+  SENT
+  DELIVERED
+  FAILED
+}
+
+enum SmsTemplateKind {
+  MANUAL
+  DAY_BEFORE_DELIVERY
+  REVIEW_REQUEST
 }
 
 enum OrderEmailStatus {

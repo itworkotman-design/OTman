@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   orderFindManyMock: vi.fn(),
   orderUpdateMock: vi.fn(),
   orderEmailMessageUpdateManyMock: vi.fn(),
+  orderSmsMessageUpdateManyMock: vi.fn(),
   orderGsmTaskUpdateManyMock: vi.fn(),
   orderAttachmentFindManyMock: vi.fn(),
   orderAttachmentDeleteManyMock: vi.fn(),
@@ -16,6 +17,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     order: { findMany: mocks.orderFindManyMock, update: mocks.orderUpdateMock },
     orderEmailMessage: { updateMany: mocks.orderEmailMessageUpdateManyMock },
+    orderSmsMessage: { updateMany: mocks.orderSmsMessageUpdateManyMock },
     orderGsmTask: { updateMany: mocks.orderGsmTaskUpdateManyMock },
     orderAttachment: {
       findMany: mocks.orderAttachmentFindManyMock,
@@ -50,6 +52,7 @@ describe("runGdprCleanup", () => {
     mocks.orderFindManyMock.mockResolvedValue([]);
     mocks.orderUpdateMock.mockResolvedValue({});
     mocks.orderEmailMessageUpdateManyMock.mockResolvedValue({ count: 0 });
+    mocks.orderSmsMessageUpdateManyMock.mockResolvedValue({ count: 0 });
     mocks.orderGsmTaskUpdateManyMock.mockResolvedValue({ count: 0 });
     mocks.orderAttachmentFindManyMock.mockResolvedValue([]);
     mocks.orderAttachmentDeleteManyMock.mockResolvedValue({ count: 0 });
@@ -115,6 +118,16 @@ describe("runGdprCleanup", () => {
       }),
     });
 
+    // SMS logs hold the phone number and a text that usually contains the
+    // customer's name and delivery address.
+    expect(mocks.orderSmsMessageUpdateManyMock).toHaveBeenCalledWith({
+      where: { orderId: "order-1" },
+      data: {
+        toPhone: expect.stringMatching(/anonymized/i),
+        body: expect.stringMatching(/anonymized/i),
+      },
+    });
+
     expect(mocks.orderEventCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
         orderId: "order-1",
@@ -123,7 +136,7 @@ describe("runGdprCleanup", () => {
         actorMembershipId: null,
         payload: expect.objectContaining({
           fields: expect.arrayContaining(["customerName", "email", "deliveryAddress"]),
-          relatedCleared: { emailMessages: 2, gsmTasks: 1, legacyRawMeta: false },
+          relatedCleared: { emailMessages: 2, gsmTasks: 1, smsMessages: 0, legacyRawMeta: false },
         }),
       }),
     });

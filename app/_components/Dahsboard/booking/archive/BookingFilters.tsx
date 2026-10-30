@@ -6,6 +6,7 @@ import type { BookingArchiveFilters, BookingArchiveOption } from "./types";
 import {
   DEFAULT_BOOKING_ARCHIVE_FILTERS,
   NONE_FILTER_VALUE,
+  getAfterTomorrowRange,
   getLastMonthRange,
   getThisMonthRange,
   getThisWeekRange,
@@ -18,9 +19,15 @@ import {
   type BookingUiLocale,
 } from "@/lib/booking/bookingUiText";
 import { parseIsoDate, toIsoDate } from "@/lib/dates/isoDate";
-import { addMonths, buildCalendarDays, startOfMonth } from "@/lib/dates/calendarGrid";
+import {
+  WEEKDAY_LABELS,
+  addMonths,
+  buildCalendarDays,
+  getMonthLabel,
+  startOfMonth,
+} from "@/lib/dates/calendarMonth";
 
-const DEFAULT_STATUS_OPTIONS = ["processing", "confirmed", "active", "cancelled", "failed", "completed", "invoiced", "paid"] as const;
+const DEFAULT_STATUS_OPTIONS = ["pending", "processing", "confirmed", "active", "cancelled", "failed", "completed", "invoiced", "paid"] as const;
 
 type Props = {
   initialApplied: BookingArchiveFilters;
@@ -32,6 +39,8 @@ type Props = {
   };
   subcontractors: BookingArchiveOption[];
   creators: BookingArchiveOption[];
+  drivers?: BookingArchiveOption[];
+  showDriverFilter?: boolean;
   pricelists?: BookingArchiveOption[];
   showPricelistFilter?: boolean;
   pickupAddresses?: BookingArchiveOption[];
@@ -49,11 +58,6 @@ type Props = {
 };
 
 const MAX_ARCHIVE_ROWS_PER_PAGE = 10000;
-
-const WEEKDAY_LABELS: Record<BookingUiLocale, string[]> = {
-  en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-  nb: ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"],
-};
 
 function formatDisplayDate(value: string): string {
   const date = parseIsoDate(value);
@@ -82,13 +86,6 @@ function formatRangeLabel(
   return locale === "nb" ? "Velg datoperiode" : "Select date range";
 }
 
-function getMonthLabel(month: Date, locale: BookingUiLocale): string {
-  return month.toLocaleDateString(locale === "nb" ? "nb-NO" : "en-GB", {
-    month: "long",
-    year: "numeric",
-  });
-}
-
 function isIsoWithinRange(value: string, fromDate: string, toDate: string): boolean {
   if (!fromDate || !toDate) return false;
   return value >= fromDate && value <= toDate;
@@ -103,6 +100,8 @@ export default function BookingFilters({
   access,
   subcontractors,
   creators,
+  drivers = [],
+  showDriverFilter = false,
   pricelists = [],
   showPricelistFilter = false,
   pickupAddresses = [],
@@ -129,6 +128,7 @@ export default function BookingFilters({
   const [subcontractorId, setSubcontractorId] = useState(
     access.lockedSubcontractorId ?? initialApplied.subcontractorId,
   );
+  const [driver, setDriver] = useState(initialApplied.driver);
   const [pricelistId, setPricelistId] = useState(initialApplied.pricelistId);
   const [customPickupAddressId, setCustomPickupAddressId] = useState(
     initialApplied.customPickupAddressId,
@@ -180,6 +180,7 @@ export default function BookingFilters({
         status,
         createdById: access.lockedCreatedById ?? createdById,
         subcontractorId: access.lockedSubcontractorId ?? subcontractorId,
+        driver,
         pricelistId,
         customPickupAddressId,
         fromDate,
@@ -196,6 +197,7 @@ export default function BookingFilters({
     access.lockedSubcontractorId,
     createdById,
     customPickupAddressId,
+    driver,
     fromDate,
     pricelistId,
     rowsPerPage,
@@ -215,6 +217,7 @@ export default function BookingFilters({
       access.lockedSubcontractorId ??
         DEFAULT_BOOKING_ARCHIVE_FILTERS.subcontractorId,
     );
+    setDriver(DEFAULT_BOOKING_ARCHIVE_FILTERS.driver);
     setPricelistId(DEFAULT_BOOKING_ARCHIVE_FILTERS.pricelistId);
     setCustomPickupAddressId(DEFAULT_BOOKING_ARCHIVE_FILTERS.customPickupAddressId);
     setFromDate(DEFAULT_BOOKING_ARCHIVE_FILTERS.fromDate);
@@ -243,6 +246,12 @@ export default function BookingFilters({
 
   const setTomorrow = () => {
     const range = getTomorrowRange();
+    setRowsPerPage(MAX_ARCHIVE_ROWS_PER_PAGE);
+    applyRange(range.fromDate, range.toDate);
+  };
+
+  const setAfterTomorrow = () => {
+    const range = getAfterTomorrowRange();
     setRowsPerPage(MAX_ARCHIVE_ROWS_PER_PAGE);
     applyRange(range.fromDate, range.toDate);
   };
@@ -291,12 +300,14 @@ export default function BookingFilters({
 
   const showStore = access.canFilterCreatedBy;
   const showPartner = access.canFilterSubcontractor;
+  const showDriver = showDriverFilter;
   const showPricelist = showPricelistFilter;
   const showPickupAddress = showPickupAddressFilter;
 
   const dateQuickFilters = [
     { key: "today", label: t("Today"), onClick: setToday },
     { key: "tomorrow", label: t("Tomorrow"), onClick: setTomorrow },
+    { key: "afterTomorrow", label: t("After tomorrow"), onClick: setAfterTomorrow },
     { key: "thisWeek", label: t("This week"), onClick: setThisWeek },
     { key: "thisMonth", label: t("This month"), onClick: setThisMonth },
     {
@@ -368,8 +379,14 @@ export default function BookingFilters({
             )}
           </div>
 
-          {showPartner || showStore ? (
-            <div className={`grid grid-cols-1 gap-3 ${showPartner && showStore ? "sm:grid-cols-2" : ""}`}>
+          {showPartner || showStore || showDriver ? (
+            <div
+              className={`grid grid-cols-1 gap-3 ${
+                [showPartner, showStore, showDriver].filter(Boolean).length > 1
+                  ? "sm:grid-cols-2"
+                  : ""
+              }`}
+            >
               {showPartner && (
                 <Field label={t("Partner")}>
                   <select
@@ -398,6 +415,24 @@ export default function BookingFilters({
                     <option value="">{t("All stores")}</option>
                     <option value={NONE_FILTER_VALUE}>{t("No store")}</option>
                     {creators.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+
+              {showDriver && (
+                <Field label={t("Drivers")}>
+                  <select
+                    value={driver}
+                    onChange={(e) => setDriver(e.target.value)}
+                    className="customInput padding-weird-landscape text-weird-landscape w-full"
+                  >
+                    <option value="">{t("All drivers")}</option>
+                    <option value={NONE_FILTER_VALUE}>{t("No driver")}</option>
+                    {drivers.map((item) => (
                       <option key={item.id} value={item.id}>
                         {item.label}
                       </option>
@@ -494,7 +529,7 @@ export default function BookingFilters({
           </Field>
 
           <div>
-            {/* Phone: 2-up grid so the 5 quick filters stretch evenly; the odd one out is centered on its own row */}
+            {/* Phone: 2-up grid; center the final button only when the count is odd. */}
             <div className="grid grid-cols-2 gap-2 sm:hidden">
               {dateQuickFilters.map((filter, index) => (
                 <button
@@ -502,7 +537,7 @@ export default function BookingFilters({
                   type="button"
                   onClick={filter.onClick}
                   className={`customButtonDefault h-10 whitespace-nowrap px-3 text-weird-landscape padding-weird-landscape ${
-                    index === dateQuickFilters.length - 1
+                    dateQuickFilters.length % 2 === 1 && index === dateQuickFilters.length - 1
                       ? "col-span-2 w-[calc(50%-0.25rem)] justify-self-center"
                       : "w-full"
                   }`}

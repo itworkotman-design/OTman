@@ -8,6 +8,7 @@ export const DEFAULT_BOOKING_ARCHIVE_FILTERS: BookingArchiveFilters = {
   status: "",
   createdById: "",
   subcontractorId: "",
+  driver: "",
   pricelistId: "",
   customPickupAddressId: "",
   fromDate: "",
@@ -32,6 +33,13 @@ export function getTodayRange() {
 export function getTomorrowRange() {
   const d = new Date();
   d.setDate(d.getDate() + 1);
+  const iso = toIsoDate(d);
+  return { fromDate: iso, toDate: iso };
+}
+
+export function getAfterTomorrowRange() {
+  const d = new Date();
+  d.setDate(d.getDate() + 2);
   const iso = toIsoDate(d);
   return { fromDate: iso, toDate: iso };
 }

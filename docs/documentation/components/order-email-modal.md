@@ -26,3 +26,11 @@ Renders the Alert Center modal for admins, combining order email conversation to
 | `StatusChange` | Renders status-change events and their optional notes. |
 | `ConversationMessageCard` | Renders an expandable email conversation bubble. |
 | `OrderEmailModal` | Main Alert Center modal. Loads conversation, notifications, and history; shows the renamed alert-center tabs; keeps the customer email/name fields editable, defaults them from the active order recipient instead of the first stored outbound message, lets admins send email replies, refreshes the conversation after failed sends so stored `FAILED` messages appear immediately, lets admins mark email conversations complete, lets admins resolve order notifications so yellow archive alerts clear, lets admins add a custom notification (title, description, and an appearance date/hour from 06:00-22:00) via a form in the Notifications tab, shows not-yet-due scheduled notifications in a small greyed-out "Scheduled" section in the Notifications tab, and gives each scheduled notification a per-row settings menu (a vertical-dots button) to edit all of its fields inline or delete it. |
+
+## SMS tab
+
+An "SMS" tab between Conversation and Order history renders `OrderSmsPanel` for the order (see `sms-components.md`).
+
+Optional `edit` (`{ locale, canDelete, onSaved, onDeleted }`) adds an **Edit order** tab first, rendering `OrderEditPanel`. While that tab is active the title reads "Editing <displayId>" and the modal widens to 1700px. The editor mounts on first visit and then stays mounted (hidden), so unsaved edits survive switching tabs. After that, a click on the backdrop no longer closes the modal; only X does. Saving or deleting closes the modal. Optional `initialTab` (`AlertCenterTab`) picks the starting tab; without it, the old attention-based default applies (Notifications or Conversation).
+
+The tabs are an underlined tab bar (`role="tablist"`). A small dot marks Conversation (blue) when a reply is awaited and Notifications (amber) when a notification awaits approval. The status chips and the "Conversation complete" button sit on the right of the same bar.

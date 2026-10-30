@@ -25,10 +25,28 @@ export async function GET(req: Request) {
   const membership = await getActiveMembership({ userId: session.userId, companyId: session.activeCompanyId });
   const isFullAccess = Boolean(membership && hasFullAccess(membership.role));
 
+  // Optional delivery-date range (booking archive Pickup filter): only
+  // addresses that this company's orders in that range are picked up from,
+  // same as the Store filter's order-creators?hasOrders=true&fromDate=…
+  const url = new URL(req.url);
+  const fromDate = url.searchParams.get("fromDate") || null;
+  const toDate = url.searchParams.get("toDate") || null;
+  const ordersInRange =
+    fromDate || toDate
+      ? {
+          ordersUsingThis: {
+            some: {
+              companyId: session.activeCompanyId,
+              deliveryDate: { ...(fromDate ? { gte: fromDate } : {}), ...(toDate ? { lte: toDate } : {}) },
+            },
+          },
+        }
+      : {};
+
   const pickupAddresses = await prisma.customPickupAddress.findMany({
     where: isFullAccess
-      ? { isActive: true }
-      : { isActive: true, users: { some: { userId: session.userId } } },
+      ? { isActive: true, ...ordersInRange }
+      : { isActive: true, users: { some: { userId: session.userId } }, ...ordersInRange },
     orderBy: { name: "asc" },
     select: {
       id: true,

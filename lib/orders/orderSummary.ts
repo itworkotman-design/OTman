@@ -24,6 +24,8 @@ type OrderItemWithRawData = Pick<
 
 type OrderSummaryItem = OrderItemWithRawData & {
   rawData?: unknown;
+  // Appended after the label + quantity, e.g. " (DISCOUNTED)".
+  detailSuffix?: string;
 };
 
 function formatQuantity(quantity: number | null | undefined) {
@@ -72,7 +74,7 @@ function getOptionDetail(item: OrderSummaryItem) {
     return "";
   }
 
-  return `${baseLabel}${formatQuantity(item.quantity)}`;
+  return `${baseLabel}${formatQuantity(item.quantity)}${item.detailSuffix ?? ""}`;
 }
 
 // The priced split of the card's own delivery (full-price unit + extra

@@ -22,7 +22,7 @@ import BulkUpdateBar from "@/app/_components/Dahsboard/booking/archive/BulkUpdat
 import SelectionActionBar from "@/app/_components/Dahsboard/booking/archive/SelectionActionBar";
 import BookingColumnVisibilityModal from "@/app/_components/Dahsboard/booking/archive/BookingColumnVisibilityModal";
 import DashboardOrderModal from "@/app/_components/Dahsboard/booking/DashboardOrderModal";
-import OrderEmailModal from "@/app/_components/Dahsboard/booking/archive/OrderEmailModal";
+import OrderEmailModal, { type AlertCenterTab } from "@/app/_components/Dahsboard/booking/archive/OrderEmailModal";
 import ShiftLeaderBanner from "@/app/_components/Dahsboard/booking/ShiftLeaderBanner";
 import type { BookingArchiveFilters, BookingArchiveOption, OrderRow } from "@/app/_components/Dahsboard/booking/archive/types";
 
@@ -60,6 +60,7 @@ export default function WebsiteOrdersPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [emailOrder, setEmailOrder] = useState<OrderRow | null>(null);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailInitialTab, setEmailInitialTab] = useState<AlertCenterTab | undefined>(undefined);
   const [columnModalOpen, setColumnModalOpen] = useState(false);
   const [visibleColumnIds, setVisibleColumnIds] = useState<BookingArchiveColumnId[]>(() => getWebsiteOrdersVisibleColumns());
 
@@ -405,7 +406,6 @@ export default function WebsiteOrdersPage() {
         />
 
         <SelectionActionBar
-          creators={[]}
           selectedCount={selectedOrderIds.length}
           locale={locale}
           onSendGsm={() => handleSendSelectedToGsm()}
@@ -457,11 +457,20 @@ export default function WebsiteOrdersPage() {
               orders={orders}
               viewMode="ADMIN"
               onRowClick={(orderId) => {
+                // Opens the Alert Center on its "Edit order" tab.
+                const row = orders.find((order) => order.id === orderId);
+                if (row) {
+                  setEmailOrder(row);
+                  setEmailInitialTab("edit");
+                  setEmailModalOpen(true);
+                  return;
+                }
                 setSelectedOrderId(orderId);
                 setModalOpen(true);
               }}
               onAlertClick={(order) => {
                 setEmailOrder(order);
+                setEmailInitialTab(undefined);
                 setEmailModalOpen(true);
               }}
               selectable
@@ -500,6 +509,8 @@ export default function WebsiteOrdersPage() {
           setEmailOrder(null);
         }}
         onAlertsChanged={() => void loadOrders(appliedFilters)}
+        initialTab={emailInitialTab}
+        edit={{ locale, canDelete: false, onSaved: () => void loadOrders(appliedFilters), onDeleted: () => void loadOrders(appliedFilters) }}
       />
 
       <BookingColumnVisibilityModal

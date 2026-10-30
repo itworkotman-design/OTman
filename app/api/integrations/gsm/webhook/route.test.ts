@@ -402,6 +402,8 @@ describe("POST /api/integrations/gsm/webhook", () => {
         status: "processing", // not completed — blocked by note
       }),
     });
+    // An admin completing it after review is a manual change: no review SMS.
+    expect(mocks.orderUpdateMock.mock.calls[0][0].data.gsmCompletedAt).toBeUndefined();
     expect(mocks.createOrderActionEventMock).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({
@@ -521,8 +523,9 @@ describe("POST /api/integrations/gsm/webhook", () => {
     expect(response.status).toBe(200);
     expect(mocks.orderUpdateMock).toHaveBeenCalledWith({
       where: { id: "order-1" },
-      // statusChangedAt feeds the daily missing-partner cron for GSM-completed orders too.
-      data: expect.objectContaining({ status: "completed", statusChangedAt: expect.any(Date) }),
+      // statusChangedAt feeds the daily missing-partner cron for GSM-completed orders too;
+      // gsmCompletedAt is what the review-request SMS keys off (manual completions never set it).
+      data: expect.objectContaining({ status: "completed", statusChangedAt: expect.any(Date), gsmCompletedAt: expect.any(Date) }),
     });
     expect(mocks.createOrderActionEventMock).not.toHaveBeenCalled();
   });

@@ -8,15 +8,19 @@
 
 Builds the GSM order payload from an OTman order, omits blank or placeholder pickup addresses so the rest of the order can still be sent to GSM, sends pickup addresses as `pick_up` tasks, maps delivery task categories from saved delivery types (`FIRST_STEP` and `INDOOR` as `drop_off`, `RETURNIN`/return-only as `pick_up`, `INSTALL_ONLY` as `assignment`), lets selected install options override the delivery type to `assignment`, sends return addresses as `drop_off` including return-to-recycling addresses, and formats the GSM description from the same grouped product summary used in the archive table plus radio-normalized lift, floor, and Norwegian canonical return-option text. A selected return-to-store option is sent as `❗Retur til butikk❗` in the product summary and appended to existing driver information without replacing it. WordPress-imported global `KM pris` rows are omitted from the GSM description. When `GOOGLE_REVIEW_QR_URL` is configured, the `app:qr_link` metafield (GSM custom field "Google review QR link", value type `link`) is added only to the delivery-address task, and only when that task resolves to an actual delivery (`drop_off`/`assignment`) rather than a return-only pickup leg — it is never sent on pickup, extra-pickup, or return-address tasks. Pickup, delivery, and return tasks additionally include a GSM `location` (GeoJSON `Point`, `[longitude, latitude]`) built from the order's `pickupLatitude`/`pickupLongitude`, `deliveryLatitude`/`deliveryLongitude`, and `returnLatitude`/`returnLongitude` columns whenever they're set, so GSM pins the exact coordinate instead of re-geocoding `raw_address` itself; extra pickup tasks get the same treatment from the matching (by array index, not address text) entry in `extraPickupContacts`. A coordinate is only present when the address came from a saved `CustomPickupAddress` or was resolved via Mapbox's Search Box `/retrieve` for a manually-searched address (see `app/api/address-search/retrieve/route.ts`) — a task's `location` is simply omitted otherwise.
 
+The orderer uses the customer/store label and the main custom pickup address phone when available, never the cashier phone. Pickup, extra-pickup, and return receivers use the matching custom address name and phone. Only the delivery-address task uses the end customer's name, email, and phone numbers, and the customer name is sent without a `Kunde:` prefix.
+
 ## Functions
 
 | Function | Description |
 | --- | --- |
 | `normalizePhone` | Normalizes a phone string to digits with an optional leading `+`. |
 | `normalizePhones` | Deduplicates and normalizes a list of optional phone values. |
+| `buildAddressContact` | Builds a pickup or return receiver from the matching custom address name and phone, or omits it when neither value exists. |
 | `normalizePickupAddress` | Converts blank values and the `No shop pickup address` placeholder into an omitted GSM pickup task. |
 | `toGsmLocation` | Builds a GSM GeoJSON `Point` location from a latitude/longitude pair, or `undefined` when either is missing. |
 | `getExtraPickupCoordinates` | Reads the latitude/longitude for one extra pickup out of the saved `extraPickupContacts` JSON array by index. |
+| `appendWarehouseContactNote` | Adds a saved custom address name and phone to that task's description without affecting other tasks. |
 | `normalizeLiftForDescription` | Maps the saved radio value `yes` to `Ja`, `no` to `Nei`, and defaults blank or non-radio values to `Nei`. |
 | `formatLiftForDescription` | Returns the normalized lift text used in GSM descriptions. |
 | `buildLocationDetails` | Builds the GSM description location lines for lift and floor. |
@@ -24,11 +28,12 @@ Builds the GSM order payload from an OTman order, omits blank or placeholder pic
 | `getItemOptionCode` | Resolves the best option code for a saved order item from `optionCode`, `mappedOptionCode`, or raw `code`. |
 | `isWordpressOrderPriceItem` | Detects imported global WordPress order-price rows. |
 | `isWordpressKmPriceItem` | Detects imported global WordPress `KM pris` rows that should stay out of GSM descriptions. |
-| `getGsmSummaryItems` | Canonicalizes return option labels so `RETURNSTORE` sends `❗Retur til butikk❗` and `RETURNREC` sends `Retur til gjenvinningsstasjon` in GSM descriptions, and filters imported WordPress `KM pris` rows out before grouping. |
+| `getNulledLineKeysByCardId` | Reads each card's `nulledLineKeysForCustomer` (lines checked off as "Set to 0" in the calculator) from the order's `productCardsSnapshot`. |
+| `getGsmSummaryItems` | Canonicalizes return option labels so `RETURNSTORE` sends `❗Retur til butikk❗` and `RETURNREC` sends `Retur til gjenvinningsstasjon` in GSM descriptions, suffixes lines checked off in the calculator with ` (DISCOUNTED)` (matched by `computeLineKey`), and filters imported WordPress `KM pris` rows out before grouping. |
 | `hasReturnToStore` | Detects a selected `RETURNSTORE` order item. |
 | `buildDriverInfo` | Appends the return-to-store notice to existing driver information without replacing saved text or duplicating an existing notice. |
 | `buildDescription` | Builds the GSM task description from grouped `items` data when available, lift/floor details, fallback legacy summaries for older orders, and augmented driver information. |
-| `getTimeWindowIso` | Converts the stored delivery date and time window into GSM ISO completion bounds. |
+| `getTimeWindowIso` | Converts the stored delivery date and time window into GSM ISO completion bounds, interpreting the window as Oslo local time with the DST offset in effect on the delivery date (`osloWallClockToDate`). |
 | `getRawDataCategory` | Reads a structured option category from order item raw data. |
 | `getRawProductCardDeliveryType` | Reads the saved product-card delivery type key from item raw data. |
 | `matchesDeliveryType` | Compares saved delivery type text, keys, and codes against known GSM routing matches. |

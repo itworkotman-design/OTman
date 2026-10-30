@@ -24,3 +24,7 @@ Processes GSM task webhooks, stores the raw webhook event, refreshes the full GS
 | `getNextStatus` | Chooses the next OTman status from completed-task coverage and verified GSM status mapping, while preserving the current status for unmapped states such as `unassigned`. |
 | `syncPodPdfInBackground` | Starts the retrying POD PDF sync for completed GSM tasks without awaiting it, and logs failures from the async import. |
 | `POST` | Verifies the webhook secret, resolves the related order, stores the webhook payload, updates GSM task tracking rows, pulls driver and vehicle metafields plus webhook notes back onto the order, checks cancelled/canceled webhooks against the freshly fetched GSM task before changing order status, leaves `priceExVat` and `priceSubcontractor` untouched in every webhook path, clears `rabatt` and `subcontractorMinus` when status moves from `cancelled` to a non-cancelled status, logs and records an `Ignored unverified GSM cancellation` action event when an unverified cancellation is ignored, schedules retrying POD PDF import on completion, and writes order-history events for the resulting changes. |
+
+## Review-request SMS
+
+When the webhook auto-completes an order it also stamps `Order.gsmCompletedAt`. That column is the only trigger for the automatic review-request SMS (`lib/sms/reviewRequestSweep.ts`), so manual or bulk completions never send one.

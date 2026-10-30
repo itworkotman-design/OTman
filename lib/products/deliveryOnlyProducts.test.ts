@@ -48,6 +48,8 @@ describe("getDeliveryOnlyProducts", () => {
     const args = mocks.linkFindManyMock.mock.calls[0][0];
     expect(args.where).toEqual({ priceListId: "pl-1" });
     expect(args.orderBy).toEqual({ product: { sortOrder: "asc" } });
+    // Delivery prices are this price list's own (PriceListProductConfig).
+    expect(mocks.getProductConfigMapMock).toHaveBeenCalledWith(["p-pose"], "pl-1");
     expect(result).toEqual([
       expect.objectContaining({
         productId: "p-pose",

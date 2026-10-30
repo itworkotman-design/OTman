@@ -256,7 +256,7 @@ export default function PickupAddressModal({
   };
 
   return (
-    <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm">
       <div className="relative max-h-[90vh] w-full max-w-[640] overflow-y-auto rounded-3xl bg-white p-9 shadow-[0_20px_60px_rgba(0,0,0,.25)]">
         <button
           type="button"

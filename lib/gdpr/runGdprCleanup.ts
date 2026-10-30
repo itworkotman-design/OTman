@@ -25,6 +25,7 @@ const ANONYMIZED_ORDER_FIELDS = [
 const REDACTED_EMAIL_PLACEHOLDER = "gdpr-anonymized@deleted.invalid";
 const REDACTED_MESSAGE_BODY = "[GDPR: message content anonymized]";
 const REDACTED_SUBJECT = "[GDPR: subject anonymized]";
+const REDACTED_PHONE = "[GDPR: phone anonymized]";
 
 export type GdprCleanupSummary = {
   anonymized: number;
@@ -69,7 +70,7 @@ export function parseGdprLimitParam(searchParams: URLSearchParams): number | und
 async function anonymizeOrder(
   order: OrderCandidate & { legacyWordpressOrderId: number | null },
 ): Promise<void> {
-  const [emailMessages, gsmTasks] = await Promise.all([
+  const [emailMessages, gsmTasks, smsMessages] = await Promise.all([
     prisma.orderEmailMessage.updateMany({
       where: { orderId: order.id },
       data: {
@@ -85,6 +86,10 @@ async function anonymizeOrder(
     prisma.orderGsmTask.updateMany({
       where: { orderId: order.id },
       data: { address: null },
+    }),
+    prisma.orderSmsMessage.updateMany({
+      where: { orderId: order.id },
+      data: { toPhone: REDACTED_PHONE, body: REDACTED_MESSAGE_BODY },
     }),
   ]);
 
@@ -118,6 +123,7 @@ async function anonymizeOrder(
         relatedCleared: {
           emailMessages: emailMessages.count,
           gsmTasks: gsmTasks.count,
+          smsMessages: smsMessages.count,
           legacyRawMeta: Boolean(order.legacyWordpressOrderId),
         },
       },

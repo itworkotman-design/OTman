@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => {
     findUniqueMock: vi.fn(),
     userFindUniqueMock: vi.fn(),
     userUpdateMock: vi.fn(),
+    userCountMock: vi.fn(),
+    inviteCountMock: vi.fn(),
     membershipPermissionDeleteManyMock: vi.fn(),
     membershipPermissionCreateManyMock: vi.fn(),
     membershipUpdateMock: vi.fn(),
@@ -34,6 +36,10 @@ vi.mock("@/lib/db", () => ({
     user: {
       findUnique: mocks.userFindUniqueMock,
       update: mocks.userUpdateMock,
+      count: mocks.userCountMock,
+    },
+    invite: {
+      count: mocks.inviteCountMock,
     },
     membershipPermission: {
       deleteMany: mocks.membershipPermissionDeleteManyMock,
@@ -73,6 +79,8 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
       logoPath: "/uploads/user-logos/u2/old-logo.webp",
     });
     mocks.isS3StoragePathMock.mockReturnValue(false);
+    mocks.userCountMock.mockResolvedValue(0);
+    mocks.inviteCountMock.mockResolvedValue(0);
     mocks.membershipPermissionDeleteManyMock.mockResolvedValue({ count: 0 });
     mocks.membershipPermissionCreateManyMock.mockResolvedValue({ count: 0 });
     mocks.membershipPriceListDeleteManyMock.mockResolvedValue({ count: 0 });
@@ -566,6 +574,89 @@ describe("PATCH /api/auth/memberships/[membershipId]/update", () => {
     });
 
     expect(mocks.membershipPriceListCreateManyMock).not.toHaveBeenCalled();
+  });
+
+  describe("previous logo cleanup", () => {
+    function setupOwnerEditingUser() {
+      mocks.getAuthenticatedSessionMock.mockResolvedValue({
+        sessionId: "session-1",
+        userId: "u1",
+        email: "owner@example.com",
+        userStatus: "ACTIVE",
+        activeCompanyId: "c1",
+        expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      });
+      mocks.getActiveMembershipMock.mockResolvedValue({
+        userId: "u1",
+        companyId: "c1",
+        role: "OWNER",
+        status: "ACTIVE",
+        permissions: [],
+        appAccess: [{ module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" }],
+      });
+      mocks.findUniqueMock.mockResolvedValue({
+        id: "m2",
+        role: "USER",
+        status: "ACTIVE",
+        companyId: "c1",
+        userId: "u2",
+      });
+      mocks.isS3StoragePathMock.mockReturnValue(true);
+      mocks.userFindUniqueMock.mockResolvedValue({
+        logoPath: "s3://orders/user-logos/u1/shared.svg",
+      });
+      mocks.deleteAttachmentFromS3Mock.mockResolvedValue(undefined);
+    }
+
+    function patchWithNewLogo() {
+      return PATCH(
+        new Request("http://localhost/api/auth/memberships/m2/update", {
+          method: "PATCH",
+          body: JSON.stringify({
+            email: "updated@example.com",
+            logoPath: "/uploads/user-logos/u2/logo.webp",
+          }),
+        }),
+        { params: Promise.resolve({ membershipId: "m2" }) },
+      );
+    }
+
+    it("deletes the previous logo when nobody else uses it", async () => {
+      setupOwnerEditingUser();
+
+      const res = await patchWithNewLogo();
+
+      expect(res.status).toBe(200);
+      expect(mocks.userCountMock).toHaveBeenCalledWith({
+        where: { logoPath: "s3://orders/user-logos/u1/shared.svg" },
+      });
+      expect(mocks.deleteAttachmentFromS3Mock).toHaveBeenCalledWith(
+        "s3://orders/user-logos/u1/shared.svg",
+      );
+    });
+
+    it("keeps the previous logo when another user still uses it", async () => {
+      setupOwnerEditingUser();
+      mocks.userCountMock.mockResolvedValue(1);
+
+      const res = await patchWithNewLogo();
+
+      expect(res.status).toBe(200);
+      expect(mocks.deleteAttachmentFromS3Mock).not.toHaveBeenCalled();
+    });
+
+    it("keeps the previous logo when a pending invite still uses it", async () => {
+      setupOwnerEditingUser();
+      mocks.inviteCountMock.mockResolvedValue(1);
+
+      const res = await patchWithNewLogo();
+
+      expect(res.status).toBe(200);
+      expect(mocks.inviteCountMock).toHaveBeenCalledWith({
+        where: { logoPath: "s3://orders/user-logos/u1/shared.svg", status: "PENDING" },
+      });
+      expect(mocks.deleteAttachmentFromS3Mock).not.toHaveBeenCalled();
+    });
   });
 
   it("replaces membershipPriceLists when priceListIds are provided", async () => {

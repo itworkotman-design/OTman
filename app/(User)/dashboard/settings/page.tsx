@@ -16,6 +16,7 @@ import {
 } from "@/lib/pickupAddresses/addressAppearance";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
 import { hasFullAccess } from "@/lib/users/access";
+import SmsTemplatesSection from "@/app/_components/Dahsboard/booking/archive/SmsTemplates";
 
 type PickupAddressRow = {
   id: string;
@@ -195,9 +196,9 @@ function PickupAddressesSection() {
       ) : error ? (
         <div className="py-6 text-red-600">{error}</div>
       ) : (
-        <div className="mb-6 overflow-x-auto rounded-[20px] border border-black/8">
+        <div className="mb-6 max-h-150 overflow-auto rounded-[20px] border border-black/8">
           <table className="w-full">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-white">
               <tr className="border-b border-black/8 bg-black/3 text-left text-textColorSecond">
                 <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Name</th>
                 <th className="whitespace-nowrap border-r border-black/3 px-4 py-3 font-medium">Address</th>
@@ -275,6 +276,9 @@ function PickupAddressesSection() {
 }
 
 export default function SettingsPage() {
+  const currentUser = useCurrentUser();
+  const canManageSms = Boolean(currentUser && hasFullAccess(currentUser.role));
+
   return (
     <div className="min-w-0 max-w-1800">
       <h1 className="mb-8 whitespace-nowrap text-2xl font-semibold text-logoblue lg:text-4xl">
@@ -282,6 +286,12 @@ export default function SettingsPage() {
       </h1>
 
       <PickupAddressesSection />
+
+      {canManageSms && (
+        <div className="mt-10">
+          <SmsTemplatesSection />
+        </div>
+      )}
     </div>
   );
 }

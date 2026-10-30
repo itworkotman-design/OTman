@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { requireFullAccessMembership } from "@/lib/products/pricelistAccess";
-import { getProductConfigMap } from "@/lib/products/productConfig";
+import { getProductConfigMap, savePriceListProductConfig } from "@/lib/products/productConfig";
 import { normalizeProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 import { normalizeProductCustomSections } from "@/lib/products/customSections";
 import { normalizeProductDeliveryTypes } from "@/lib/products/deliveryTypes";
@@ -68,43 +68,44 @@ export async function PATCH(
   }
 
   const productType = body.productType ?? null;
-  const autoDeliveryPriceJson =
-    body.autoDeliveryPrice !== undefined
-      ? JSON.stringify(normalizeProductAutoDeliveryPrice(body.autoDeliveryPrice))
-      : null;
-  const deliveryTypesJson =
-    body.deliveryTypes !== undefined
-      ? JSON.stringify(normalizeProductDeliveryTypes(body.deliveryTypes))
-      : null;
-  const customSectionsJson =
-    body.customSections !== undefined
-      ? JSON.stringify(normalizeProductCustomSections(body.customSections))
-      : null;
 
-  // Same raw update the items/[itemId]/full route uses: the runtime client can
-  // lag behind the schema for the newer Product config columns.
-  await prisma.$executeRaw`
-    UPDATE "Product"
-    SET
-      "name" = COALESCE(${name ?? null}, "name"),
-      "productType" = COALESCE(${productType}::"ProductType", "productType"),
-      "allowDeliveryTypes" = COALESCE(${optionalBoolean(body.allowDeliveryTypes)}, "allowDeliveryTypes"),
-      "allowQuantity" = COALESCE(${optionalBoolean(body.allowQuantity)}, "allowQuantity"),
-      "allowInstallOptions" = COALESCE(${optionalBoolean(body.allowInstallOptions)}, "allowInstallOptions"),
-      "allowReturnOptions" = COALESCE(${optionalBoolean(body.allowReturnOptions)}, "allowReturnOptions"),
-      "allowExtraServices" = COALESCE(${optionalBoolean(body.allowExtraServices)}, "allowExtraServices"),
-      "allowDemont" = COALESCE(${optionalBoolean(body.allowDemont)}, "allowDemont"),
-      "allowPeopleCount" = COALESCE(${optionalBoolean(body.allowPeopleCount)}, "allowPeopleCount"),
-      "allowHoursInput" = COALESCE(${optionalBoolean(body.allowHoursInput)}, "allowHoursInput"),
-      "allowModelNumber" = COALESCE(${optionalBoolean(body.allowModelNumber)}, "allowModelNumber"),
-      "autoXtraPerPallet" = COALESCE(${optionalBoolean(body.autoXtraPerPallet)}, "autoXtraPerPallet"),
-      "autoDeliveryPrice" = COALESCE(${autoDeliveryPriceJson}::jsonb, "autoDeliveryPrice"),
-      "deliveryTypes" = COALESCE(${deliveryTypesJson}::jsonb, "deliveryTypes"),
-      "customSections" = COALESCE(${customSectionsJson}::jsonb, "customSections")
-    WHERE "id" = ${productId}
-  `;
+  await prisma.$transaction(async (tx) => {
+    // Same raw update the items/[itemId]/full route uses: the runtime client can
+    // lag behind the schema for the newer Product config columns.
+    await tx.$executeRaw`
+      UPDATE "Product"
+      SET
+        "name" = COALESCE(${name ?? null}, "name"),
+        "productType" = COALESCE(${productType}::"ProductType", "productType"),
+        "allowDeliveryTypes" = COALESCE(${optionalBoolean(body.allowDeliveryTypes)}, "allowDeliveryTypes"),
+        "allowQuantity" = COALESCE(${optionalBoolean(body.allowQuantity)}, "allowQuantity"),
+        "allowInstallOptions" = COALESCE(${optionalBoolean(body.allowInstallOptions)}, "allowInstallOptions"),
+        "allowReturnOptions" = COALESCE(${optionalBoolean(body.allowReturnOptions)}, "allowReturnOptions"),
+        "allowExtraServices" = COALESCE(${optionalBoolean(body.allowExtraServices)}, "allowExtraServices"),
+        "allowDemont" = COALESCE(${optionalBoolean(body.allowDemont)}, "allowDemont"),
+        "allowPeopleCount" = COALESCE(${optionalBoolean(body.allowPeopleCount)}, "allowPeopleCount"),
+        "allowHoursInput" = COALESCE(${optionalBoolean(body.allowHoursInput)}, "allowHoursInput"),
+        "allowModelNumber" = COALESCE(${optionalBoolean(body.allowModelNumber)}, "allowModelNumber"),
+        "autoXtraPerPallet" = COALESCE(${optionalBoolean(body.autoXtraPerPallet)}, "autoXtraPerPallet")
+      WHERE "id" = ${productId}
+    `;
 
-  const config = (await getProductConfigMap([productId])).get(productId);
+    // Delivery pricing lives on this price list's own row, so editing it here
+    // never changes another price list (see savePriceListProductConfig).
+    await savePriceListProductConfig(tx, {
+      priceListId: pricelistId,
+      productId,
+      ...(body.autoDeliveryPrice !== undefined
+        ? { autoDeliveryPrice: normalizeProductAutoDeliveryPrice(body.autoDeliveryPrice) }
+        : {}),
+      ...(body.deliveryTypes !== undefined ? { deliveryTypes: normalizeProductDeliveryTypes(body.deliveryTypes) } : {}),
+      ...(body.customSections !== undefined
+        ? { customSections: normalizeProductCustomSections(body.customSections) }
+        : {}),
+    });
+  });
+
+  const config = (await getProductConfigMap([productId], pricelistId)).get(productId);
 
   return NextResponse.json({ ok: true, product: config ?? null }, { status: 200 });
 }

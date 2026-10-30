@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   linkFindUniqueMock: vi.fn(),
   executeRawMock: vi.fn(),
   getProductConfigMapMock: vi.fn(),
+  savePriceListProductConfigMock: vi.fn(),
+  transactionMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -21,11 +23,13 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     priceListProduct: { findUnique: mocks.linkFindUniqueMock },
     $executeRaw: mocks.executeRawMock,
+    $transaction: mocks.transactionMock,
   },
 }));
 
 vi.mock("@/lib/products/productConfig", () => ({
   getProductConfigMap: mocks.getProductConfigMapMock,
+  savePriceListProductConfig: mocks.savePriceListProductConfigMock,
 }));
 
 import { PATCH } from "./route";
@@ -47,6 +51,10 @@ describe("PATCH /api/products/pricelists/[pricelistId]/products/[productId]/sett
     mocks.requireFullAccessMembershipMock.mockResolvedValue({ ok: true, membership: { role: "OWNER" } });
     mocks.linkFindUniqueMock.mockResolvedValue({ id: "link-1" });
     mocks.executeRawMock.mockResolvedValue(1);
+    mocks.savePriceListProductConfigMock.mockResolvedValue(undefined);
+    mocks.transactionMock.mockImplementation(async (fn: (tx: unknown) => unknown) =>
+      fn({ $executeRaw: mocks.executeRawMock, priceListProductConfig: {} }),
+    );
     mocks.getProductConfigMapMock.mockResolvedValue(
       new Map([["p-pose", { id: "p-pose", productType: "PHYSICAL", deliveryTypes: DELIVERY_TYPES }]]),
     );
@@ -99,12 +107,22 @@ describe("PATCH /api/products/pricelists/[pricelistId]/products/[productId]/sett
     expect(mocks.executeRawMock).not.toHaveBeenCalled();
   });
 
-  it("saves the settings and returns the product's refreshed config", async () => {
+  it("saves delivery pricing on this price list only, never on the shared Product row", async () => {
     const res = await call({ deliveryTypes: DELIVERY_TYPES });
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(mocks.executeRawMock).toHaveBeenCalledTimes(1);
+    expect(mocks.savePriceListProductConfigMock).toHaveBeenCalledTimes(1);
+    expect(mocks.savePriceListProductConfigMock.mock.calls[0][1]).toMatchObject({
+      priceListId: "pl-1",
+      productId: "p-pose",
+      deliveryTypes: expect.arrayContaining([expect.objectContaining({ key: "FIRST_STEP", price: "99" })]),
+    });
+    const productSql = mocks.executeRawMock.mock.calls.map((c) => (c[0] as string[]).join("?")).join("\n");
+    expect(productSql).not.toContain("deliveryTypes");
+    expect(productSql).not.toContain("autoDeliveryPrice");
+    expect(productSql).not.toContain("customSections");
+    expect(mocks.getProductConfigMapMock).toHaveBeenCalledWith(["p-pose"], "pl-1");
     expect(json.ok).toBe(true);
     expect(json.product.id).toBe("p-pose");
     expect(json.product.deliveryTypes).toEqual(DELIVERY_TYPES);

@@ -4,6 +4,7 @@ import type {
   CatalogSpecialOption,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { DELIVERY_TYPES, OPTION_CODES } from "@/lib/booking/constants";
+import { normalizeHoursInput } from "@/lib/booking/hoursInput";
 import { normalizeProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 import {
   getProductDeliveryTypeCode,
@@ -95,7 +96,7 @@ function getPeopleCount(card: SavedProductCard, product: CatalogProduct | null) 
 
 function getHoursInput(card: SavedProductCard, product: CatalogProduct | null) {
   if (!product?.allowHoursInput) return 1;
-  return Math.max(0.5, card.hoursInput || 1);
+  return normalizeHoursInput(card.hoursInput || 1);
 }
 
 function findBaseProductOption(product: CatalogProduct | null) {

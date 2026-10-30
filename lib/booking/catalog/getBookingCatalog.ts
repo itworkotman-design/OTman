@@ -83,7 +83,10 @@ export async function getBookingCatalog(
       })
     : [];
 
-  const productConfigMap = await getProductConfigMap(products.map((p) => p.id));
+  const productConfigMap = await getProductConfigMap(
+    products.map((p) => p.id),
+    priceListId,
+  );
 
   const priceMap = new Map(
     priceListItems.map((item) => [

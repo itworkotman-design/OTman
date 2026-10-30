@@ -464,6 +464,10 @@ export async function POST(req: Request) {
           nextStatus && normalizeOrderStatus(nextStatus) !== normalizeOrderStatus(orderBeforeUpdate.status)
             ? new Date()
             : undefined,
+        // Marks a GSM auto-completion (finalised orders returned early above,
+        // so this is always a fresh completion). The review-request SMS only
+        // fires off this, never off manual status changes.
+        gsmCompletedAt: nextStatus && normalizeOrderStatus(nextStatus) === "completed" ? new Date() : undefined,
       },
     });
 

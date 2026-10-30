@@ -6,9 +6,9 @@ import {
   getSelectedArchiveOrdersPriceTotal,
   getBookingArchiveColumns,
   getBookingArchiveExportColumns,
+  getBookingArchiveVisibilityStorageKey,
   getDefaultVisibleBookingArchiveColumns,
   getDnbDiscountArchiveAmount,
-  getBookingArchiveVisibilityStorageKey,
   getWebsiteOrdersColumns,
   getWebsiteOrdersVisibilityStorageKey,
   getWebsiteOrdersVisibleColumns,
@@ -128,6 +128,34 @@ describe("sanitizeVisibleBookingArchiveColumns", () => {
 
     expect(columnIds).toContain("priceSubcontractor");
     expect(columnIds).not.toContain("priceExVat");
+  });
+
+  it("includes the normalized driver column in the admin archive", () => {
+    const driverColumn = getBookingArchiveColumns("ADMIN").find(
+      (column) => column.id === "driver",
+    );
+
+    expect(driverColumn?.getExportValue?.(buildOrderRow({ driver: "0" }))).toBe(
+      "No driver",
+    );
+    expect(driverColumn?.getExportValue?.(buildOrderRow({ driver: "RONALDS" }))).toBe(
+      "Ronalds",
+    );
+    expect(
+      getBookingArchiveColumns("SUBCONTRACTOR").map((column) => column.id),
+    ).not.toContain("driver");
+    expect(
+      getBookingArchiveColumns("ORDER_CREATOR").map((column) => column.id),
+    ).not.toContain("driver");
+  });
+
+  it("uses the driver-column visibility version only for admin layouts", () => {
+    expect(getBookingArchiveVisibilityStorageKey("ADMIN")).toBe(
+      "booking-archive-visible-columns:ADMIN:v2",
+    );
+    expect(getBookingArchiveVisibilityStorageKey("SUBCONTRACTOR")).toBe(
+      "booking-archive-visible-columns:SUBCONTRACTOR",
+    );
   });
 
   it("exports admin prices as numbers without NOK text", () => {

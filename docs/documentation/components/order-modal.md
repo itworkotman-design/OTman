@@ -13,5 +13,5 @@ Loads and edits one order in the admin archive modal, applying the active bookin
 | Function | Description |
 | --- | --- |
 | `OrderModal` | Fetches the selected order, renders `BookingEditor`, saves updates, optionally deletes the order, and forwards the active locale into modal/editor text. |
-| `handleSave` | `BookingEditor`'s `onSubmit`: only `PATCH /api/orders/[orderId]`. It doesn't close the modal, because the editor still uploads and deletes the attachment changes. |
-| `handleAfterSave` | `BookingEditor`'s `onAfterSave`, called once the whole Save finished (order + attachments). It reloads the list (`onSaved`) and closes only when every file change went through (`attachmentsSaved`). Otherwise the modal stays open with the editor's error, and Save retries just the failed files. |
+
+The editor itself (load, save, delete) lives in `OrderEditPanel` (see `order-edit-panel.md`); this modal is only the frame around it. Admin row clicks now open the Alert Center on its "Edit order" tab instead, so this modal is only used for an order that is not in the loaded table yet (e.g. right after "Copy" of a single order).

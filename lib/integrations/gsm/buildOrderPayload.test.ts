@@ -76,6 +76,7 @@ function buildOrder(overrides?: Partial<Order>): Order {
     gsmLastTaskState: null,
     gsmSyncStatus: null,
     gsmSentAt: null,
+    prepareEmailSentAt: null,
     gsmLastWebhookAt: null,
     gsmLastSyncedAt: null,
     emailThreadToken: null,
@@ -116,6 +117,9 @@ function buildOrder(overrides?: Partial<Order>): Order {
     paymentRequestSentAt: null,
     paymentReminderSentAt: null,
     customerAccountId: null,
+    dayBeforeDeliverySmsSentAt: null,
+    reviewSmsSentAt: null,
+    gsmCompletedAt: null,
     ...overrides,
   };
 }
@@ -146,6 +150,127 @@ describe("buildOrderPayload", () => {
   afterEach(() => {
     delete process.env.GSM_ACCOUNT_URL;
     delete process.env.GOOGLE_REVIEW_QR_URL;
+  });
+
+  it("sends the time window in Oslo summer time (+02:00) during DST", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(buildOrder({ deliveryDate: "2026-04-21", timeWindow: "10:00-16:00" }));
+
+    expect(payload.tasks_data[0].complete_after).toBe("2026-04-21T08:00:00.000Z");
+    expect(payload.tasks_data[0].complete_before).toBe("2026-04-21T14:00:00.000Z");
+  });
+
+  it("sends the time window in Oslo winter time (+01:00) outside DST", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(buildOrder({ deliveryDate: "2026-10-27", timeWindow: "10:00-16:00" }));
+
+    expect(payload.tasks_data[0].complete_after).toBe("2026-10-27T09:00:00.000Z");
+    expect(payload.tasks_data[0].complete_before).toBe("2026-10-27T15:00:00.000Z");
+  });
+
+  it("uses the offset in effect on the delivery date, not today's", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    // Oslo switches to summer time at 02:00 local on 2027-03-28.
+    const payload = buildOrderPayload(buildOrder({ deliveryDate: "2027-03-28", timeWindow: "08:00-12:00" }));
+
+    expect(payload.tasks_data[0].complete_after).toBe("2027-03-28T06:00:00.000Z");
+    expect(payload.tasks_data[0].complete_before).toBe("2027-03-28T10:00:00.000Z");
+  });
+
+  it("uses the custom pickup address phone for the orderer instead of the cashier phone", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        customerLabel: "POWER Slependen",
+        cashierPhone: "92918768",
+        customPickupAddressName: "POWER Slependen",
+        customPickupAddressPhone: "+47 22 33 44 55",
+      }),
+    );
+
+    expect(payload.orderer).toEqual({
+      name: "POWER Slependen",
+      emails: [],
+      phones: ["+4722334455"],
+    });
+  });
+
+  it("leaves the orderer phone list empty when the custom pickup address has no phone", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        customerLabel: "POWER Slependen",
+        cashierPhone: "92918768",
+        customPickupAddressName: "POWER Slependen",
+        customPickupAddressPhone: null,
+      }),
+    );
+
+    expect(payload.orderer.phones).toEqual([]);
+  });
+
+  it("uses custom address contacts for pickup and return receivers", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        customerLabel: "POWER Slependen",
+        cashierName: "Cashier who placed the order",
+        cashierPhone: "92918768",
+        customPickupAddressName: "POWER Slependen",
+        customPickupAddressPhone: null,
+        returnAddress: "Return 1",
+        customReturnAddressName: "POWER Slependen returns",
+        customReturnAddressPhone: "+47 11 22 33 44",
+      }),
+    );
+
+    const pickupTask = payload.tasks_data.find((task) => task.address.raw_address === "Pickup 1");
+    const returnTask = payload.tasks_data.find((task) => task.address.raw_address === "Return 1");
+
+    expect(pickupTask?.contact).toEqual({
+      name: "POWER Slependen",
+      phones: [],
+    });
+    expect(returnTask?.contact).toEqual({
+      name: "POWER Slependen returns",
+      phones: ["+4711223344"],
+    });
+  });
+
+  it("uses the unprefixed customer contact only for the delivery receiver", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload(
+      buildOrder({
+        customerName: "Roshan Jalal",
+        phone: "41210060",
+        phoneTwo: "41210061",
+        email: "jalalroshan@hotmail.com",
+        customPickupAddressName: "POWER Slependen",
+        customPickupAddressPhone: null,
+        returnAddress: "Return 1",
+        customReturnAddressName: "POWER Slependen",
+        customReturnAddressPhone: null,
+      }),
+    );
+
+    const pickupTask = payload.tasks_data.find((task) => task.address.raw_address === "Pickup 1");
+    const deliveryTask = payload.tasks_data.find((task) => task.address.raw_address === "Delivery 1");
+    const returnTask = payload.tasks_data.find((task) => task.address.raw_address === "Return 1");
+
+    expect(deliveryTask?.contact).toEqual({
+      name: "Roshan Jalal",
+      emails: ["jalalroshan@hotmail.com"],
+      phones: ["41210060", "41210061"],
+    });
+    expect(pickupTask?.contact?.name).toBe("POWER Slependen");
+    expect(returnTask?.contact?.name).toBe("POWER Slependen");
   });
 
   it("omits the pickup task when the order only has the pickup placeholder", () => {
@@ -260,6 +385,67 @@ describe("buildOrderPayload", () => {
     expect(payload.tasks_data[0]?.description).toContain("Handle with care");
     expect(payload.tasks_data[0]?.description).toContain("Heis - Nei");
     expect(payload.tasks_data[0]?.description).not.toContain("Legacy product");
+  });
+
+  it("marks lines checked off in the calculator as (DISCOUNTED) in the GSM description", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const baseItem = {
+      createdAt: new Date("2026-04-20T09:00:00.000Z"),
+      orderId: "order-1",
+      cardId: 1,
+      productId: "product-1",
+      productCode: "WASHER",
+      productName: "Washer",
+      deliveryType: "Indoor carry",
+      quantity: 2,
+      customerPriceCents: 0,
+      subcontractorPriceCents: 0,
+    };
+
+    const payload = buildOrderPayload({
+      ...buildOrder({
+        productCardsSnapshot: [
+          { cardId: 1, nulledLineKeysForCustomer: ["opt:option-1", "code:CARRY"] },
+        ],
+      }),
+      items: [
+        { ...baseItem, id: "item-1", itemType: "PRODUCT_CARD", optionId: null, optionCode: null, optionLabel: null, rawData: null },
+        {
+          ...baseItem,
+          id: "item-2",
+          itemType: "INSTALL_OPTION",
+          optionId: "option-1",
+          optionCode: "INSTALL_ONLY",
+          optionLabel: "Install only",
+          rawData: { description: "Install only" },
+        },
+        {
+          ...baseItem,
+          id: "item-3",
+          itemType: "EXTRA_OPTION",
+          optionId: null,
+          optionCode: "CARRY",
+          optionLabel: "Carry in",
+          rawData: { description: "Carry in" },
+        },
+        {
+          ...baseItem,
+          id: "item-4",
+          itemType: "EXTRA_OPTION",
+          optionId: "option-2",
+          optionCode: "UNPACK",
+          optionLabel: "Unpack",
+          rawData: { description: "Unpack" },
+        },
+      ],
+    });
+
+    const description = payload.tasks_data[0]?.description;
+    expect(description).toContain("- Install only x2 (DISCOUNTED)");
+    expect(description).toContain("- Carry in x2 (DISCOUNTED)");
+    expect(description).toContain("- Unpack x2");
+    expect(description).not.toContain("Unpack x2 (DISCOUNTED)");
   });
 
   it("adds lift and floor details to the GSM description", () => {
@@ -858,8 +1044,10 @@ describe("buildOrderPayload", () => {
 
     expect(taskA?.description).toContain("Hentested: Statlager Oslo");
     expect(taskA?.description).toContain("Telefon lager: 22334455");
+    expect(taskA?.contact).toEqual({ name: "Statlager Oslo", phones: ["22334455"] });
     expect(taskB?.description).not.toContain("Telefon lager:");
     expect(taskB?.description).not.toContain("Hentested:");
+    expect(taskB?.contact).toBeUndefined();
   });
 
   it("only shows an imprecise-address note on the task for the address field it's actually about", () => {

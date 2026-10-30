@@ -109,6 +109,7 @@ export async function GET(
 
   const productConfigMap = await getProductConfigMap(
     priceList.items.map((item) => item.productOption.product.id),
+    priceList.id,
   );
 
   const deliveryOnlyProducts = await getDeliveryOnlyProducts(priceList.id);

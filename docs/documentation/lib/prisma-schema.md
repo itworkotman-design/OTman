@@ -14,7 +14,7 @@ This file does not define functions.
 
 ## Notes
 
-- `Order.dnbDiscount` stores whether the owner/admin DNB 20% discount checkbox was selected for the order.
+- `Order.dnbDiscount` stores whether the (now removed) owner/admin DNB 20% discount checkbox was selected; new saves always write `false`. Manual adjustment lines live in `Order.pricingSnapshot.adjustmentLines`, with `rabatt`/`leggTil`/`subcontractorMinus`/`subcontractorPlus` kept as their per-kind sums.
 - `Order.orderCreatorEmailReadAt` stores when an order creator last marked admin replies as read, without clearing admin-facing inbound mail alerts.
 - `OrderEmailStatus.SENT_WITH_SYNC_WARNING` marks Gmail messages that were accepted by `messages.send` but had a post-send metadata lookup warning.
 - `User.languagePreference` stores an optional dashboard language override as `EN` or `NO`; role-based defaults are used when it is empty.

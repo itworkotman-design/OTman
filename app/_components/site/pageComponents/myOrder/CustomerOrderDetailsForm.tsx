@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import DatePicker from "@/app/_components/utils/DatePicker";
+import WebsiteDatePicker from "@/app/_components/utils/WebsiteDatePicker";
 import { ContactDetailsCard } from "@/app/_components/site/BookingModal/whiteGoods/ContactDetailsCard";
 import { TimeWindowField } from "@/app/_components/site/BookingModal/whiteGoods/timeWindowField";
 import { FieldLabel } from "@/app/_components/site/BookingModal/whiteGoods/formFieldStyles";
@@ -89,7 +89,7 @@ export default function CustomerOrderDetailsForm({ locale, orderNumber, initial,
         <div className="grid grid-cols-1 gap-4 rounded-2xl border border-black/10 bg-white p-6 sm:grid-cols-2">
           <label className="block">
             <FieldLabel icon={<CalendarIcon className="h-4 w-4" />}>{t("Requested date", "Ønsket dato")}</FieldLabel>
-            <DatePicker
+            <WebsiteDatePicker
               value={preferredDate}
               onChange={setPreferredDate}
               locale={locale}

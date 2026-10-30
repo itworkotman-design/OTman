@@ -1,4 +1,5 @@
-import { deriveDiscountSync } from "@/lib/booking/pricing/discountSync";
+import { proportionalSubcontractorMinus } from "@/lib/booking/pricing/adjustmentLines";
+import { parseNokAdjustment } from "@/lib/orders/orderTotals";
 import type { CalculatorResult } from "@/lib/booking/pricing/types";
 import type { CatalogProduct, SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { getCalculatorProductName } from "@/app/_components/site/BookingModal/whiteGoods/productDisplayName";
@@ -98,15 +99,12 @@ export function websiteOrderCalculatorView(
 // cuts the partner's pay by the same share — the partner minus follows the
 // discount until an admin types their own.
 export function partnerMinusForDiscount(input: { rabatt: string; subtotal: number; partnerBase: number }): string {
-  const sync = deriveDiscountSync({
-    dnbDiscount: false,
-    manualRabatt: input.rabatt,
-    leggTil: "",
+  const minus = proportionalSubcontractorMinus({
+    discount: parseNokAdjustment(input.rabatt),
     subtotalExVat: input.subtotal,
     subcontractorBase: input.partnerBase,
-    isInitialSyncForExistingOrder: false,
   });
-  return sync.skip ? "" : (sync.subcontractorMinus ?? "");
+  return minus > 0 ? String(minus) : "";
 }
 
 // The choices currently in a calculator view, in the shape a save sends.
