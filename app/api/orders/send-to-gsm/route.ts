@@ -3,10 +3,21 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
 import { sendOrderToGsm } from "@/lib/integrations/gsm/sendOrder";
-import { buildPickupDocumentLinks } from "@/lib/orders/pickupDocumentLinks";
 import { PICKUP_DOCUMENT_SOURCE } from "@/lib/orders/pickupDocuments";
 import { sendReceiptsToGsmTask } from "@/lib/integrations/gsm/sendReceipts";
 import { createOrderActionEvent } from "@/lib/orders/orderEvents";
+
+// Dashboard receipts are for the delivering driver, not the pick-up stop. A
+// homepage order's store pickup documents (receipt / order confirmation) go on
+// every task: the driver shows them to the cashier at pick-up and keeps them
+// through drop-off.
+function receiptGoesToTask(
+  attachment: { category: string; source: string | null },
+  taskCategory: string,
+) {
+  if (attachment.source === PICKUP_DOCUMENT_SOURCE) return true;
+  return taskCategory === "drop_off" || taskCategory === "assignment";
+}
 
 export async function POST(req: Request) {
   const session = await getAuthenticatedSession(req);
@@ -84,13 +95,6 @@ export async function POST(req: Request) {
     },
     include: {
       items: true,
-      // Store pickup documents — linked on each GSM pickup task so the driver
-      // can show the cashier the receipt / order confirmation.
-      orderAttachments: {
-        where: { source: PICKUP_DOCUMENT_SOURCE },
-        select: { id: true, filename: true },
-        orderBy: { createdAt: "asc" },
-      },
     },
   });
 
@@ -116,10 +120,7 @@ export async function POST(req: Request) {
     try {
       const wasAlreadySent = !!order.gsmOrderId;
 
-      const response = await sendOrderToGsm({
-        ...order,
-        pickupDocuments: buildPickupDocumentLinks(order.orderAttachments ?? []),
-      });
+      const response = await sendOrderToGsm(order);
 
       const syncedAt = new Date();
 
@@ -176,21 +177,24 @@ export async function POST(req: Request) {
       let receiptError: string | undefined;
 
       try {
-        const receipts = await prisma.orderAttachment.findMany({
-          where: { orderId: order.id, category: "RECEIPT" },
-          select: { id: true, filename: true, mimeType: true, storagePath: true },
+        const attachments = await prisma.orderAttachment.findMany({
+          where: {
+            orderId: order.id,
+            OR: [{ category: "RECEIPT" }, { source: PICKUP_DOCUMENT_SOURCE }],
+          },
+          select: { id: true, filename: true, mimeType: true, storagePath: true, category: true, source: true },
         });
 
-        if (receipts.length > 0) {
+        if (attachments.length > 0) {
           receiptsSent = 0;
 
-          // Receipts are for the delivering driver, not the pick-up stop.
-          const receiptTasks = response.tasks.filter(
-            (task) =>
-              task.category === "drop_off" || task.category === "assignment",
-          );
+          for (const task of response.tasks) {
+            const receipts = attachments
+              .filter((attachment) => receiptGoesToTask(attachment, task.category))
+              .map(({ id, filename, mimeType, storagePath }) => ({ id, filename, mimeType, storagePath }));
 
-          for (const task of receiptTasks) {
+            if (receipts.length === 0) continue;
+
             const sent = await sendReceiptsToGsmTask({
               gsmTaskId: task.gsmTaskId,
               receipts,

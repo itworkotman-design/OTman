@@ -139,18 +139,14 @@ describe("POST /api/orders/send-to-gsm", () => {
     );
   });
 
-  it("sends the order's store pickup documents as stable links", async () => {
-    process.env.ATTACHMENT_LINK_SECRET = "test-secret";
-    process.env.ORDER_ACTION_BASE_URL = "https://otman.no";
+  it("doesn't put pickup-document links in the GSM payload (the files are uploaded instead)", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "user-1", activeCompanyId: "company-1" });
     mocks.membershipFindFirstMock.mockResolvedValue({
       id: "membership-1",
       role: "OWNER",
       user: { username: "Owner", email: "owner@example.com" },
     });
-    mocks.orderFindManyMock.mockResolvedValue([
-      { id: "order-1", gsmOrderId: null, orderAttachments: [{ id: "att-1", filename: "Pickup 1 - kvittering.pdf" }] },
-    ]);
+    mocks.orderFindManyMock.mockResolvedValue([{ id: "order-1", gsmOrderId: null }]);
     mocks.sendOrderToGsmMock.mockResolvedValue({ gsmOrderId: "gsm-1", tasks: [] });
 
     await POST(
@@ -160,24 +156,8 @@ describe("POST /api/orders/send-to-gsm", () => {
       }),
     );
 
-    expect(mocks.orderFindManyMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        include: expect.objectContaining({
-          orderAttachments: expect.objectContaining({ where: { source: "pickup-document" } }),
-        }),
-      }),
-    );
     const sent = mocks.sendOrderToGsmMock.mock.calls[0]![0];
-    expect(sent.pickupDocuments).toEqual([
-      {
-        stopIndex: 0,
-        filename: "Pickup 1 - kvittering.pdf",
-        url: expect.stringMatching(/^https:\/\/otman\.no\/api\/public\/pickup-documents\/att-1\?s=/),
-      },
-    ]);
-
-    delete process.env.ATTACHMENT_LINK_SECRET;
-    delete process.env.ORDER_ACTION_BASE_URL;
+    expect(sent).not.toHaveProperty("pickupDocuments");
   });
 
   it("updates last edited state and writes an action event when GSM send succeeds", async () => {
@@ -269,9 +249,9 @@ describe("POST /api/orders/send-to-gsm", () => {
     storagePath: "s3://x",
   };
 
-  it("sends only the order's receipts, to drop-off and assignment tasks but not pick-up", async () => {
+  it("sends dashboard receipts to drop-off and assignment tasks but not pick-up", async () => {
     mockOwnerSendWithTwoTasks();
-    mocks.attachmentFindManyMock.mockResolvedValue([receipt]);
+    mocks.attachmentFindManyMock.mockResolvedValue([{ ...receipt, category: "RECEIPT", source: null }]);
     mocks.sendReceiptsToGsmTaskMock.mockResolvedValue({ sent: 1, skipped: 0 });
 
     const res = await POST(
@@ -283,7 +263,10 @@ describe("POST /api/orders/send-to-gsm", () => {
 
     expect(mocks.attachmentFindManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { orderId: "order-1", category: "RECEIPT" },
+        where: {
+          orderId: "order-1",
+          OR: [{ category: "RECEIPT" }, { source: "pickup-document" }],
+        },
       }),
     );
     expect(mocks.sendReceiptsToGsmTaskMock).toHaveBeenCalledTimes(2);
@@ -297,6 +280,60 @@ describe("POST /api/orders/send-to-gsm", () => {
     });
     const body = await res.json();
     expect(body.results[0]).toMatchObject({ ok: true, receiptsSent: 2 });
+  });
+
+  it("sends a homepage order's pickup documents to every task: pick-up, drop-off and assignment", async () => {
+    mockOwnerSendWithTwoTasks();
+    const pickupDocument = {
+      id: "att-2",
+      filename: "Pickup 1 - kvittering.pdf",
+      mimeType: "application/pdf",
+      storagePath: "s3://y",
+    };
+    mocks.attachmentFindManyMock.mockResolvedValue([
+      { ...pickupDocument, category: "ATTACHMENT", source: "pickup-document" },
+    ]);
+    mocks.sendReceiptsToGsmTaskMock.mockResolvedValue({ sent: 1, skipped: 0 });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders/send-to-gsm", {
+        method: "POST",
+        body: JSON.stringify({ orderIds: ["order-1"] }),
+      }),
+    );
+
+    expect(mocks.sendReceiptsToGsmTaskMock).toHaveBeenCalledTimes(3);
+    for (const gsmTaskId of ["task-1", "task-2", "task-3"]) {
+      expect(mocks.sendReceiptsToGsmTaskMock).toHaveBeenCalledWith({ gsmTaskId, receipts: [pickupDocument] });
+    }
+    const body = await res.json();
+    expect(body.results[0]).toMatchObject({ ok: true, receiptsSent: 3 });
+  });
+
+  it("keeps dashboard receipts off the pick-up task when the order also has pickup documents", async () => {
+    mockOwnerSendWithTwoTasks();
+    const pickupDocument = {
+      id: "att-2",
+      filename: "Pickup 1 - kvittering.pdf",
+      mimeType: "application/pdf",
+      storagePath: "s3://y",
+    };
+    mocks.attachmentFindManyMock.mockResolvedValue([
+      { ...receipt, category: "RECEIPT", source: null },
+      { ...pickupDocument, category: "ATTACHMENT", source: "pickup-document" },
+    ]);
+    mocks.sendReceiptsToGsmTaskMock.mockResolvedValue({ sent: 1, skipped: 0 });
+
+    await POST(
+      new Request("http://localhost/api/orders/send-to-gsm", {
+        method: "POST",
+        body: JSON.stringify({ orderIds: ["order-1"] }),
+      }),
+    );
+
+    expect(mocks.sendReceiptsToGsmTaskMock).toHaveBeenCalledWith({ gsmTaskId: "task-1", receipts: [pickupDocument] });
+    expect(mocks.sendReceiptsToGsmTaskMock).toHaveBeenCalledWith({ gsmTaskId: "task-2", receipts: [receipt, pickupDocument] });
+    expect(mocks.sendReceiptsToGsmTaskMock).toHaveBeenCalledWith({ gsmTaskId: "task-3", receipts: [receipt, pickupDocument] });
   });
 
   it("still reports the order as sent when receipt upload fails", async () => {
