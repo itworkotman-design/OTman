@@ -13,7 +13,7 @@ import { createOrderActionEvent } from "@/lib/orders/orderEvents";
 // through drop-off.
 function receiptGoesToTask(
   attachment: { category: string; source: string | null },
-  taskCategory: string,
+  taskCategory: string | null,
 ) {
   if (attachment.source === PICKUP_DOCUMENT_SOURCE) return true;
   return taskCategory === "drop_off" || taskCategory === "assignment";
