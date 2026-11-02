@@ -231,6 +231,12 @@ describe("asideSectionGroups", () => {
   it("runs to the end when `untilId` isn't a section", () => {
     expect(ids(asideSectionGroups(all, { fromId: "timing", untilId: "nope" }).within)).toEqual(["timing", "your-details"]);
   });
+
+  it("runs to the end without an `untilId`", () => {
+    const groups = asideSectionGroups(all, { fromId: "services" });
+    expect(ids(groups.within)).toEqual(["services", "timing", "your-details"]);
+    expect(groups.after).toEqual([]);
+  });
 });
 
 describe("activeSectionIndex", () => {

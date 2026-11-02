@@ -103,7 +103,7 @@ export function isFinalStepShown(params: { showAll: boolean; reached: boolean; o
 // before and after stay full width. A missing `untilId` runs to the end.
 export function asideSectionGroups<T extends { id: string }>(
   visible: T[],
-  aside: { fromId: string; untilId: string } | undefined,
+  aside: { fromId: string; untilId?: string } | undefined,
 ): { before: T[]; within: T[]; after: T[] } {
   const from = aside ? visible.findIndex((s) => s.id === aside.fromId) : -1;
   if (!aside || from === -1) return { before: visible, within: [], after: [] };

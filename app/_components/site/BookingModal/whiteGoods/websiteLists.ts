@@ -14,6 +14,19 @@ export function filterUnusedLists(available: WebsiteListInfo[], usedCodes: strin
   return available.filter((list) => !usedCodes.includes(list.code));
 }
 
+export function listOptionsStepId(code: string): string {
+  return `product-options-${code}`;
+}
+
+// Where the one shared calculator column (SteppedModal's `aside`) starts: the
+// last list's options step — the one holding "any other products?" — so from
+// there to the end there's a single calculator. Earlier lists' options steps
+// keep their own.
+export function sharedCalculatorFromId(chosenCodes: string[]): string {
+  const last = chosenCodes.at(-1);
+  return last ? listOptionsStepId(last) : "pickup-source";
+}
+
 // The list whose "product options" section also holds the "any other
 // products?" question — the last one added — so the question is part of that
 // section rather than a step of its own. Null when there's nothing left to

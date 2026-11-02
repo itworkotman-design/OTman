@@ -8,6 +8,13 @@ last list's "product options" step, not as a step of its own).
 ### `filterUnusedLists(available, usedCodes)`
 Lists offered for adding: every available list not already used (white goods counts as used).
 
+### `listOptionsStepId(code)`
+A list's "product options" step id (`product-options-<code>`).
+
+### `sharedCalculatorFromId(chosenCodes)`
+Where the booking flow's one shared calculator column starts: the last chosen list's options step (the one with "any
+other products?"), or `pickup-source` with no list yet. Earlier lists' options steps keep their own calculator.
+
 ### `moreProductsHostCode({ chosenCodes, remainingCount, customerLocked })`
 The list whose options step holds the "any other products?" question — the last chosen one. Null with no list yet,
 nothing left to add, or a locked order.

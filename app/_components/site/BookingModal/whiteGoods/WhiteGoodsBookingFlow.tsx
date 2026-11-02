@@ -96,8 +96,10 @@ import {
   isListOptionsStepComplete,
   isListOptionsStepReady,
   isProductsStepReady,
+  listOptionsStepId,
   moreProductsHostCode,
   removeListCards,
+  sharedCalculatorFromId,
   type WebsiteListInfo,
 } from "./websiteLists";
 import { parsePriceSetting } from "@/lib/booking/pricing/orderCalculatorExtras";
@@ -1051,6 +1053,22 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     }
   }
 
+  // The live calculator: beside each earlier list's "product options" step,
+  // then one shared column (SteppedModal's `aside`) from the last list's
+  // options step ("any other products?") to the end.
+  const calculator = (
+    <WhiteGoodsOrderSummary
+      locale={locale}
+      products={summaryProducts}
+      orderExtras={orderExtraLines}
+      totalExVat={customerTotals.totalExVat}
+      totalIncVat={customerTotals.totalIncVat}
+      customerType={customerType ?? "private"}
+    />
+  );
+
+  const calculatorAside = { node: calculator, fromId: sharedCalculatorFromId(chosenListCodes) };
+
   // Every list on the order gets its own "choose products" + "product options"
   // steps, in the order they were added; "any other products?" sits at the
   // bottom of the last list's options step until every list is on the order.
@@ -1123,15 +1141,19 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
       wasPopulated: populatedListCodes.includes(code),
     });
     const hostsMoreProducts = code === moreProductsCode;
+    // The last list's step sits beside the shared calculator column instead.
+    // Within 24h of the job ("My order") there is no calculator — the footer
+    // shows what the added services cost.
+    const ownCalculator = !customerLocked && listOptionsStepId(code) !== calculatorAside.fromId;
     const optionsStep: StepSection = {
-      id: `product-options-${code}`,
+      id: listOptionsStepId(code),
       title: t("Product options", "Produktvalg") + suffix,
       // Nothing to configure once every product of the list is unticked
       // (unless it still holds "any other products?").
       hidden: optionCards.length === 0 && !hostsMoreProducts,
       render: ({ onComplete, onUncomplete }) => (
         <div className="flex flex-col gap-10">
-        <div className={customerLocked ? "flex flex-col gap-4" : "grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]"}>
+        <div className={ownCalculator ? "grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]" : "flex flex-col gap-4"}>
           <div className="flex flex-col gap-4">
             <AnimatedStack
               gap={16}
@@ -1204,22 +1226,11 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
             />
           </div>
 
-          {/* Every options step keeps its own calculator. It is sticky within
-              its step, so scrolling past one step hands over to the next
-              step's calculator instead of the column disappearing. Within 24h
-              of the job ("My order") there is no calculator — the footer
-              shows what the added services cost. */}
-          {!customerLocked && (
-          <div className="lg:sticky lg:top-0 lg:self-start">
-            <WhiteGoodsOrderSummary
-              locale={locale}
-              products={summaryProducts}
-              orderExtras={orderExtraLines}
-              totalExVat={customerTotals.totalExVat}
-              totalIncVat={customerTotals.totalIncVat}
-              customerType={customerType ?? "private"}
-            />
-          </div>
+          {/* An earlier list's options step keeps its own calculator. It is
+              sticky within its step, so scrolling past one step hands over to
+              the next calculator instead of the column disappearing. */}
+          {ownCalculator && (
+          <div className="lg:sticky lg:top-0 lg:self-start">{calculator}</div>
           )}
         </div>
 
@@ -1736,6 +1747,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
         sectionGap={customerLocked ? 16 : undefined}
         sections={adminReady ? customerSections : loadingSections}
         finalStep={finalStep}
+        aside={customerLocked ? undefined : calculatorAside}
         finalStepOpen={!customerLocked && customerSummaryOpen}
         onFinalStepBack={() => setCustomerSummaryOpen(false)}
         onClose={onClose}
@@ -1764,5 +1776,5 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     );
   }
 
-  return <SteppedModal sections={sections} finalStep={finalStep} onClose={onClose} dimCompleted />;
+  return <SteppedModal sections={sections} aside={calculatorAside} finalStep={finalStep} onClose={onClose} dimCompleted />;
 }

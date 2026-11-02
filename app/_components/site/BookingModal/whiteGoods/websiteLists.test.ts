@@ -8,8 +8,10 @@ import {
   isOptionsStepReady,
   isListOptionsStepComplete,
   isProductsStepReady,
+  listOptionsStepId,
   moreProductsHostCode,
   removeListCards,
+  sharedCalculatorFromId,
   type WebsiteListInfo,
 } from "./websiteLists";
 import {
@@ -258,5 +260,16 @@ describe("isListOptionsStepComplete (the step holding \"any other products?\" wa
   it("never completes while the options aren't filled in", () => {
     expect(isListOptionsStepComplete({ optionsReady: false, hostsMoreProducts: false, declinedMoreProducts: false })).toBe(false);
     expect(isListOptionsStepComplete({ optionsReady: false, hostsMoreProducts: true, declinedMoreProducts: true })).toBe(false);
+  });
+});
+
+describe("sharedCalculatorFromId", () => {
+  it("starts the shared calculator at the last list's options step", () => {
+    expect(sharedCalculatorFromId(["white-goods", "furniture"])).toBe(listOptionsStepId("furniture"));
+    expect(listOptionsStepId("furniture")).toBe("product-options-furniture");
+  });
+
+  it("falls back to the pickup step before any list is chosen", () => {
+    expect(sharedCalculatorFromId([])).toBe("pickup-source");
   });
 });

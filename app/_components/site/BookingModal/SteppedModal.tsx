@@ -69,11 +69,12 @@ type SteppedModalProps = {
   // default; smaller when the sections are untitled.
   sectionGap?: number;
   // One side column shared by a run of sections — from `fromId` up to, not
-  // including, `untilId` — instead of each section carrying its own (e.g.
-  // the moving flow's calculator, from "moving from" until "your details").
+  // including, `untilId` (or to the end without one) — instead of each
+  // section carrying its own (e.g. the moving flow's calculator, from
+  // "moving from" until "your details").
   // Sticky in a 400px right column on large screens, centred in the visible part of its row, under those sections on
   // small ones; it appears with the first of them.
-  aside?: { node: ReactNode; fromId: string; untilId: string };
+  aside?: { node: ReactNode; fromId: string; untilId?: string };
   // Fades every section to 50% except the newest two and the one last
   // clicked/focused (isSectionDimmed). Hover never changes it. Opt-in — the
   // moving, services and delivery flows use it.
