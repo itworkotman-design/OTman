@@ -14,6 +14,7 @@ import type { FurnitureOptionSeed } from "@/lib/content/furnitureCatalog";
 import { findWebsiteProductSeed } from "@/lib/content/websiteCatalogs";
 import { isAssemblyCompatibleExtraCode } from "@/lib/booking/pricing/websiteAssemblyExtras";
 import { isSizeBracketCategory } from "@/lib/booking/pricing/sizeBrackets";
+import { websiteReturnDisplayPrice } from "@/lib/booking/pricing/websiteWeightClass";
 import {
   groupAssemblyOptions,
   groupDismantlingOptions,
@@ -770,7 +771,7 @@ export function WhiteGoodsProductCard({
             "We ensure it's recycled responsibly.",
             "Vi sørger for at den resirkuleres på en forsvarlig måte.",
           )}
-          price={money(returnOption.customerPrice)}
+          price={money(websiteReturnDisplayPrice(value, product, returnOption))}
           onClick={toggleReturn}
         />
       )}

@@ -5,6 +5,7 @@ import {
   cardWeightClass,
   orderWeightClass,
   websiteFloorSurchargeSetting,
+  websiteReturnDisplayPrice,
 } from "./websiteWeightClass";
 import { createDefaultProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 import { createDefaultProductDeliveryTypes } from "@/lib/products/deliveryTypes";
@@ -237,5 +238,26 @@ describe("each item priced by its own list's weight class prices", () => {
     // A light fridge (80) outweighs a medium furniture table (56) — adding the table never lowers it.
     expect(websiteFloorSurchargeSetting(settings, [card(0, "fridge"), card(1, "table")], products)).toMatchObject({ price: "80", subcontractorPrice: "30" });
     expect(websiteFloorSurchargeSetting(settings, [card(0, "chair"), card(1, "table")], products).price).toBe("56");
+  });
+});
+
+describe("websiteReturnDisplayPrice", () => {
+  // What the card shows on its return row: the same class price the order is charged.
+  const pricing = settingsWithWeightClasses().weightClassPricing;
+
+  it("shows the item class return price from its list", () => {
+    const priced = { ...sofa, weightClassPricing: pricing };
+    expect(websiteReturnDisplayPrice(card(0, "sofa"), priced, priced.options[0])).toBe("304");
+  });
+
+  it("follows a picked assembly type class", () => {
+    const priced = { ...outdoor, weightClassPricing: pricing };
+    const returnOption = priced.options[0];
+    expect(websiteReturnDisplayPrice(card(0, "outdoor"), priced, returnOption)).toBe("152");
+    expect(websiteReturnDisplayPrice(card(0, "outdoor", { selectedInstallOptionIds: ["outdoor-chair"] }), priced, returnOption)).toBe("80");
+  });
+
+  it("keeps the option own price without weight class pricing", () => {
+    expect(websiteReturnDisplayPrice(card(0, "sofa"), sofa, sofa.options[0])).toBe("258");
   });
 });

@@ -1,4 +1,5 @@
 import type {
+  CatalogOption,
   CatalogProduct,
   SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
@@ -73,6 +74,18 @@ function returnPriceFor(settings: PriceListSettings, card: SavedProductCard | un
   if (!product || !pricing) return null;
   const setting = pricing.returnPrice[cardWeightClass(card, product)];
   return { product, customer: Number(setting.price) || 0, subcontractor: Number(setting.subcontractorPrice) || 0 };
+}
+
+// The return price a card shows on its return row: the item's class price on
+// its own list (what applyWebsiteWeightClassReturnPrices charges), else the
+// option's own price.
+export function websiteReturnDisplayPrice(
+  card: SavedProductCard,
+  product: CatalogProduct,
+  returnOption: CatalogOption,
+): string {
+  if (!product.weightClassPricing) return returnOption.customerPrice;
+  return product.weightClassPricing.returnPrice[cardWeightClass(card, product)].price;
 }
 
 function isProductReturnOption(product: CatalogProduct, optionId: string | null) {

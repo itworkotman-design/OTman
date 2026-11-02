@@ -26,5 +26,6 @@ Each item is priced by its own price list's class prices: `loadPart` (`websiteOr
 | `cardWeightClass` | A card's class: a picked assembly type's class, else the product's, else `LIGHT`. |
 | `orderWeightClass` | The heaviest card class in the order. |
 | `websiteFloorSurchargeSetting` | The floor surcharge setting to charge: the highest per-item class rate (each from its own list), the light rate for an order with no priced item yet, or the flat `floorSurcharge` without weight class pricing. Also used for the booking modal's per-floor badge. |
+| `websiteReturnDisplayPrice` | The return price a product card shows on its return row (WhiteGoodsProductCard): the item class price on its own list, else the option price. |
 | `applyWebsiteWeightClassReturnPrices` | Sets each card's return option price (customer + partner) to its class's return price in the pricing breakdown. |
 | `applyWebsiteWeightClassReturnOrderItems` | The same on the stored `RETURN_OPTION` lines, then reapplies "set to 0", so a nulled line stays 0. |
