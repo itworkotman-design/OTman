@@ -182,6 +182,7 @@ export async function GET(
               createDefaultProductAutoDeliveryPrice(),
             deliveryTypes: productConfig?.deliveryTypes ?? [],
             customSections: productConfig?.customSections ?? [],
+            weightClass: product.weightClass ?? null,
           };
         }),
 

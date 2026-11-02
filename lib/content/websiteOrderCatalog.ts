@@ -32,7 +32,11 @@ async function loadPart({ catalog, priceListId }: SeededWebsiteCatalog): Promise
   const codes = new Set(catalog.products.map((p) => p.code));
   return {
     priceListId,
-    products: full.products.filter((p) => codes.has(p.code)),
+    // Each product carries its own list's weight class prices (websiteWeightClass.ts):
+    // the merged catalog and the public catalog route keep only the first list's settings.
+    products: full.products
+      .filter((p) => codes.has(p.code))
+      .map((p) => ({ ...p, weightClassPricing: full.priceListSettings.weightClassPricing })),
     specialOptions: full.specialOptions,
     priceListSettings: full.priceListSettings,
   };

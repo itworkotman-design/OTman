@@ -30,3 +30,7 @@ The tests check that the lines + order extras equal the total, within and over 1
 ## Lines set to 0
 
 Product lines set to 0 come from the cards (`nulledLineKeysFor…`). Order extras set to 0 come in as `nulledOrderExtraKeys`, a lineKey list per side, and are passed to the order-extras calculator (the floor-surcharge line included). `buildWebsiteOrderItems` also zeroes the website-only stored lines (extra-unit and assembly-extra) with `applyNulledLineKeys`, so the lines still add up to the total.
+
+## Weight classes
+
+When the price list has `weightClassPricing`, the floor surcharge rate is the order's heaviest item's class (`websiteFloorSurchargeSetting`, passed to `buildWhiteGoodsCalculatorBreakdowns` as `floorSurchargeSetting`), and each return is priced at its item's class (`applyWebsiteWeightClassReturnPrices`, the last product layer). `buildWebsiteOrderItems` takes the list's `priceListSettings` and stores the same return prices (`applyWebsiteWeightClassReturnOrderItems`). The order route and `websiteOrderRepricing.ts` pass it. See [website-weight-class.md](website-weight-class.md).

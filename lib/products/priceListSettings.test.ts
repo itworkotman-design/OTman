@@ -130,3 +130,33 @@ describe("priceListSettings", () => {
     );
   });
 });
+
+describe("weight class pricing", () => {
+  it("is off (null) by default and for a list stored before it existed", () => {
+    expect(createDefaultPriceListSettings().weightClassPricing).toBeNull();
+    expect(normalizePriceListSettings({}).weightClassPricing).toBeNull();
+  });
+
+  it("normalizes a partial setting: every class gets a floor and a return price, missing ones 0", () => {
+    const settings = normalizePriceListSettings({
+      weightClassPricing: {
+        floorSurcharge: { HEAVY: { price: "80", subcontractorPrice: "30" } },
+        returnPrice: { LIGHT: { price: 80 } },
+      },
+    } as never);
+    const pricing = settings.weightClassPricing!;
+    expect(pricing.floorSurcharge.HEAVY).toMatchObject({ price: "80", subcontractorPrice: "30" });
+    expect(pricing.floorSurcharge.LIGHT).toMatchObject({ price: "0", subcontractorPrice: "0" });
+    expect(pricing.returnPrice.LIGHT).toMatchObject({ price: "80", subcontractorPrice: "0" });
+    expect(pricing.returnPrice.MEDIUM.code).toBe("RETURN_MEDIUM");
+    expect(pricing.floorSurcharge.MEDIUM.code).toBe("FLOOR_SURCHARGE_MEDIUM");
+  });
+
+  it("round-trips through price-list description storage", () => {
+    const settings = normalizePriceListSettings({
+      weightClassPricing: { floorSurcharge: { MEDIUM: { price: "56", subcontractorPrice: "20" } }, returnPrice: {} },
+    } as never);
+    const parsed = parsePriceListSettings(serializePriceListSettings(settings));
+    expect(parsed.weightClassPricing?.floorSurcharge.MEDIUM).toMatchObject({ price: "56", subcontractorPrice: "20" });
+  });
+});

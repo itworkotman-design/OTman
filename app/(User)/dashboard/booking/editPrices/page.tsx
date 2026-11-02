@@ -25,6 +25,13 @@ import {
 import { DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
 import { hasEnglishDescriptionColumn } from "@/lib/products/englishDescription";
 import WebsitePriceListMenu from "@/app/_components/Dahsboard/booking/WebsitePriceListMenu";
+import WeightClassPricingSettings from "@/app/_components/Dahsboard/booking/WeightClassPricingSettings";
+import {
+  normalizeWeightClass,
+  WEIGHT_CLASSES,
+  WEIGHT_CLASS_LABELS,
+  type WeightClass,
+} from "@/lib/products/weightClass";
 import type { DeliveryOnlyProduct } from "@/lib/products/deliveryOnlyProducts";
 import {
   isWebsitePriceList,
@@ -56,6 +63,7 @@ type PriceListItem = {
   autoDeliveryPrice?: ProductAutoDeliveryPrice;
   deliveryTypes?: ProductDeliveryType[];
   customSections?: ProductCustomSection[];
+  weightClass?: WeightClass | null;
   optionCode: string;
   optionLabel?: string | null;
   description: string | null;
@@ -117,6 +125,8 @@ type ProductSettingsDraft = {
   autoDeliveryPrice: ProductAutoDeliveryPrice;
   deliveryTypes: ProductDeliveryType[];
   customSections: ProductCustomSection[];
+  // Website weight class (return + no-lift floor price); null = unset (light).
+  weightClass: WeightClass | null;
 };
 
 function createDraftId(prefix: string) {
@@ -142,6 +152,7 @@ function buildProductSettingsDefaults(
         autoDeliveryPrice: createDefaultProductAutoDeliveryPrice(),
         deliveryTypes: createDefaultProductDeliveryTypes(),
         customSections: [],
+        weightClass: null,
       };
     case "LABOR":
       return {
@@ -158,6 +169,7 @@ function buildProductSettingsDefaults(
         autoDeliveryPrice: createDefaultProductAutoDeliveryPrice(),
         deliveryTypes: createDefaultProductDeliveryTypes(),
         customSections: [],
+        weightClass: null,
       };
     case "PHYSICAL":
     default:
@@ -175,6 +187,7 @@ function buildProductSettingsDefaults(
         autoDeliveryPrice: createDefaultProductAutoDeliveryPrice(),
         deliveryTypes: createDefaultProductDeliveryTypes(),
         customSections: [],
+        weightClass: null,
       };
   }
 }
@@ -609,6 +622,7 @@ export default function EditPricesPage() {
       ),
       deliveryTypes: normalizeProductDeliveryTypes(row.deliveryTypes),
       customSections: normalizeProductCustomSections(row.customSections),
+      weightClass: row.weightClass ?? null,
     });
     setProductSettingsError(null);
   }
@@ -725,7 +739,7 @@ export default function EditPricesPage() {
         setDeliveryOnlyProducts((current) =>
           current.map((item) =>
             item.productId === editingProductId && data.product
-              ? { ...item, ...data.product, productId: item.productId }
+              ? { ...item, ...data.product, productId: item.productId, weightClass: productSettingsDraft.weightClass }
               : item,
           ),
         );
@@ -792,6 +806,7 @@ export default function EditPricesPage() {
           data.item.deliveryTypes ?? productSettingsDraft.deliveryTypes,
         customSections:
           data.item.customSections ?? productSettingsDraft.customSections,
+        weightClass: data.item.weightClass ?? productSettingsDraft.weightClass,
       };
 
       setRows((current) =>
@@ -1094,7 +1109,7 @@ export default function EditPricesPage() {
   }
 
   function updatePriceListChargeSetting(
-    key: Exclude<keyof PriceListSettings, "deviations" | "deliveryOnly">,
+    key: Exclude<keyof PriceListSettings, "deviations" | "deliveryOnly" | "weightClassPricing">,
     field: "code" | "description" | "price" | "subcontractorPrice",
     value: string,
   ) {
@@ -2949,6 +2964,13 @@ export default function EditPricesPage() {
                 </label>
               </div>
 
+              <WeightClassPricingSettings
+                value={priceListSettingsDraft.weightClassPricing}
+                onChange={(weightClassPricing) =>
+                  setPriceListSettingsDraft((current) => ({ ...current, weightClassPricing }))
+                }
+              />
+
               <div className="space-y-3 rounded-lg border border-black/10 p-4">
                 <h3 className="text-sm font-semibold text-logoblue">
                   Extra pickup location
@@ -3738,6 +3760,29 @@ export default function EditPricesPage() {
                   </div>
                 )}
               </div>
+
+              <label className="customContainer block p-3">
+                <span className="mb-1 block text-sm font-semibold text-black/80">Weight class</span>
+                <select
+                  value={productSettingsDraft.weightClass ?? ""}
+                  onChange={(e) =>
+                    setProductSettingsDraft((current) =>
+                      current ? { ...current, weightClass: normalizeWeightClass(e.target.value) } : current,
+                    )
+                  }
+                  className="customInput w-full"
+                >
+                  <option value="">Not set (counts as light)</option>
+                  {WEIGHT_CLASSES.map((weightClass) => (
+                    <option key={weightClass} value={weightClass}>
+                      {WEIGHT_CLASS_LABELS[weightClass].en} ({WEIGHT_CLASS_LABELS[weightClass].range})
+                    </option>
+                  ))}
+                </select>
+                <span className="mt-1 block text-xs text-black/60">
+                  Sets the website return price and no-lift floor price (see the pricelist&apos;s weight classes).
+                </span>
+              </label>
 
               <details className="customContainer p-3" open>
                 <summary className="cursor-pointer text-sm font-semibold text-black/80">

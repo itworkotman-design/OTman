@@ -125,4 +125,25 @@ describe("seedWhiteGoodsElectronics", () => {
     expect(settings.extraPickup).toMatchObject({ price: "616", subcontractorPrice: "400" });
     expect(settings.expressDelivery).toMatchObject({ price: "520", subcontractorPrice: "260" });
   });
+
+  it("gives light white goods their own weight class prices (75 floor / 260 return, cleaned), the rest as the table", async () => {
+    await seedWhiteGoodsElectronics();
+
+    const pricing = parsePriceListSettings(mocks.priceListUpsert.mock.calls[0][0].update.description).weightClassPricing!;
+    expect(pricing.floorSurcharge.LIGHT).toMatchObject({ price: "80", subcontractorPrice: "30" });
+    expect(pricing.returnPrice.LIGHT).toMatchObject({ price: "264", subcontractorPrice: "155" });
+    expect(pricing.floorSurcharge.MEDIUM).toMatchObject({ price: "56", subcontractorPrice: "20" });
+    expect(pricing.floorSurcharge.HEAVY).toMatchObject({ price: "80", subcontractorPrice: "30" });
+  });
+
+  it("keeps the side-by-side fridge's large return: it's the only heavy white good, and heavy return is its old price", async () => {
+    await seedWhiteGoodsElectronics();
+
+    const pricing = parsePriceListSettings(mocks.priceListUpsert.mock.calls[0][0].update.description).weightClassPricing!;
+    // 464.4 / 258 in the source, as the fridge's own return option was seeded.
+    expect(pricing.returnPrice.HEAVY).toMatchObject({ price: "472", subcontractorPrice: "260" });
+    const heavy = mocks.productUpsert.mock.calls.map(([arg]) => arg.create).filter((p) => p.weightClass === "HEAVY");
+    expect(heavy.map((p) => p.code)).toEqual(["WG_SIDE_BY_SIDE_FRIDGE"]);
+    expect(mocks.productUpsert.mock.calls.filter(([arg]) => arg.create.weightClass && arg.create.weightClass !== "HEAVY")).toEqual([]);
+  });
 });

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getProductConfigMap, type ProductConfig } from "@/lib/products/productConfig";
+import type { WeightClass } from "@/lib/products/weightClass";
 
 // A delivery-only product (e.g. parcel/pallet) has no ProductOption, so it has
 // no PriceListItem either — its prices live in Product.deliveryTypes. The
@@ -9,6 +10,7 @@ export type DeliveryOnlyProduct = Omit<ProductConfig, "id"> & {
   productId: string;
   productName: string;
   productCode: string;
+  weightClass: WeightClass | null;
 };
 
 export async function getDeliveryOnlyProducts(
@@ -16,7 +18,7 @@ export async function getDeliveryOnlyProducts(
 ): Promise<DeliveryOnlyProduct[]> {
   const links = await prisma.priceListProduct.findMany({
     where: { priceListId },
-    select: { product: { select: { id: true, name: true, code: true } } },
+    select: { product: { select: { id: true, name: true, code: true, weightClass: true } } },
     orderBy: { product: { sortOrder: "asc" } },
   });
 
@@ -27,6 +29,14 @@ export async function getDeliveryOnlyProducts(
     if (!config) return [];
 
     const { id: _id, ...rest } = config;
-    return [{ ...rest, productId: product.id, productName: product.name, productCode: product.code }];
+    return [
+      {
+        ...rest,
+        productId: product.id,
+        productName: product.name,
+        productCode: product.code,
+        weightClass: product.weightClass ?? null,
+      },
+    ];
   });
 }

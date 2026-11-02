@@ -144,6 +144,7 @@ export async function getBookingCatalog(
     deliveryTypes: productConfigMap.get(product.id)?.deliveryTypes ?? [],
     customSections: productConfigMap.get(product.id)?.customSections ?? [],
     iconKey: product.iconKey,
+    weightClass: product.weightClass ?? null,
     options: product.options.map((option) => {
       const price = priceMap.get(option.id);
 
@@ -159,6 +160,7 @@ export async function getBookingCatalog(
         ),
         effectiveCustomerPrice: centsToDecimalString(price?.customerPriceCents),
         active: option.isActive,
+        weightClass: option.weightClass ?? null,
         pricingMode: option.pricingMode,
         customerRatePerUnitCents: price?.customerRatePerUnitCents ?? null,
         subcontractorRatePerUnitCents: price?.subcontractorRatePerUnitCents ?? null,

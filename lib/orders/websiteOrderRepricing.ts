@@ -176,6 +176,7 @@ export async function recomputeWebsiteOrderPricing(
   });
   const builtItems = buildWebsiteOrderItems(submittedCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions, {
     drivingDistance: drivingDistanceStr,
+    priceListSettings: normalizedPriceListSettings,
   });
 
   const pricingSnapshot = buildOrderPricingSnapshot({

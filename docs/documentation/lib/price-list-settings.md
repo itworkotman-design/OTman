@@ -21,3 +21,6 @@ Stores global price-list charges inside the `PriceList.description` settings blo
 | `normalizePriceListSettings` | Normalizes the full settings payload and migrates legacy extra-pickup and kilometer values. |
 | `parsePriceListSettings` | Reads serialized settings from the price-list description field. |
 | `serializePriceListSettings` | Serializes normalized settings back into the price-list description field. |
+| `createDefaultWeightClassPricing` | Zero-priced floor surcharge and return settings for each weight class (codes `FLOOR_SURCHARGE_<CLASS>` / `RETURN_<CLASS>`). Every floor class keeps the description "Floor surcharge per chargeable floor, no lift", since that text is the line's label and is translated by it. |
+
+`weightClassPricing` (`{ floorSurcharge, returnPrice }`, each a charge setting per `LIGHT`/`MEDIUM`/`HEAVY`) is `null` by default and on lists stored before it existed. `null` means the flat `floorSurcharge` and each return option's own price apply. See [website-weight-class.md](website-weight-class.md).

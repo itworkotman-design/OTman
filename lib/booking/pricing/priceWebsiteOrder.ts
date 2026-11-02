@@ -15,6 +15,11 @@ import { buildWhiteGoodsCalculatorBreakdowns } from "@/lib/booking/pricing/build
 import { buildPriceLookup } from "@/lib/booking/pricing/priceLookup";
 import { calculateBookingPricing } from "@/lib/booking/pricing/engine";
 import { applyNulledLineKeys, buildOrderItemsFromCards } from "@/lib/orders/buildOrderItemsFromCards";
+import {
+  applyWebsiteWeightClassReturnOrderItems,
+  applyWebsiteWeightClassReturnPrices,
+  websiteFloorSurchargeSetting,
+} from "@/lib/booking/pricing/websiteWeightClass";
 
 // THE price of a homepage website order. The customer's summary
 // (WhiteGoodsBookingFlow), order creation (app/api/site/white-goods-order) and
@@ -64,27 +69,20 @@ function zeroBaseDelivery(drivingDistance: string) {
 
 export function priceWebsiteOrder(input: WebsiteOrderPricingInput) {
   const { cards, catalogProducts, catalogSpecialOptions } = input;
-  const productBreakdowns = applyWebsiteInstallOnlyVisit(
-    applyWebsiteAssemblyExtras(
-      applyWhiteGoodsExtraUnitCharges(
-        buildProductBreakdowns(cards, catalogProducts, catalogSpecialOptions, {
-          zeroBaseDeliveryPricesOver100Km: zeroBaseDelivery(input.drivingDistance),
-          installOnlyVisitPricing: true,
-        }),
-        cards,
-        catalogProducts,
-        catalogSpecialOptions,
-      ),
-      cards,
-      catalogProducts,
-    ),
-    cards,
-    catalogProducts,
-  );
+  const baseBreakdowns = buildProductBreakdowns(cards, catalogProducts, catalogSpecialOptions, {
+    zeroBaseDeliveryPricesOver100Km: zeroBaseDelivery(input.drivingDistance),
+    installOnlyVisitPricing: true,
+  });
+  // Website-only layers on top of the shared pricing, in order.
+  const withExtraUnits = applyWhiteGoodsExtraUnitCharges(baseBreakdowns, cards, catalogProducts, catalogSpecialOptions);
+  const withAssemblyExtras = applyWebsiteAssemblyExtras(withExtraUnits, cards, catalogProducts);
+  const withInstallOnlyVisit = applyWebsiteInstallOnlyVisit(withAssemblyExtras, cards, catalogProducts);
+  const productBreakdowns = applyWebsiteWeightClassReturnPrices(withInstallOnlyVisit, cards, catalogProducts, input.priceListSettings);
 
   const breakdowns = buildWhiteGoodsCalculatorBreakdowns({
     productBreakdowns,
     priceListSettings: input.priceListSettings,
+    floorSurchargeSetting: websiteFloorSurchargeSetting(input.priceListSettings, cards, catalogProducts),
     drivingDistance: input.drivingDistance,
     expressDelivery: input.expressDelivery,
     extraPickups: input.extraPickups,
@@ -129,13 +127,17 @@ export function buildWebsiteOrderItems(
   cards: SavedProductCard[],
   catalogProducts: CatalogProduct[],
   catalogSpecialOptions: CatalogSpecialOption[],
-  options: { drivingDistance: string },
+  // The list's settings — for weight class return prices (omitted: none).
+  options: { drivingDistance: string; priceListSettings?: PriceListSettings },
 ) {
+  const baseItems = buildOrderItemsFromCards(cards, catalogProducts, catalogSpecialOptions, {
+    installOnlyVisitPricing: true,
+    zeroBaseDeliveryPricesOver100Km: zeroBaseDelivery(options.drivingDistance),
+  });
   return [
-    ...buildOrderItemsFromCards(cards, catalogProducts, catalogSpecialOptions, {
-      installOnlyVisitPricing: true,
-      zeroBaseDeliveryPricesOver100Km: zeroBaseDelivery(options.drivingDistance),
-    }),
+    ...(options.priceListSettings
+      ? applyWebsiteWeightClassReturnOrderItems(baseItems, cards, catalogProducts, options.priceListSettings)
+      : baseItems),
     // Lines set to 0 are nulled on these too, like the calculator does.
     ...applyNulledLineKeys(
       [

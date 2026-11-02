@@ -20,6 +20,7 @@
 // alongside purely so a test can verify that identity against the source numbers,
 // catching transcription mistakes — it is not itself persisted anywhere.
 
+import type { WeightClass } from "@/lib/products/weightClass";
 import { cleanWebsiteExVatPrice } from "@/lib/booking/pricing/websiteCleanPrice";
 
 /** Website prices are seeded in steps of 5 kr (halves round up). */
@@ -77,6 +78,8 @@ export type WhiteGoodsOptionSeed = Money & {
    * never overwrites a price that already exists.
    */
   staffPriced?: boolean;
+  /** Assembly type options only: the weight class this type overrides the product's with (ProductOption.weightClass). */
+  weightClass?: WeightClass;
   /**
    * Seed customerPrice as-is, skipping the 5 kr rounding and the raise to a
    * multiple of 8 (websiteSeedCustomerPrice) — for a price set on purpose
@@ -132,6 +135,8 @@ export type WhiteGoodsProductSeed = {
    * Display-only, not used for pricing.
    */
   sizeInfo?: { maxWeightKg: number; dimensionsCm?: { w: number; h: number; d: number } };
+  /** Website weight class (Product.weightClass). Unset: not written by the seed, counts as LIGHT. */
+  weightClass?: WeightClass;
 };
 
 // The "xtra" prices below are what a delivery line is charged on instead
@@ -624,6 +629,8 @@ export const WHITE_GOODS_ELECTRONICS_PRODUCTS: WhiteGoodsProductSeed[] = [
   {
     code: "WG_SIDE_BY_SIDE_FRIDGE",
     nameEn: "Side-by-side refrigerator",
+    // The only heavy white good: keeps its larger return (WHITE_GOODS_WEIGHT_CLASS_PRICES).
+    weightClass: "HEAVY",
     nameNo: "Side-by-side kjøleskap",
     sortOrder: 13,
     // Base delivery prices differ from every other product in this catalog.

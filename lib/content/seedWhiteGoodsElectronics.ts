@@ -1,6 +1,7 @@
 import { seedWebsiteCatalog } from "@/lib/content/seedWebsiteCatalog";
 import { WHITE_GOODS_ELECTRONICS_PRODUCTS } from "@/lib/content/whiteGoodsElectronics";
 import { WHITE_GOODS_PRICE_LIST_CODE } from "@/lib/content/WhiteGoodsBookingConfig";
+import { WHITE_GOODS_WEIGHT_CLASS_PRICES } from "@/lib/content/websiteWeightClassPrices";
 
 // Seeds the public website's white-goods/electronics delivery+installation
 // catalog on its own dedicated PriceList — fully separate from DEFAULT/POWER
@@ -14,5 +15,6 @@ export function seedWhiteGoodsElectronics() {
     priceListCode: WHITE_GOODS_PRICE_LIST_CODE,
     priceListName: "Website — White goods / electronics",
     products: WHITE_GOODS_ELECTRONICS_PRODUCTS,
+    weightClassPrices: WHITE_GOODS_WEIGHT_CLASS_PRICES,
   });
 }

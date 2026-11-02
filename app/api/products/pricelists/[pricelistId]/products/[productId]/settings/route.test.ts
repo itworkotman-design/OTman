@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   getProductConfigMapMock: vi.fn(),
   savePriceListProductConfigMock: vi.fn(),
   transactionMock: vi.fn(),
+  productUpdateMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -53,11 +54,29 @@ describe("PATCH /api/products/pricelists/[pricelistId]/products/[productId]/sett
     mocks.executeRawMock.mockResolvedValue(1);
     mocks.savePriceListProductConfigMock.mockResolvedValue(undefined);
     mocks.transactionMock.mockImplementation(async (fn: (tx: unknown) => unknown) =>
-      fn({ $executeRaw: mocks.executeRawMock, priceListProductConfig: {} }),
+      fn({ $executeRaw: mocks.executeRawMock, priceListProductConfig: {}, product: { update: mocks.productUpdateMock } }),
     );
     mocks.getProductConfigMapMock.mockResolvedValue(
       new Map([["p-pose", { id: "p-pose", productType: "PHYSICAL", deliveryTypes: DELIVERY_TYPES }]]),
     );
+  });
+
+  it("saves the product's weight class, and clears it with null", async () => {
+    expect((await call({ weightClass: "HEAVY" })).status).toBe(200);
+    expect(mocks.productUpdateMock).toHaveBeenCalledWith({ where: { id: "p-pose" }, data: { weightClass: "HEAVY" } });
+
+    mocks.productUpdateMock.mockClear();
+    expect((await call({ weightClass: null })).status).toBe(200);
+    expect(mocks.productUpdateMock).toHaveBeenCalledWith({ where: { id: "p-pose" }, data: { weightClass: null } });
+  });
+
+  it("leaves the weight class alone when it isn't sent, and rejects an unknown one", async () => {
+    await call({ deliveryTypes: DELIVERY_TYPES });
+    expect(mocks.productUpdateMock).not.toHaveBeenCalled();
+
+    const res = await call({ weightClass: "ENORMOUS" });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ reason: "INVALID_WEIGHT_CLASS" });
   });
 
   it("returns the gate's response when the caller isn't a full-access member", async () => {

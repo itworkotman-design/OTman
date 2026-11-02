@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createDefaultPriceListSettings } from "@/lib/products/priceListSettings";
+import { createDefaultPriceListSettings, createDefaultWeightClassPricing } from "@/lib/products/priceListSettings";
 
 const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
@@ -48,6 +48,15 @@ describe("getWebsiteCatalogPart", () => {
     expect(part?.priceListId).toBe("pl-fn");
     expect(part?.products.map((x) => x.code)).toEqual(["FN_SOFA"]);
     expect(mocks.getBookingCatalog).toHaveBeenCalledWith("pl-fn");
+  });
+
+  it("gives each product its own list's weight class prices, so a mixed order prices each item by its own list", async () => {
+    mocks.findMany.mockResolvedValue([{ id: "pl-fn", code: "WEBSITE_FURNITURE" }]);
+    const settings = { ...createDefaultPriceListSettings(), weightClassPricing: createDefaultWeightClassPricing() };
+    settings.weightClassPricing.returnPrice.LIGHT.price = "80";
+    mocks.getBookingCatalog.mockResolvedValue({ products: [p("2", "FN_SOFA")], specialOptions: [], priceListSettings: settings });
+    const part = await getWebsiteCatalogPart("WEBSITE_FURNITURE");
+    expect(part?.products[0].weightClassPricing?.returnPrice.LIGHT.price).toBe("80");
   });
 
   it("returns null for a list that isn't seeded or isn't a website list", async () => {

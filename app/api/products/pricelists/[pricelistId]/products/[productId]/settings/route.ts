@@ -6,6 +6,7 @@ import { getProductConfigMap, savePriceListProductConfig } from "@/lib/products/
 import { normalizeProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 import { normalizeProductCustomSections } from "@/lib/products/customSections";
 import { normalizeProductDeliveryTypes } from "@/lib/products/deliveryTypes";
+import { parseWeightClassInput } from "@/lib/products/weightClass";
 
 type Body = {
   name?: string;
@@ -23,6 +24,8 @@ type Body = {
   autoDeliveryPrice?: unknown;
   deliveryTypes?: unknown;
   customSections?: unknown;
+  // The product's website weight class; null clears it.
+  weightClass?: unknown;
 };
 
 const optionalBoolean = (value: unknown) => (typeof value === "boolean" ? value : null);
@@ -69,6 +72,11 @@ export async function PATCH(
 
   const productType = body.productType ?? null;
 
+  const weightClassInput = parseWeightClassInput(body.weightClass);
+  if (!weightClassInput.ok) {
+    return NextResponse.json({ ok: false, reason: "INVALID_WEIGHT_CLASS" }, { status: 400 });
+  }
+
   await prisma.$transaction(async (tx) => {
     // Same raw update the items/[itemId]/full route uses: the runtime client can
     // lag behind the schema for the newer Product config columns.
@@ -89,6 +97,10 @@ export async function PATCH(
         "autoXtraPerPallet" = COALESCE(${optionalBoolean(body.autoXtraPerPallet)}, "autoXtraPerPallet")
       WHERE "id" = ${productId}
     `;
+
+    if (weightClassInput.weightClass !== undefined) {
+      await tx.product.update({ where: { id: productId }, data: { weightClass: weightClassInput.weightClass } });
+    }
 
     // Delivery pricing lives on this price list's own row, so editing it here
     // never changes another price list (see savePriceListProductConfig).

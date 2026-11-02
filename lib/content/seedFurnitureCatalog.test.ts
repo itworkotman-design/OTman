@@ -108,6 +108,30 @@ describe("seedFurnitureCatalog", () => {
     }
   });
 
+  it("seeds each product's weight class, and the assembly types' own, leaving unset ones untouched", async () => {
+    await seedFurnitureCatalog();
+
+    expect(productCall("FN_SOFA").create.weightClass).toBe("HEAVY");
+    expect(productCall("FN_SOFA").update.weightClass).toBe("HEAVY");
+    expect(productCall("FN_CHAIR").create.weightClass).toBe("LIGHT");
+    expect(productCall("FN_OTHER_FURNITURE").create).not.toHaveProperty("weightClass");
+    expect(productCall("FN_OTHER_FURNITURE").update).not.toHaveProperty("weightClass");
+    const chair = mocks.productOptionUpsert.mock.calls.map(([arg]) => arg).find((arg) => arg.create.code === "ASM_OUT_CHAIR_IKEA");
+    expect(chair?.create.weightClass).toBe("LIGHT");
+  });
+
+  it("seeds the weight class floor and return prices: clean customer prices, partner at today's share", async () => {
+    await seedFurnitureCatalog();
+
+    const settings = parsePriceListSettings(mocks.priceListUpsert.mock.calls[0][0].create.description);
+    const pricing = settings.weightClassPricing!;
+    const prices = (byClass: typeof pricing.floorSurcharge) =>
+      Object.fromEntries(Object.entries(byClass).map(([k, v]) => [k, [v.price, v.subcontractorPrice]]));
+    expect(prices(pricing.floorSurcharge)).toEqual({ LIGHT: ["32", "10"], MEDIUM: ["56", "20"], HEAVY: ["80", "30"] });
+    expect(prices(pricing.returnPrice)).toEqual({ LIGHT: ["80", "45"], MEDIUM: ["152", "90"], HEAVY: ["304", "180"] });
+    expect(pricing.floorSurcharge.HEAVY.description).toBe("Floor surcharge per chargeable floor, no lift");
+  });
+
   it("enables assembly-only exactly where the product has assembly options", async () => {
     await seedFurnitureCatalog();
 

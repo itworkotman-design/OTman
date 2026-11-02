@@ -1,4 +1,5 @@
 import { DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
+import { WEIGHT_CLASSES, type WeightClass } from "@/lib/products/weightClass";
 
 const SETTINGS_PREFIX = "__PRICE_LIST_SETTINGS__:";
 
@@ -28,6 +29,16 @@ export type PriceListSettings = {
   // Off by default; a list stored before this existed has no such key.
   deliveryOnly: boolean;
   deviations: Record<string, PriceListChargeSetting>;
+  // Website lists: the no-lift floor surcharge (per chargeable floor, priced
+  // by the order's heaviest item) and the return price (per item), each by
+  // weight class — see lib/booking/pricing/websiteWeightClass.ts. null = off:
+  // the flat floorSurcharge above and each return option's own price apply.
+  weightClassPricing: WeightClassPricing | null;
+};
+
+export type WeightClassPricing = {
+  floorSurcharge: Record<WeightClass, PriceListChargeSetting>;
+  returnPrice: Record<WeightClass, PriceListChargeSetting>;
 };
 
 type PriceListChargeSettingInput = {
@@ -91,6 +102,7 @@ export function createDefaultPriceListSettings(): PriceListSettings {
       "Floor surcharge per chargeable floor, no lift",
     ),
     deliveryOnly: false,
+    weightClassPricing: null,
     deviations: Object.fromEntries(
       DEVIATION_FEE_OPTIONS.map((option) => [
         option.code,
@@ -140,6 +152,38 @@ function normalizeChargeSetting(
       input?.subcontractorPrice,
       defaults.subcontractorPrice,
     ),
+  };
+}
+
+export function createDefaultWeightClassPricing(): WeightClassPricing {
+  const byClass = (code: string, description: string) =>
+    Object.fromEntries(
+      WEIGHT_CLASSES.map((weightClass) => [
+        weightClass,
+        // Same description for every class: it's the line's label, and the
+        // website translates it by that text (websiteLineLabels.ts).
+        createDefaultChargeSetting(`${code}_${weightClass}`, description),
+      ]),
+    ) as Record<WeightClass, PriceListChargeSetting>;
+  return {
+    floorSurcharge: byClass("FLOOR_SURCHARGE", "Floor surcharge per chargeable floor, no lift"),
+    returnPrice: byClass("RETURN", "Return for recycling"),
+  };
+}
+
+function normalizeWeightClassPricing(input: unknown): WeightClassPricing | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const source = input as Partial<Record<keyof WeightClassPricing, unknown>>;
+  const defaults = createDefaultWeightClassPricing();
+  const byClass = (raw: unknown, fallback: Record<WeightClass, PriceListChargeSetting>) => {
+    const values = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, PriceListChargeSettingInput>) : {};
+    return Object.fromEntries(
+      WEIGHT_CLASSES.map((weightClass) => [weightClass, normalizeChargeSetting(values[weightClass], fallback[weightClass])]),
+    ) as Record<WeightClass, PriceListChargeSetting>;
+  };
+  return {
+    floorSurcharge: byClass(source.floorSurcharge, defaults.floorSurcharge),
+    returnPrice: byClass(source.returnPrice, defaults.returnPrice),
   };
 }
 
@@ -210,6 +254,7 @@ export function normalizePriceListSettings(
       defaults.floorSurcharge,
     ),
     deliveryOnly: input?.deliveryOnly === true,
+    weightClassPricing: normalizeWeightClassPricing(input?.weightClassPricing),
     deviations: normalizeDeviationSettings(
       input?.deviations,
       defaults.deviations,

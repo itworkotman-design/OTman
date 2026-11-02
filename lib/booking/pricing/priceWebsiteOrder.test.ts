@@ -204,3 +204,60 @@ describe("priceWebsiteOrder — lines set to 0", () => {
     expect(nulled.result.totals.subcontractorTotal).toBe(base.result.totals.subcontractorTotal);
   });
 });
+
+describe("priceWebsiteOrder — weight classes", () => {
+  const charge = (code: string, price: string, subcontractorPrice: string) => ({ code, description: code, price, subcontractorPrice });
+  const weighted = normalizePriceListSettings({
+    weightClassPricing: {
+      floorSurcharge: {
+        LIGHT: charge("FLOOR_SURCHARGE_LIGHT", "32", "10"),
+        MEDIUM: charge("FLOOR_SURCHARGE_MEDIUM", "56", "20"),
+        HEAVY: charge("FLOOR_SURCHARGE_HEAVY", "80", "30"),
+      },
+      returnPrice: {
+        LIGHT: charge("RETURN_LIGHT", "80", "45"),
+        MEDIUM: charge("RETURN_MEDIUM", "152", "90"),
+        HEAVY: charge("RETURN_HEAVY", "304", "180"),
+      },
+    },
+  } as never);
+  const sofa: CatalogProduct = {
+    ...washer,
+    id: "p-sofa",
+    code: "FN_SOFA",
+    weightClass: "HEAVY",
+    options: washer.options.map((o) => ({ ...o, id: `sofa-${o.id}` })),
+  };
+  const weightedInput = (cards: SavedProductCard[]): WebsiteOrderPricingInput => ({
+    ...input("21", cards),
+    catalogProducts: [washer, sofa],
+    priceListSettings: weighted,
+  });
+  const lineTotal = (i: WebsiteOrderPricingInput, label: string) =>
+    priceWebsiteOrder(i).result.breakdowns.flatMap((b) => b.lines).filter((l) => l.label === label).map((l) => l.lineTotal);
+
+  it("charges the no-lift floors at the heaviest item's class (a washer without a class is light)", () => {
+    // Delivery to the 3rd floor, no lift: 1 chargeable floor.
+    const floorLine = (i: WebsiteOrderPricingInput) => priceWebsiteOrder(i).orderExtras.find((extra) => extra.label.startsWith("FLOOR_SURCHARGE"));
+    expect(floorLine(weightedInput([card(0)]))).toMatchObject({ label: "FLOOR_SURCHARGE_LIGHT", price: 32, qty: 1 });
+    const withSofa = weightedInput([card(0), card(1, { productId: "p-sofa", selectedInstallOptionIds: [], selectedReturnOptionId: "sofa-ret-1" })]);
+    expect(floorLine(withSofa)).toMatchObject({ label: "FLOOR_SURCHARGE_HEAVY", price: 80, qty: 1 });
+  });
+
+  it("prices each return at its own item's class, not the option's own price", () => {
+    const i = weightedInput([card(0), card(1, { productId: "p-sofa", selectedInstallOptionIds: [], selectedReturnOptionId: "sofa-ret-1" })]);
+    expect(lineTotal(i, "Retur av gammel vare til gjenvinning").sort((a, b) => a - b)).toEqual([80, 304]);
+  });
+
+  it("stores the same return prices, so the stored lines still add up to the total", () => {
+    const i = weightedInput([card(0), card(1, { productId: "p-sofa", selectedInstallOptionIds: [], selectedReturnOptionId: "sofa-ret-1" })]);
+    const items = buildWebsiteOrderItems(i.cards, i.catalogProducts, i.catalogSpecialOptions, {
+      drivingDistance: i.drivingDistance,
+      priceListSettings: i.priceListSettings,
+    });
+    const lines = items.reduce((sum, item) => sum + (item.customerPriceCents ?? 0), 0) / 100;
+    const { result, orderExtras } = priceWebsiteOrder(i);
+    expect(lines + orderExtras.reduce((sum, extra) => sum + extra.price, 0)).toBeCloseTo(result.totals.totalExVat, 2);
+    expect(items.filter((item) => item.itemType === "RETURN_OPTION").map((item) => item.customerPriceCents).sort((a, b) => a! - b!)).toEqual([8000, 30400]);
+  });
+});

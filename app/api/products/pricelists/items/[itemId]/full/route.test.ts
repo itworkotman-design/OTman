@@ -36,6 +36,7 @@ const tx = {
   $executeRaw: mocks.executeRawMock,
   priceListItem: { findUnique: mocks.itemFindUniqueMock, update: vi.fn() },
   productOption: { update: vi.fn() },
+  product: { update: vi.fn() },
 };
 
 const ITEM = {
@@ -128,6 +129,24 @@ describe("PATCH /api/products/pricelists/items/[itemId]/full", () => {
       }),
     );
     expect(mocks.executeRawMock).not.toHaveBeenCalled();
+  });
+
+  it("saves the product's weight class on the product (null clears it), and returns it", async () => {
+    const response = await patch({ weightClass: "MEDIUM" });
+    expect(response.status).toBe(200);
+    expect(tx.product.update).toHaveBeenCalledWith({ where: { id: "p-fridge" }, data: { weightClass: "MEDIUM" } });
+    expect((await response.json()).item.weightClass).toBe("MEDIUM");
+
+    tx.product.update.mockClear();
+    await patch({ weightClass: null });
+    expect(tx.product.update).toHaveBeenCalledWith({ where: { id: "p-fridge" }, data: { weightClass: null } });
+  });
+
+  it("rejects an unknown weight class without saving anything", async () => {
+    const response = await patch({ weightClass: "ENORMOUS" });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ reason: "INVALID_WEIGHT_CLASS" });
+    expect(mocks.transactionMock).not.toHaveBeenCalled();
   });
 
   it("still saves product-wide settings like the name on the product", async () => {

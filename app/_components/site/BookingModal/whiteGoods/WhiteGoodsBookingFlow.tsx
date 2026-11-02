@@ -88,6 +88,7 @@ import {
   type SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { priceWebsiteOrder } from "@/lib/booking/pricing/priceWebsiteOrder";
+import { websiteFloorSurchargeSetting } from "@/lib/booking/pricing/websiteWeightClass";
 import {
   cardsForList,
   filterUnusedLists,
@@ -800,9 +801,10 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
 
   // Converted here (rather than in FloorLiftField) since this is the one
   // place in the tree that already holds customerType — the badge itself
-  // just renders whatever amount it's given.
+  // just renders whatever amount it's given. On a list with weight class
+  // pricing it's the rate of the order's heaviest item so far.
   const floorSurchargePerFloor = websiteCustomerPrice(
-    parsePriceSetting(normalizedSettings.floorSurcharge.price),
+    parsePriceSetting(websiteFloorSurchargeSetting(normalizedSettings, productCards, catalogProducts).price),
     customerType ?? "private",
   );
 

@@ -274,3 +274,46 @@ describe("order-level extras", () => {
     expect(WHITE_GOODS_ORDER_LEVEL_EXTRAS.kmFrom21.customerPrice).toBeCloseTo(28.896);
   });
 });
+
+describe("weight classes", () => {
+  it("classes every furniture product as in the size-category table (Other furniture left unset)", () => {
+    const classes = Object.fromEntries(FURNITURE_PRODUCTS.map((p) => [p.code, p.weightClass ?? null]));
+    expect(classes).toEqual({
+      FN_BED: "MEDIUM",
+      FN_MATTRESS: "MEDIUM",
+      FN_WARDROBE: "MEDIUM",
+      FN_CHEST_OF_DRAWERS: "MEDIUM",
+      FN_BOOKCASE: "MEDIUM",
+      FN_SHELVING_UNIT: "MEDIUM",
+      FN_CABINET: "MEDIUM",
+      FN_DISPLAY_CABINET: "MEDIUM",
+      FN_SIDEBOARD: "MEDIUM",
+      FN_TV_BENCH: "MEDIUM",
+      FN_BEDSIDE_TABLE: "LIGHT",
+      FN_DINING_TABLE: "MEDIUM",
+      FN_DINING_SET: "HEAVY",
+      FN_CHAIR: "LIGHT",
+      FN_OFFICE_CHAIR: "LIGHT",
+      FN_DESK: "MEDIUM",
+      FN_SOFA: "HEAVY",
+      FN_SOFA_BED: "HEAVY",
+      FN_ARMCHAIR_RECLINER: "MEDIUM",
+      FN_COFFEE_TABLE: "LIGHT",
+      FN_OUTDOOR_FURNITURE: "MEDIUM",
+      FN_CHILDRENS_FURNITURE: "MEDIUM",
+      FN_OTHER_FURNITURE: null,
+    });
+  });
+
+  it("gives the Outdoor and Children's furniture assembly types their own class", () => {
+    const typeClasses = (code: string) =>
+      Object.fromEntries(
+        byCode(code)
+          .options.filter((o) => o.exclusiveGroup === "type")
+          .map((o) => [o.typeEn, o.weightClass]),
+      );
+    expect(typeClasses("FN_OUTDOOR_FURNITURE")).toEqual({ "Outdoor table": "MEDIUM", "Outdoor chair": "LIGHT", "Lounge / sofa set": "HEAVY" });
+    expect(typeClasses("FN_CHILDRENS_FURNITURE")).toEqual({ "Children's bed": "MEDIUM", "Storage / cabinet": "MEDIUM", "Table + chairs set": "LIGHT" });
+    expect(byCode("FN_SOFA").options.every((o) => o.weightClass === undefined)).toBe(true);
+  });
+});

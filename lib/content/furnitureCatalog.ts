@@ -26,6 +26,7 @@ import { OTHER_FURNITURE_PRODUCT_CODE, OTHER_FURNITURE_SIZE_OPTIONS } from "@/li
 //   2nd+ one (withLighterHeavyDelivery below).
 
 import { FURNITURE_PRICE_LIST_CODE } from "@/lib/content/websitePriceListCodes";
+import type { WeightClass } from "@/lib/products/weightClass";
 
 export { FURNITURE_PRICE_LIST_CODE };
 
@@ -116,11 +117,63 @@ function withLighterHeavyDelivery(product: FurnitureProductSeed): FurnitureProdu
   };
 }
 
+// Weight classes (the size-category table, decided 2026-11-02): they price
+// the return and the no-lift floor surcharge (websiteWeightClass.ts). Other
+// furniture has none, so it counts as light. Outdoor and Children's furniture
+// are medium until an assembly type says otherwise.
+const FURNITURE_WEIGHT_CLASSES: Record<string, WeightClass> = {
+  FN_BED: "MEDIUM",
+  FN_MATTRESS: "MEDIUM",
+  FN_WARDROBE: "MEDIUM",
+  FN_CHEST_OF_DRAWERS: "MEDIUM",
+  FN_BOOKCASE: "MEDIUM",
+  FN_SHELVING_UNIT: "MEDIUM",
+  FN_CABINET: "MEDIUM",
+  FN_DISPLAY_CABINET: "MEDIUM",
+  FN_SIDEBOARD: "MEDIUM",
+  FN_TV_BENCH: "MEDIUM",
+  FN_BEDSIDE_TABLE: "LIGHT",
+  FN_DINING_TABLE: "MEDIUM",
+  FN_DINING_SET: "HEAVY",
+  FN_CHAIR: "LIGHT",
+  FN_OFFICE_CHAIR: "LIGHT",
+  FN_DESK: "MEDIUM",
+  FN_SOFA: "HEAVY",
+  FN_SOFA_BED: "HEAVY",
+  FN_ARMCHAIR_RECLINER: "MEDIUM",
+  FN_COFFEE_TABLE: "LIGHT",
+  FN_OUTDOOR_FURNITURE: "MEDIUM",
+  FN_CHILDRENS_FURNITURE: "MEDIUM",
+};
+
+// Assembly types (typeEn) that override their product's class when picked.
+const ASSEMBLY_TYPE_WEIGHT_CLASSES: Record<string, Record<string, WeightClass>> = {
+  FN_OUTDOOR_FURNITURE: { "Outdoor table": "MEDIUM", "Outdoor chair": "LIGHT", "Lounge / sofa set": "HEAVY" },
+  FN_CHILDRENS_FURNITURE: { "Children's bed": "MEDIUM", "Storage / cabinet": "MEDIUM", "Table + chairs set": "LIGHT" },
+};
+
+function withWeightClasses(product: FurnitureProductSeed): FurnitureProductSeed {
+  const typeClasses = ASSEMBLY_TYPE_WEIGHT_CLASSES[product.code];
+  const weightClass = FURNITURE_WEIGHT_CLASSES[product.code];
+  return {
+    ...product,
+    ...(weightClass ? { weightClass } : {}),
+    options: typeClasses
+      ? product.options.map((option) => {
+          const optionClass = option.typeEn ? typeClasses[option.typeEn] : undefined;
+          return optionClass ? { ...option, weightClass: optionClass } : option;
+        })
+      : product.options,
+  };
+}
+
 // "Other furniture" additionally gets its volume/weight size brackets (kept out
 // of the generated data file — see otherFurnitureSizeOptions.ts).
 export const FURNITURE_PRODUCTS: FurnitureProductSeed[] = FURNITURE_PRODUCTS_DATA.map(withLighterHeavyDelivery).map((product) => {
   const options = withSharedDismantling(withHalfPriceReturn(product.options));
-  return product.code === OTHER_FURNITURE_PRODUCT_CODE
-    ? { ...product, options: [...options, ...OTHER_FURNITURE_SIZE_OPTIONS] }
-    : { ...product, options };
+  return withWeightClasses(
+    product.code === OTHER_FURNITURE_PRODUCT_CODE
+      ? { ...product, options: [...options, ...OTHER_FURNITURE_SIZE_OPTIONS] }
+      : { ...product, options },
+  );
 });

@@ -3,7 +3,7 @@ import {
   parsePriceSetting,
 } from "@/lib/booking/pricing/orderCalculatorExtras";
 import type { ProductBreakdown } from "@/lib/booking/pricing/types";
-import type { PriceListSettings } from "@/lib/products/priceListSettings";
+import type { PriceListChargeSetting, PriceListSettings } from "@/lib/products/priceListSettings";
 
 /**
  * Chargeable floors above the included 2nd floor, with no lift. Matches the
@@ -37,6 +37,10 @@ type WhiteGoodsCalculatorExtrasParams = {
   // Floor/lift of each pickup stop beyond the first (store stops as floor 0)
   // — charged the same way as the first pickup and the delivery.
   extraPickupFloors?: Array<{ floor: number; liftAvailable: boolean }>;
+  // The per-floor rate to charge — the order's weight class rate on a list
+  // with weight class pricing (websiteFloorSurchargeSetting). Default: the
+  // list's flat floorSurcharge.
+  floorSurchargeSetting?: PriceListChargeSetting;
   shouldUseNativeDistancePricing?: boolean;
   // false for orders made before FULL_DISTANCE_KM_PRICING_FROM: only the km
   // above 20 are billed (see usesFullDistanceKmPricing). Default: the new rule.
@@ -70,6 +74,7 @@ export function buildWhiteGoodsCalculatorBreakdowns(
     pickupLiftAvailable,
     deliveryLiftAvailable,
     extraPickupFloors = [],
+    floorSurchargeSetting,
     ...sharedParams
   } = params;
 
@@ -91,7 +96,7 @@ export function buildWhiteGoodsCalculatorBreakdowns(
     return breakdowns;
   }
 
-  const floorSurcharge = params.priceListSettings.floorSurcharge;
+  const floorSurcharge = floorSurchargeSetting ?? params.priceListSettings.floorSurcharge;
   const unitPrice = parsePriceSetting(floorSurcharge.price);
   const subcontractorUnitPrice = parsePriceSetting(floorSurcharge.subcontractorPrice);
 

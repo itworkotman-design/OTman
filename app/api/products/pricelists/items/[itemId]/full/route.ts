@@ -4,6 +4,7 @@ import { getAuthenticatedSession } from "@/lib/auth/session";
 import { requireFullAccessMembership } from "@/lib/products/pricelistAccess";
 import { prisma } from "@/lib/db";
 import { getEffectivePrice } from "@/lib/products/discounts";
+import { parseWeightClassInput } from "@/lib/products/weightClass";
 import {
   getProductConfigMap,
   savePriceListProductConfig,
@@ -22,6 +23,8 @@ import {
 } from "@/lib/products/deliveryTypes";
 
 type Body = {
+  // The product's website weight class; null clears it.
+  weightClass?: unknown;
   customerPrice?: string | number;
   subcontractorPrice?: string | number;
   isActive?: boolean;
@@ -151,6 +154,7 @@ async function findPriceListItemById(
                 allowModelNumber: true,
                 autoXtraPerPallet: true,
                 autoDeliveryPrice: true,
+                weightClass: true,
               },
             },
         },
@@ -171,6 +175,10 @@ export async function PATCH(
   const { itemId } = await params;
   const body = (await req.json()) as Body;
 
+  const weightClassInput = parseWeightClassInput(body.weightClass);
+  if (!weightClassInput.ok) {
+    return NextResponse.json({ ok: false, reason: "INVALID_WEIGHT_CLASS" }, { status: 400 });
+  }
 
   const existing = await findPriceListItemById(prisma, itemId);
 
@@ -448,6 +456,13 @@ export async function PATCH(
         `;
       }
 
+      if (weightClassInput.weightClass !== undefined) {
+        await tx.product.update({
+          where: { id: existing.productOption.productId },
+          data: { weightClass: weightClassInput.weightClass },
+        });
+      }
+
       if (Object.keys(priceListPricing).length > 0) {
         await savePriceListProductConfig(tx, {
           priceListId: existing.priceListId,
@@ -620,6 +635,10 @@ export async function PATCH(
         autoDeliveryPrice: productSnapshot.autoDeliveryPrice,
         deliveryTypes: productSnapshot.deliveryTypes,
         customSections: productSnapshot.customSections,
+        weightClass:
+          weightClassInput.weightClass !== undefined
+            ? weightClassInput.weightClass
+            : (existing.productOption.product.weightClass ?? null),
       },
     },
     { status: 200 },

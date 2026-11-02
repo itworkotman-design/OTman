@@ -271,6 +271,7 @@ async function createWhiteGoodsOrder(
 
   const builtItems = buildWebsiteOrderItems(productCards, pricingSource.catalogProducts, pricingSource.catalogSpecialOptions, {
     drivingDistance: drivingDistanceStr,
+    priceListSettings: normalizedPriceListSettings,
   });
 
   const pricingSnapshot = buildOrderPricingSnapshot({

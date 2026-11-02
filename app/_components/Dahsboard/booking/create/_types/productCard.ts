@@ -4,6 +4,8 @@ import type { SizeDimensionsCm } from "@/lib/booking/pricing/sizeDimensions";
 import type { ProductCustomSection } from "@/lib/products/customSections";
 import type { ProductAutoDeliveryPrice } from "@/lib/products/autoDeliveryPrice";
 import type { TvSetupDetails } from "@/lib/booking/tvSetup";
+import type { WeightClass } from "@/lib/products/weightClass";
+import type { WeightClassPricing } from "@/lib/products/priceListSettings";
 import {
   normalizeDeliveryTypeKey,
   type ProductDeliveryType,
@@ -79,6 +81,9 @@ export type CatalogOption = {
   subcontractorPrice: string;
   effectiveCustomerPrice: string;
   active: boolean;
+  // Website assembly type options only: overrides the product's weight class
+  // when picked (lib/booking/pricing/websiteWeightClass.ts).
+  weightClass?: WeightClass | null;
   // Weight/dimension pricing primitive (see
   // lib/booking/pricing/weightDimensionPricing.ts) — optional, present only
   // when the option's pricingMode isn't the default "FIXED". Not yet acted
@@ -113,6 +118,14 @@ export type CatalogProduct = {
   options: CatalogOption[];
   /** DB-stored icon key for the website's white-goods product grid; unused by the dashboard's own booking flow. */
   iconKey?: string | null;
+  /** Website weight class (return + no-lift floor pricing); null/missing counts as LIGHT. */
+  weightClass?: WeightClass | null;
+  /**
+   * Website only: the weight class prices of the product's own price list
+   * (set when the website catalog loads it), so a mixed order prices each item
+   * by its own list — white goods' light prices differ from furniture's.
+   */
+  weightClassPricing?: WeightClassPricing | null;
 };
 
 export type CatalogSpecialOption = {

@@ -1,8 +1,18 @@
 import { prisma } from "@/lib/db";
 import {
   createDefaultPriceListSettings,
+  createDefaultWeightClassPricing,
   serializePriceListSettings,
 } from "@/lib/products/priceListSettings";
+import { WEIGHT_CLASSES } from "@/lib/products/weightClass";
+import {
+  FLOOR_SURCHARGE_PARTNER_SHARE,
+  RETURN_PARTNER_SHARE,
+  WEIGHT_CLASS_FLOOR_SURCHARGE,
+  WEIGHT_CLASS_RETURN_PRICE,
+  type WeightClassPriceOverride,
+  type WeightClassPriceOverrides,
+} from "@/lib/content/websiteWeightClassPrices";
 import {
   roundToNearest5,
   websiteSeedCustomerPrice,
@@ -12,7 +22,7 @@ import {
 import { buildDeliveryTypesJson, mergePreservedDeliveryTypes } from "@/lib/content/websiteDeliveryTypes";
 import { shortenCatalogCode } from "@/lib/content/shortCatalogCode";
 
-function buildPriceListSettings(deliveryOnly: boolean) {
+function buildPriceListSettings(deliveryOnly: boolean, weightClassPrices: WeightClassPriceOverrides = {}) {
   const extras = WHITE_GOODS_ORDER_LEVEL_EXTRAS;
   const settings = createDefaultPriceListSettings();
   settings.deliveryOnly = deliveryOnly;
@@ -31,6 +41,32 @@ function buildPriceListSettings(deliveryOnly: boolean) {
   settings.kmFrom21 = setting(extras.kmFrom21, "Per km when distance is over 20 km");
   settings.kmOver100 = setting(extras.kmOver100, "Per km when distance is over 100 km");
   settings.floorSurcharge = setting(extras.floorSurcharge, "Floor surcharge per chargeable floor, no lift");
+
+  // Floor surcharge and return by weight class (websiteWeightClassPrices.ts):
+  // customer prices cleaned like every website price, partner at today's share.
+  const weightClassPricing = createDefaultWeightClassPricing();
+  for (const weightClass of WEIGHT_CLASSES) {
+    const priced = (charge: { code: string; description: string }, price: WeightClassPriceOverride, partnerShare: number) => {
+      const { customerPrice, subcontractorPrice } =
+        typeof price === "number" ? { customerPrice: price, subcontractorPrice: price * partnerShare } : price;
+      return {
+        ...charge,
+        price: String(websiteSeedCustomerPrice(customerPrice)),
+        subcontractorPrice: String(roundToNearest5(subcontractorPrice)),
+      };
+    };
+    weightClassPricing.floorSurcharge[weightClass] = priced(
+      weightClassPricing.floorSurcharge[weightClass],
+      weightClassPrices.floorSurcharge?.[weightClass] ?? WEIGHT_CLASS_FLOOR_SURCHARGE[weightClass],
+      FLOOR_SURCHARGE_PARTNER_SHARE,
+    );
+    weightClassPricing.returnPrice[weightClass] = priced(
+      weightClassPricing.returnPrice[weightClass],
+      weightClassPrices.returnPrice?.[weightClass] ?? WEIGHT_CLASS_RETURN_PRICE[weightClass],
+      RETURN_PARTNER_SHARE,
+    );
+  }
+  settings.weightClassPricing = weightClassPricing;
   return settings;
 }
 
@@ -66,6 +102,7 @@ export async function seedWebsiteCatalog({
   preservePricesOnReseed = false,
   deliveryOnly = false,
   retireMissingOptionsWithPrefix,
+  weightClassPrices,
 }: {
   priceListCode: string;
   priceListName: string;
@@ -85,8 +122,10 @@ export async function seedWebsiteCatalog({
   // deactivated (not deleted — saved orders still point at them). Furniture
   // uses it for the per-type dismantling options the shared four replaced.
   retireMissingOptionsWithPrefix?: string;
+  // This list's own weight class prices over the table's (white goods' light).
+  weightClassPrices?: WeightClassPriceOverrides;
 }) {
-  const description = serializePriceListSettings(buildPriceListSettings(deliveryOnly));
+  const description = serializePriceListSettings(buildPriceListSettings(deliveryOnly, weightClassPrices));
 
   const priceList = await prisma.priceList.upsert({
     where: { code: priceListCode },
@@ -114,6 +153,9 @@ export async function seedWebsiteCatalog({
       allowHoursInput: false,
       allowModelNumber: true,
       iconKey: productSeed.iconKey ?? null,
+      // Only when the seed has one: a class staff set on a product the seed
+      // doesn't class is left alone.
+      ...(productSeed.weightClass ? { weightClass: productSeed.weightClass } : {}),
       deliveryTypes,
     };
 
@@ -172,6 +214,7 @@ export async function seedWebsiteCatalog({
         descriptionEn: optionSeed.labelEn,
         category: optionSeed.category,
         sortOrder: index + 1,
+        ...(optionSeed.weightClass ? { weightClass: optionSeed.weightClass } : {}),
       };
 
       const option = await prisma.productOption.upsert({
