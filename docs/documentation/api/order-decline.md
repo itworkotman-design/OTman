@@ -32,3 +32,5 @@ Access: company owner/admin, or `WEBSITE_ORDERS` at `ADMIN` level.
 | --- | --- |
 | (auth) | `authorizeWebsiteOrderAdmin` (`lib/orders/websiteOrderAdminAccess.ts`). |
 | `POST` | Body `{ reason }`. Responses: `{ ok, status, refundedCents, emailFailed? }`; `400 REASON_REQUIRED`; `404 NOT_FOUND` (not in the company / not a website order); `409 NOT_DECLINABLE` (completed, cancelled, refunded); `409 REFUND_NOT_POSSIBLE` (a payment has no Stripe payment intent); `502 REFUND_FAILED` with `refundedCents` (Stripe error, order untouched). |
+
+While payments are manual (`lib/orders/paymentMode.ts`) there's no Stripe charge to refund: Decline only cancels the order (`cancelled`, `refundedCents: 0`), and anything the customer paid shows as owed back on the Payment card (record it there as a kreditnota).

@@ -47,6 +47,8 @@ import {
   type SavedProductCard,
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { readSubmittedAdjustmentLines, withAdjustmentLines } from "@/lib/orders/websiteOrderAdjustmentLines";
+import { refreshOrderPaymentStatus } from "@/lib/invoices/orderInvoices";
+import { isManualPaymentMode } from "@/lib/orders/paymentMode";
 
 // The admin editor in WebsiteOrderModal (e.g. the customer phones in): GET
 // loads the order's product cards, its editable details (customer, pickup
@@ -423,6 +425,9 @@ export async function PUT(req: Request, { params }: Params) {
     });
   }
 
+  // Payments are manual (fakturas, lib/invoices/) until Stripe is connected.
+  if (sendPaymentLink && isManualPaymentMode()) return reject("PAYMENT_LINKS_DISABLED", 409);
+
   // Decided before anything is saved, so "Save & send" never leaves a saved
   // order without the link the admin asked for (except a failed send).
   const email = pricedOrder.email;
@@ -476,6 +481,12 @@ export async function PUT(req: Request, { params }: Params) {
   } catch (err) {
     console.error("[website-items] Failed to save order:", err);
     return reject("UPDATE_FAILED", 500);
+  }
+  // A new total turns a faktura'd order's payment status pending.
+  try {
+    await refreshOrderPaymentStatus(order.id);
+  } catch (error) {
+    console.error("[website-items] payment status refresh failed", error);
   }
 
   const actor: OrderEventActor = {

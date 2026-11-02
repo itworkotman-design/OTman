@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { createOrderStatusChangedEvent } from "@/lib/orders/orderEvents";
 import { sendLifecycleEmailsForOrders } from "@/lib/orders/sendCustomerLifecycleEmail";
 import { cancelledOrderPartnerData } from "@/lib/orders/cancelledOrderPartner";
+import { isManualPaymentMode } from "@/lib/orders/paymentMode";
 
 const REMINDER_DELAY_HOURS = 24;
 const CANCELLATION_DELAY_DAYS = 3;
@@ -53,6 +54,9 @@ const ORDER_EMAIL_SELECT = {
 //   2. 3 days after that reminder went out, if the order is still unpaid,
 //      cancel it.
 export async function runPaymentTimeoutSweep(params?: { limit?: number }): Promise<PaymentTimeoutSummary> {
+  // Manual payments (fakturas, lib/invoices/) send no Stripe link to time out.
+  if (isManualPaymentMode()) return { remindersSent: 0, remindersFailed: 0, cancelled: 0, cancelFailed: 0 };
+
   const [reminderResult, cancellationResult] = await Promise.all([
     sendDueReminders(params?.limit),
     cancelOverdueOrders(params?.limit),

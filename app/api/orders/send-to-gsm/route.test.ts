@@ -86,6 +86,25 @@ describe("POST /api/orders/send-to-gsm", () => {
     });
   });
 
+  it("still sends a homepage order that isn't confirmed and paid, but flags why", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "user-1", activeCompanyId: "company-1" });
+    mocks.membershipFindFirstMock.mockResolvedValue({ id: "membership-1", role: "OWNER", user: { username: "Owner", email: "owner@example.com" } });
+    mocks.orderFindManyMock.mockResolvedValue([
+      { id: "order-1", gsmOrderId: null, websiteOrderKind: "WHITE_GOODS", status: "processing", paymentStatus: "pending" },
+      { id: "order-2", gsmOrderId: null, websiteOrderKind: "MOVING", status: "confirmed", paymentStatus: "paid" },
+    ]);
+    mocks.sendOrderToGsmMock.mockResolvedValue({ gsmOrderId: "gsm-1", tasks: [] });
+
+    const res = await POST(
+      new Request("http://localhost/api/orders/send-to-gsm", { method: "POST", body: JSON.stringify({ orderIds: ["order-1", "order-2"] }) }),
+    );
+    const json = await res.json();
+
+    expect(mocks.sendOrderToGsmMock).toHaveBeenCalledTimes(2);
+    expect(json.results[0]).toMatchObject({ orderId: "order-1", ok: true, notReady: ["NOT_CONFIRMED", "NOT_PAID"] });
+    expect(json.results[1]).not.toHaveProperty("notReady");
+  });
+
   it("resends already synced orders and reports wasAlreadySent", async () => {
     mocks.getAuthenticatedSessionMock.mockResolvedValue({
       userId: "user-1",

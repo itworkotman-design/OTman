@@ -73,6 +73,11 @@ type Props = {
   // priced into the preview so their lines show here before Save — the
   // panel's Save stores them, never this calculator's draft.
   pricedHandling?: PricedHandlingFields | null;
+  // Manual payments (fakturas): the Payment card shows how the change compares
+  // with what was invoiced, so this only reports its total there
+  // (onPreviewTotalChange: incl. VAT, null without an unsaved change).
+  manualPayments?: boolean;
+  onPreviewTotalChange?: (totalIncVat: number | null) => void;
   // The "Edit order" tab prices products, stops and these choices together
   // and saves them in one go: then this calculator doesn't fetch or save — it
   // shows the parent's latest pricing and only reports its draft. `calculator`
@@ -142,6 +147,8 @@ export default function WebsiteOrderCalculator({
   priceChangeTarget = null,
   previewEndpoint,
   pricedHandling = null,
+  manualPayments = false,
+  onPreviewTotalChange,
   externalPricing,
 }: Props) {
   const external = !!externalPricing;
@@ -239,6 +246,13 @@ export default function WebsiteOrderCalculator({
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewKey]);
+
+  // The Payment card follows the priced total live (manual payments).
+  const previewTotal = previewKey && !previewFailed ? view.customer.totalIncVat : null;
+  useEffect(() => {
+    onPreviewTotalChange?.(previewTotal);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewTotal]);
 
   const withPriceChangeTarget = (node: ReactNode) => (priceChangeTarget ? createPortal(node, priceChangeTarget) : node);
 
@@ -508,7 +522,12 @@ export default function WebsiteOrderCalculator({
       {isAdmin && changed && !external && withPriceChangeTarget(
         <div className="rounded-2xl border border-logoblue/20 bg-logoblue/5 p-4">
           <p className="mb-2 text-sm font-semibold text-logoblue">{t("Price after this change", "Pris etter endringen")}</p>
-          {preview && !previewFailed ? (
+          {manualPayments && !previewFailed ? (
+            <p className="text-sm text-black/75">
+              {t("New total (incl. VAT)", "Ny total (inkl. MVA)")}:{" "}
+              <span className="font-semibold tabular-nums">{previewing ? "…" : formatKr(view.customer.totalIncVat)}</span>
+            </p>
+          ) : preview && !previewFailed ? (
             <WebsiteOrderPaymentSummary
               comparison={preview}
               locale={locale}

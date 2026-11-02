@@ -16,3 +16,12 @@ export function serviceModalKind(serviceId: string): ServiceModalKind {
   if (serviceId === SERVICES_SERVICE_ID) return "services";
   return "placeholder";
 }
+
+// The services modal also offers "Assembly" and "Moving" tiles that switch
+// to the delivery/assembly or moving modal instead; this is the card whose
+// modal they swap to.
+export type ServiceSwitchTarget = "white-goods" | "moving";
+
+export function serviceCardIdForSwitch(target: ServiceSwitchTarget): string {
+  return target === "moving" ? MOVING_SERVICE_ID : DELIVERY_SERVICE_ID;
+}

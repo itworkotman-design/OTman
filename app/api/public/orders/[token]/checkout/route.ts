@@ -4,6 +4,7 @@ import { getOrderByActionToken, isOrderPayable, isTopUpPayable } from "@/lib/ord
 import { getOrderChargeAmountIncVatNok, getOrderRemainingBalanceIncVatNok } from "@/lib/orders/orderTotals";
 import { sumOrderPayments } from "@/lib/orders/orderPayments";
 import { getStripeClient, getOrderActionBaseUrl } from "@/lib/stripe/stripeClient";
+import { isManualPaymentMode } from "@/lib/orders/paymentMode";
 
 // Deliberately creates a brand-new Stripe Checkout Session on every call
 // instead of reusing/caching one on the order. Checkout Sessions expire in
@@ -16,6 +17,11 @@ import { getStripeClient, getOrderActionBaseUrl } from "@/lib/stripe/stripeClien
 // balance (order total minus everything already recorded in OrderPayment),
 // not the full total again — see docs/homepage-ordering-roadmap.md §4.
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
+  // Homepage orders are paid by faktura until Stripe is connected (lib/invoices/).
+  if (isManualPaymentMode()) {
+    return NextResponse.json({ ok: false, reason: "PAYMENTS_ARE_MANUAL" }, { status: 409 });
+  }
+
   const { token } = await params;
   const order = await getOrderByActionToken(token);
 

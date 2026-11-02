@@ -66,6 +66,8 @@ beforeEach(() => {
   mocks.refundOrderPayments.mockResolvedValue({ ok: true, refundedCents: 1250_00 });
   mocks.sendLifecycleEmailsForOrders.mockResolvedValue({ sentCount: 1, failedOrderIds: [] });
   mocks.findCancelledOrderPartner.mockResolvedValue(null);
+  // The Stripe refund tests; manual payments have their own below.
+  process.env.HOMEPAGE_PAYMENT_MODE = "stripe";
 });
 
 describe("POST /api/orders/[orderId]/decline", () => {
@@ -134,6 +136,13 @@ describe("POST /api/orders/[orderId]/decline", () => {
         orders: [expect.objectContaining({ id: "o1", statusNotes: "Vi kjører ikke dit.", refundedIncVatNok: 1250 })],
       }),
     );
+  });
+
+  it("only cancels while payments are manual — no Stripe refund, the Payment card shows any money owed back", async () => {
+    delete process.env.HOMEPAGE_PAYMENT_MODE;
+    const res = await post({ reason: "Fullt den dagen." });
+    expect(await res.json()).toEqual({ ok: true, status: "cancelled", refundedCents: 0 });
+    expect(mocks.refundOrderPayments).not.toHaveBeenCalled();
   });
 
   it("just cancels an order nothing was paid on (e.g. a service awaiting its payment link)", async () => {

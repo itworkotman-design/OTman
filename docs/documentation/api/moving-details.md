@@ -23,3 +23,5 @@ at ADMIN level. Tested.
 - `dryRun` — returns the price, the paid-vs-now `comparison` and `calculator` (`movingOrderCalculatorView` of the order after
   the save) without saving — what `WebsiteOrderCalculator` previews with, in the Overview and the Edit tab.
 Status and partner save through `/api/orders/bulk`. Changes are logged on the order's history.
+
+After a save (never a dry run) the order's payment status is recomputed (`refreshOrderPaymentStatus`, `lib/invoices/orderInvoices.ts`): a total that moved away from what's been invoiced turns it `pending` (manual payments).

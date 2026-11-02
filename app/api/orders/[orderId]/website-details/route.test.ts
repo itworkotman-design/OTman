@@ -131,6 +131,14 @@ describe("GET /api/orders/[orderId]/website-details", () => {
     });
   });
 
+  it("tells the modal whether payments are manual fakturas or Stripe", async () => {
+    delete process.env.HOMEPAGE_PAYMENT_MODE;
+    expect((await (await call()).json()).order.paymentMode).toBe("manual");
+    process.env.HOMEPAGE_PAYMENT_MODE = "stripe";
+    expect((await (await call()).json()).order.paymentMode).toBe("stripe");
+    delete process.env.HOMEPAGE_PAYMENT_MODE;
+  });
+
   it("returns the calculator — customer and partner side — priced from the stored products", async () => {
     mocks.orderFindFirstMock.mockResolvedValue({ ...whiteGoodsOrder, productCardsSnapshot: [{ cardId: 0, productId: "p-wm" }] });
     const json = await (await call()).json();
@@ -679,3 +687,4 @@ describe("GET /api/orders/[orderId]/website-details — a homepage service reque
     expect(order.service.edit.services[0].quote).toEqual({ customer: 4000, partner: null });
   });
 });
+

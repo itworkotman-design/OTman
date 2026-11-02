@@ -28,7 +28,8 @@ import {
   sanitizeTextInput,
   validatePhoneField,
 } from "@/lib/orders/websiteOrderValidation";
-import { ServiceIcon } from "./serviceIcons";
+import type { ServiceSwitchTarget } from "@/app/_components/site/TransportService/serviceModalRouting";
+import { AssemblyIcon, MovingIcon, ServiceIcon } from "./serviceIcons";
 import { buildServiceReviewBlocks } from "./serviceReview";
 
 // The homepage "Services" card's modal — the same stepped flow as delivery
@@ -56,9 +57,12 @@ type Props = {
   locale: Locale;
   onClose: () => void;
   customer?: ServiceCustomerEdit;
+  // Homepage only: the "Assembly" and "Moving" tiles swap this modal for the
+  // delivery/assembly or moving one (ServiceWindow). Without it they're hidden.
+  onSwitchFlow?: (target: ServiceSwitchTarget) => void;
 };
 
-export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
+export function ServiceRequestFlow({ locale, onClose, customer, onSwitchFlow }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
 
   const [customerType, setCustomerType] = useState<CustomerType | null>(null);
@@ -257,7 +261,7 @@ export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
                   aria-pressed={selected}
                   onClick={() => toggleService(option.code)}
                   className={[
-                    "relative flex w-36 flex-col items-center gap-2 rounded-2xl border px-4 py-4 text-center transition",
+                    "relative flex w-28 flex-col items-center gap-2 rounded-2xl border px-2 py-4 text-center transition",
                     selected
                       ? "border-logoblue bg-logoblue/5"
                       : "border-black/10 hover:-translate-y-0.5 hover:border-logoblue/40 hover:shadow-md",
@@ -282,6 +286,28 @@ export function ServiceRequestFlow({ locale, onClose, customer }: Props) {
                 </button>
               );
             })}
+            {/* Not services of their own: these switch to the assembly
+                (delivery) or moving modal. */}
+            {onSwitchFlow &&
+              ([
+                { target: "white-goods", Icon: AssemblyIcon, label: t("Assembly", "Montering") },
+                { target: "moving", Icon: MovingIcon, label: t("Moving", "Flytting") },
+              ] as const).map(({ target, Icon, label }) => (
+                <button
+                  key={target}
+                  type="button"
+                  onClick={() => onSwitchFlow(target)}
+                  className="relative flex w-28 flex-col items-center gap-2 rounded-2xl border border-black/10 px-2 py-4 text-center transition hover:-translate-y-0.5 hover:border-logoblue/40 hover:shadow-md"
+                >
+                  <span aria-hidden="true" className="absolute right-2 top-2 text-xs text-logoblue/60">
+                    →
+                  </span>
+                  <span className="grid h-14 w-14 place-items-center rounded-full bg-logoblue/10 text-logoblue">
+                    <Icon className="h-8 w-8" />
+                  </span>
+                  <span className="text-sm font-semibold text-black/80">{label}</span>
+                </button>
+              ))}
           </div>
 
           {/* What needs doing — one box per picked service, right under the

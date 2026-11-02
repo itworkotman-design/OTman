@@ -102,6 +102,8 @@ export type OrderRow = {
   // "WHITE_GOODS" = a homepage catalog order (priced ex. VAT like the rest;
   // see lib/booking/pricing/websiteVat.ts).
   websiteOrderKind?: string | null;
+  // Homepage orders paid by faktura: "pending" | "paid" (lib/orders/manualPayments.ts).
+  paymentStatus?: string | null;
   // Placed through the public website (shown with a blue tint).
   isWebsiteOrder?: boolean;
 };

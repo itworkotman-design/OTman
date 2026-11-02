@@ -131,3 +131,18 @@ export function getOrderStatusLabel(status: string | null | undefined) {
   const value = normalizeOrderStatus(status);
   return value || "unknown";
 }
+
+// The payment badge under a homepage order's status (manual payments,
+// lib/orders/manualPayments.ts): null when the order has no payment status.
+export function getPaymentStatusPresentation(
+  status: string | null | undefined,
+  locale: "en" | "nb",
+): { label: string; style: { color: string; backgroundColor: string } } | null {
+  if (status === "pending") {
+    return { label: locale === "nb" ? "Betaling venter" : "Payment pending", style: { color: "#b45309", backgroundColor: "#fef3c7" } };
+  }
+  if (status === "paid") {
+    return { label: locale === "nb" ? "Betalt" : "Paid", style: { color: "#15803d", backgroundColor: "#dcfce7" } };
+  }
+  return null;
+}

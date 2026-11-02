@@ -14,7 +14,7 @@ priced: posts to `/api/site/service-request`, which creates an unpriced
 website order for staff to quote.
 
 ## Functions
-### `ServiceRequestFlow({ locale, onClose, customer? })`
+### `ServiceRequestFlow({ locale, onClose, customer?, onSwitchFlow? })`
 Holds the flow's state and renders the `SteppedModal`. The service step is
 complete as soon as every picked service is described (and a custom one named),
 opening the address step right away; it's held while any service is picked, so
@@ -22,6 +22,11 @@ adding another doesn't fold the steps already opened. The per-service
 description boxes sit in an `AnimatedStack`, so they slide open/closed; once a
 just-picked service's box has opened, the modal smoothly scrolls to it and
 focuses its first field.
+
+With `onSwitchFlow` (homepage only, passed by `ServiceWindow`) the service
+step also shows "Assembly" and "Moving" tiles after the services. They aren't
+services of their own — clicking one calls `onSwitchFlow("white-goods" | "moving")`,
+which swaps this modal for the delivery/assembly or moving modal.
 
 With `customer` (`ServiceCustomerEdit`: "My order") it loads the customer's
 own request from `/api/customer/orders/[orderNumber]`, shows every section but

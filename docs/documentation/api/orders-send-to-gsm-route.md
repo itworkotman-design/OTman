@@ -13,3 +13,5 @@ Validates the caller, loads the selected orders with their `items`, sends them t
 | Function | Description |
 | --- | --- |
 | `POST` | Validates access, skips already-synced orders unless `force` is enabled, loads each order with `items`, sends it to GSM, persists the returned GSM order/task ids, updates last-edited metadata, and writes a GSM send action into order history. Then uploads the order's `RECEIPT` attachments and store pickup documents to the returned GSM tasks via `sendReceiptsToGsmTask`, as planned by `planReceiptUploads` (see `integrations/gsm-receipt-uploads.md`); a receipt failure is reported as `receiptError` on that order's result without failing the send, and `receiptsSent` counts newly attached documents. |
+
+Homepage orders that aren't `confirmed` with payment `paid` (manual payments, `gsmReadiness` in `lib/orders/manualPayments.ts`) are still sent, but their result carries `notReady: ["NOT_CONFIRMED" | "NOT_PAID"]`. The booking list asks before sending them (`gsmNotReadyWarning`).

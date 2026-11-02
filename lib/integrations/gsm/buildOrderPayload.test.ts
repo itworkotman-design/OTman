@@ -120,6 +120,7 @@ function buildOrder(overrides?: Partial<Order>): Order {
     dayBeforeDeliverySmsSentAt: null,
     reviewSmsSentAt: null,
     gsmCompletedAt: null,
+    paymentStatus: null,
     ...overrides,
   };
 }

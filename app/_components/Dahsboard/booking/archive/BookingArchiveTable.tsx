@@ -17,6 +17,7 @@ import {
 import {
   getOrderStatusLabel,
   getOrderStatusStyle,
+  getPaymentStatusPresentation,
 } from "@/lib/orders/statusPresentation";
 import { formatDisplayDate, formatDisplayDateTime } from "@/lib/dateDisplay";
 import { getDriverDisplayLabel } from "@/lib/orders/driverNormalization";
@@ -92,22 +93,34 @@ function formatDnbDiscount(value: number | null) {
   return typeof value === "number" && value > 0 ? `20% - NOK ${value}` : "-";
 }
 
+// The status pill, and under it a homepage order's payment badge (Pending / Paid).
 function formatStatusCell(
   value: string | null | undefined,
   locale: BookingUiLocale,
+  paymentStatus?: string | null,
 ) {
   const cell = formatCell(getOrderStatusLabel(value));
   if (cell === "-") return cell;
   const normalizedStatus = getOrderStatusLabel(value);
   const label = bookingStatusText(locale, normalizedStatus);
+  const payment = getPaymentStatusPresentation(paymentStatus, locale);
 
-  return (
+  const status = (
     <span
       className="inline-block rounded px-2 py-0.5 text-xs font-semibold text-weird-landscape padding-weird-landscape"
       style={getOrderStatusStyle(value)}
       title={normalizedStatus}
     >
       {label}
+    </span>
+  );
+  if (!payment) return status;
+  return (
+    <span className="inline-flex flex-col items-start gap-1">
+      {status}
+      <span className="inline-block rounded px-2 py-0.5 text-[11px] font-semibold" style={payment.style}>
+        {payment.label}
+      </span>
     </span>
   );
 }
@@ -740,7 +753,7 @@ export default function BookingArchiveTable({
                   ) : null}
                   {isColumnVisible("status") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatStatusCell(order.status, locale)}</Cell>
+                      <Cell>{formatStatusCell(order.status, locale, order.paymentStatus)}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("mail") ? <AlertCell order={order} onAlertClick={onAlertClick} openLabel={t("Open")} t={t} /> : null}
@@ -902,7 +915,7 @@ export default function BookingArchiveTable({
                   ) : null}
                   {isColumnVisible("status") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatStatusCell(order.status, locale)}</Cell>
+                      <Cell>{formatStatusCell(order.status, locale, order.paymentStatus)}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("deliveryDate") ? (
@@ -1021,7 +1034,7 @@ export default function BookingArchiveTable({
                   ) : null}
                   {isColumnVisible("status") ? (
                     <td className="border-r border-black/3 px-2 py-2 font-semibold text-textColorThird padding-weird-landscape text-weird-landscape">
-                      <Cell>{formatStatusCell(order.status, locale)}</Cell>
+                      <Cell>{formatStatusCell(order.status, locale, order.paymentStatus)}</Cell>
                     </td>
                   ) : null}
                   {isColumnVisible("mail") ? <AlertCell order={order} onAlertClick={onAlertClick} openLabel={t("Open")} t={t} /> : null}

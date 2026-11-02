@@ -4,12 +4,14 @@ const mocks = vi.hoisted(() => ({
   ensureCustomerAccountForOrder: vi.fn(),
   sendOrderReceivedEmail: vi.fn(),
   createOrderNotification: vi.fn(),
+  sendOrderInvoice: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: {} }));
 vi.mock("./ensureCustomerAccount", () => ({ ensureCustomerAccountForOrder: mocks.ensureCustomerAccountForOrder }));
 vi.mock("@/lib/orders/sendOrderReceivedEmail", () => ({ sendOrderReceivedEmail: mocks.sendOrderReceivedEmail }));
 vi.mock("@/lib/orders/orderNotifications", () => ({ createOrderNotification: mocks.createOrderNotification }));
+vi.mock("@/lib/invoices/orderInvoices", () => ({ sendOrderInvoice: mocks.sendOrderInvoice }));
 
 import { welcomeWebsiteOrderCustomer } from "./welcomeWebsiteOrderCustomer";
 
@@ -170,5 +172,48 @@ describe("welcomeWebsiteOrderCustomer", () => {
 
     expect(mocks.sendOrderReceivedEmail).toHaveBeenCalledWith(expect.objectContaining({ ...order, email: null }));
     expect(mocks.createOrderNotification).not.toHaveBeenCalled();
+  });
+});
+
+describe("welcomeWebsiteOrderCustomer — the first faktura (manual payments)", () => {
+  const priced = { ...order, websiteOrderKind: "WHITE_GOODS", priceExVat: 1000, pricingSnapshot: null, rabatt: null, leggTil: null };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    delete process.env.HOMEPAGE_PAYMENT_MODE;
+    mocks.ensureCustomerAccountForOrder.mockResolvedValue(null);
+    mocks.sendOrderInvoice.mockResolvedValue({ ok: true });
+  });
+
+  it("sends the faktura for the whole order as soon as the customer has booked", async () => {
+    await welcomeWebsiteOrderCustomer(priced);
+    expect(mocks.sendOrderInvoice).toHaveBeenCalledWith({
+      orderId: "o1",
+      companyId: "c1",
+      kind: "invoice",
+      actor: { membershipId: null, name: "website", email: "website", source: "SYSTEM" },
+    });
+  });
+
+  it("sends none for a request without a price yet — staff send it once quoted", async () => {
+    await welcomeWebsiteOrderCustomer({ ...priced, websiteOrderKind: "SERVICE", priceExVat: 0 });
+    expect(mocks.sendOrderInvoice).not.toHaveBeenCalled();
+  });
+
+  it("sends none for orders that aren't homepage orders, or while Stripe takes payment", async () => {
+    await welcomeWebsiteOrderCustomer({ ...priced, websiteOrderKind: null });
+    process.env.HOMEPAGE_PAYMENT_MODE = "stripe";
+    await welcomeWebsiteOrderCustomer(priced);
+    expect(mocks.sendOrderInvoice).not.toHaveBeenCalled();
+  });
+
+  it("alerts staff when the faktura couldn't be sent", async () => {
+    mocks.sendOrderInvoice.mockResolvedValue({ ok: false, reason: "INVOICE_SEND_FAILED" });
+    await welcomeWebsiteOrderCustomer(priced);
+    expect(mocks.createOrderNotification).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ orderId: "o1", type: "MANUAL_REVIEW", title: "Faktura NOT sent" }),
+    );
   });
 });

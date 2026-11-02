@@ -17,6 +17,9 @@ opens is decided by its own id via `serviceModalKind` (`serviceModalRouting.ts`)
 | Services (`services`) | `ServiceRequestFlow` |
 | Moving (`moving`) | `MovingRequestFlow` |
 
+The Services modal's "Assembly"/"Moving" tiles switch the open modal to the
+Delivery or Moving card's flow (`serviceCardIdForSwitch` gives the card id).
+
 Any unrecognised id also falls back to the placeholder `SteppedModal`.
 `buildPlaceholderSections`/`buildPlaceholderFinalStep` in `ServiceWindow.tsx` supply
 that fallback's content.
@@ -33,5 +36,6 @@ longer rendered; see `docs/homepage-ordering-roadmap.md` §3a for its status.
 | --- | --- |
 | `ServiceWindow` | Renders localized service cards, handles carousel scroll/snap behavior, and opens the modal `serviceModalKind` picks for the clicked tile. |
 | `serviceModalKind` | Pure mapping from a tile id to `"white-goods"`, `"moving"`, `"services"` or `"placeholder"`. |
+| `serviceCardIdForSwitch` | Maps a services-modal switch target (`"white-goods"`/`"moving"`) to the card id whose modal it opens. |
 | `buildPlaceholderSections` | Builds the two dummy "Step 1"/"Step 2" sections for the placeholder modal (only reached by an unrecognised tile id). |
 | `buildPlaceholderFinalStep` | Builds the placeholder final/summary step; its "Continue to payment" button is not wired to anything. |

@@ -24,6 +24,7 @@ import { isWebsiteOrderLocked } from "@/lib/orders/statusPresentation";
 import { parseWebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import { validateTextField } from "@/lib/orders/websiteOrderValidation";
 import { readSubmittedAdjustmentLines, withAdjustmentLines } from "@/lib/orders/websiteOrderAdjustmentLines";
+import { refreshOrderPaymentStatus } from "@/lib/invoices/orderInvoices";
 
 // The admin's edit of a homepage service request (WebsiteOrderModal,
 // websiteOrderKind SERVICE) — the same API as a move's (moving-details): the
@@ -305,6 +306,12 @@ export async function PUT(req: Request, { params }: Params) {
   } catch (err) {
     console.error("[service-details] Failed to save order:", err);
     return reject("UPDATE_FAILED", 500);
+  }
+  // A new total (or a first quote) turns a faktura'd order's payment status pending.
+  try {
+    await refreshOrderPaymentStatus(order.id);
+  } catch (error) {
+    console.error("[service-details] payment status refresh failed", error);
   }
 
   const changes: OrderEventChange[] = LOGGED_FIELDS.map(([field, label]) => ({

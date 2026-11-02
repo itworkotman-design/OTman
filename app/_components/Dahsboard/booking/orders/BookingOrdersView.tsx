@@ -32,6 +32,7 @@ import {
   type BookingArchiveColumnId,
 } from "@/lib/booking/archiveColumns";
 import ShiftLeaderBanner from "@/app/_components/Dahsboard/booking/ShiftLeaderBanner";
+import { gsmNotReadyWarning } from "@/lib/orders/manualPayments";
 
 type FilterOptionApiItem = {
   id: string;
@@ -435,6 +436,9 @@ export default function BookingOrdersView({ insuranceCases }: Props) {
 
   async function handleSendSelectedToGsm(): Promise<boolean> {
     if (selectedOrderIds.length === 0) return false;
+    // Homepage orders should reach GSM confirmed and paid; staff can still send.
+    const notReady = gsmNotReadyWarning(selectedOrders);
+    if (notReady && !window.confirm(notReady)) return false;
 
     try {
       setCustomerActionLoading(true);

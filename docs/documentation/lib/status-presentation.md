@@ -19,3 +19,4 @@ Provides the shared order-status normalization and presentation helpers used by 
 | `normalizeOrderStatus` | Maps legacy or localized order-status values onto the app's canonical lowercase status keys. |
 | `getOrderStatusStyle` | Returns the badge colors used for a normalized order status. |
 | `getOrderStatusLabel` | Returns the normalized status label used in archive cells and other status displays. |
+| `getPaymentStatusPresentation` | The payment badge under a homepage order's status (manual payments): "Payment pending" (amber) / "Paid" (green), in English or Norwegian; null without a payment status. Used by the order lists, the Payment card and the Payment tab. |

@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import type { OrderRow } from "@/app/_components/Dahsboard/booking/archive/types";
 import OrderSmsPanel from "@/app/_components/Dahsboard/booking/archive/OrderSmsPanel";
+import OrderPaymentPanel from "@/app/_components/Dahsboard/booking/archive/OrderPaymentPanel";
 import OrderEditPanel from "@/app/_components/Dahsboard/booking/OrderEditPanel";
 import { usesWebsiteOrderModal } from "@/app/_components/Dahsboard/booking/orderModalMode";
 import CopyButton from "@/app/_components/utils/CopyButton";
@@ -140,7 +141,7 @@ function getCurrentHourOption() {
   );
 }
 
-export type AlertCenterTab = "edit" | "conversation" | "sms" | "notifications" | "history";
+export type AlertCenterTab = "edit" | "conversation" | "sms" | "payment" | "notifications" | "history";
 
 type OrderEmailModalProps = {
   open: boolean;
@@ -1142,6 +1143,8 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged,
                   ...(canEdit ? [{ id: "edit", label: "Edit order", attention: null }] : []),
                   { id: "conversation", label: "Conversation", attention: hasMailAttention ? "bg-logoblue" : null },
                   { id: "sms", label: "SMS", attention: null },
+                  // Homepage orders are paid by faktura (lib/invoices/).
+                  ...(usesWebsiteOrderModal(order) ? [{ id: "payment", label: "Payment", attention: null }] : []),
                   { id: "history", label: "Order history", attention: null },
                   { id: "notifications", label: "Notifications", attention: hasNotificationAttention ? "bg-amber-500" : null },
                 ] as Array<{ id: AlertCenterTab; label: string; attention: string | null }>
@@ -1315,6 +1318,8 @@ export default function OrderEmailModal({ open, order, onClose, onAlertsChanged,
               </div>
             ) : activeTab === "sms" ? (
               <OrderSmsPanel orderId={order.id} />
+            ) : activeTab === "payment" ? (
+              <OrderPaymentPanel orderId={order.id} />
             ) : activeTab === "notifications" ? (
               <div className="space-y-4">
                 <div className="rounded-2xl border border-black/10 bg-white p-4">

@@ -18,6 +18,7 @@ import type { ProductGroup } from "@/lib/orders/websiteOrderProducts";
 import WebsiteOrderAdminActions from "./WebsiteOrderAdminActions";
 import WebsiteOrderEditTab from "./WebsiteOrderEditTab";
 import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
+import WebsiteOrderInvoiceSummary from "./WebsiteOrderInvoiceSummary";
 import WebsiteOrderRefundButton from "./WebsiteOrderRefundButton";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import type { PricedHandlingFields, WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
@@ -62,6 +63,8 @@ type WebsiteOrderBase = {
   hasCustomerLogin: boolean;
   // Paid so far vs. the order now (compareOrderWithPayments).
   payment: OrderPaymentComparison;
+  // "manual": paid by faktura — the Payment card is WebsiteOrderInvoiceSummary.
+  paymentMode?: "manual" | "stripe";
   // Fields only an admin handles (driver, deviation, discount…).
   handling: WebsiteOrderHandling;
 };
@@ -180,6 +183,9 @@ export default function WebsiteOrderPanel({
   const [editNotice, setEditNotice] = useState("");
   // The calculator's unsaved changes; the one Save under "Handle order" stores them.
   const [pricingDraft, setPricingDraft] = useState<WebsiteOrderPricingDraft | null>(null);
+  // The calculator's unsaved total incl. VAT, for the Payment card (manual payments).
+  const [previewTotalIncVat, setPreviewTotalIncVat] = useState<number | null>(null);
+  const manualPayments = order.paymentMode !== "stripe";
   // Picked/removed attachments — stored by the Overview's Save, never before.
   const [attachmentDraft, setAttachmentDraft] = useState<AttachmentDraft>(EMPTY_ATTACHMENT_DRAFT);
   // Bumped after that Save so the attachment list reloads what was stored.
@@ -503,8 +509,18 @@ export default function WebsiteOrderPanel({
           <div className="flex flex-col gap-4 lg:self-start">
             <div className="rounded-2xl border border-black/10 bg-white p-6">
               <h3 className="mb-3 text-lg font-semibold text-logoblue">{t("Payment", "Betaling")}</h3>
-              <WebsiteOrderPaymentSummary comparison={order.payment} locale={locale} />
-              {order.payment.outcome === "refund" && (
+              {manualPayments ? (
+                <WebsiteOrderInvoiceSummary
+                  orderId={order.id}
+                  locale={locale}
+                  previewTotalIncVat={previewTotalIncVat}
+                  refreshKey={JSON.stringify([order.priceExVat, order.status, order.calculator?.customer ?? null])}
+                  onChanged={onChanged}
+                />
+              ) : (
+                <WebsiteOrderPaymentSummary comparison={order.payment} locale={locale} />
+              )}
+              {!manualPayments && order.payment.outcome === "refund" && (
                 <WebsiteOrderRefundButton
                   orderId={order.id}
                   overpaidIncVatNok={-order.payment.differenceIncVatNok}
@@ -532,6 +548,8 @@ export default function WebsiteOrderPanel({
                   : { previewEndpoint: detailsEndpoint ?? undefined })}
                 locale={locale}
                 onDraftChange={setPricingDraft}
+                manualPayments={manualPayments}
+                onPreviewTotalChange={setPreviewTotalIncVat}
                 priceChangeTarget={priceChangeSlot}
                 pricedHandling={pricedHandling}
               />

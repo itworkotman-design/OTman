@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { authorizeWebsiteOrderAdmin } from "@/lib/orders/websiteOrderAdminAccess";
 import { getStripeClient } from "@/lib/stripe/stripeClient";
+import { isManualPaymentMode } from "@/lib/orders/paymentMode";
 import { refundOrderPayments } from "@/lib/orders/orderRefunds";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { createOrderStatusChangedEvent } from "@/lib/orders/orderEvents";
@@ -60,12 +61,16 @@ export async function POST(req: Request, { params }: Params) {
     return NextResponse.json({ ok: false, reason: "NOT_DECLINABLE" }, { status: 409 });
   }
 
-  const refund = await refundOrderPayments(prisma, getStripeClient(), {
-    orderId: order.id,
-    companyId: order.companyId,
-    amountCents: "ALL",
-    reason,
-  });
+  // Manual payments (fakturas) have no Stripe charge to refund: the order is
+  // only cancelled, and its Payment card shows anything owed back.
+  const refund = isManualPaymentMode()
+    ? ({ ok: false, reason: "NOTHING_TO_REFUND" } as const)
+    : await refundOrderPayments(prisma, getStripeClient(), {
+        orderId: order.id,
+        companyId: order.companyId,
+        amountCents: "ALL",
+        reason,
+      });
 
   let refundedCents = 0;
   if (refund.ok) {

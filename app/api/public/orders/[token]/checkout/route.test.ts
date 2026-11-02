@@ -49,6 +49,15 @@ describe("POST /api/public/orders/[token]/checkout", () => {
     vi.clearAllMocks();
     mocks.checkoutSessionsCreateMock.mockResolvedValue({ id: "cs_new", url: "https://checkout.stripe.com/cs_new" });
     mocks.orderUpdateMock.mockResolvedValue({});
+    process.env.HOMEPAGE_PAYMENT_MODE = "stripe";
+  });
+
+  it("is closed while payments are manual (fakturas)", async () => {
+    delete process.env.HOMEPAGE_PAYMENT_MODE;
+    const res = await call();
+    expect(res.status).toBe(409);
+    expect((await res.json()).reason).toBe("PAYMENTS_ARE_MANUAL");
+    expect(mocks.getOrderByActionTokenMock).not.toHaveBeenCalled();
   });
 
   it("returns 404 for an unknown token", async () => {

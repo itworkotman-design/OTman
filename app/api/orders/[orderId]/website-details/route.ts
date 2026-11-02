@@ -37,6 +37,7 @@ import { getMovingCatalog, type MovingCatalogOption } from "@/lib/content/getMov
 import { parseServiceBookingDetails, SERVICE_ORDER_KIND } from "@/lib/orders/serviceBookingDetails";
 import { serviceEditFromOrder } from "@/lib/orders/serviceOrderEdit";
 import { serviceOrderCalculatorView } from "@/lib/orders/serviceOrderCalculator";
+import { homepagePaymentMode } from "@/lib/orders/paymentMode";
 
 // Read-only view of a homepage website order (a white-goods delivery, a move
 // or a service request) for the admin
@@ -168,6 +169,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
     adjustmentLines: storedAdjustmentLines(getPricingSnapshotAdjustmentLines(order.pricingSnapshot), order).filter(
       (line) => canSeePartnerPrices || line.kind === "discount" || line.kind === "extra",
     ),
+    // "manual": the Payment card is the faktura history (lib/invoices/);
+    // "stripe": the paid-so-far comparison below.
+    paymentMode: homepagePaymentMode(),
     // Paid so far vs. the order now: what changed and what's due/refundable.
     payment: compareOrderWithPayments({
       payments: order.payments ?? [],

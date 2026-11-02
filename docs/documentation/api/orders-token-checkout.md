@@ -24,3 +24,5 @@ payable for up to 3 days).
 - `POST` — resolves the order by token, decides which of the two cases
   above applies (or rejects with `ORDER_NOT_PAYABLE`), creates the Stripe
   session, stores its id on the order, returns `{ ok, url }`.
+
+While homepage payments are manual (`HOMEPAGE_PAYMENT_MODE` not `stripe`, see `lib/payment-mode.md`) it answers `409 PAYMENTS_ARE_MANUAL` before looking anything up.

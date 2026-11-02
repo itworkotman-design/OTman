@@ -20,3 +20,5 @@ Builds a Gmail API MIME message and sends order conversation email with optional
 | `encodeBase64Url` | Encodes raw MIME content into Gmail API base64url format. |
 | `buildMimeMessage` | Builds the multipart MIME payload with To, optional Bcc, Reply-To, Gmail reply headers, and optional `X-Otman-*` order metadata headers. |
 | `sendGmailEmail` | Creates the Gmail API client, verifies the OAuth mailbox against `GMAIL_ACCOUNT_EMAIL`, skips alias verification for the primary OAuth mailbox, verifies custom send-as aliases when needed, sends from `GMAIL_SEND_AS_EMAIL`, passes an existing Gmail thread id and optional order metadata when provided, returns Gmail ids and RFC message id, and returns `syncWarning` when metadata lookup fails after send. |
+
+Optional `attachments` (`GmailAttachment`: filename, content type, bytes) turn the message into `multipart/mixed`: the text/html alternative first, then each file base64-encoded in 76-character lines. Used for the faktura PDFs (`lib/invoices/orderInvoices.ts`).

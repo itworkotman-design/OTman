@@ -30,3 +30,5 @@ An 8px tab sitting directly on top of the alert button. It is anchored to the bu
 - **Right third:** shown when the order has an SMS, coloured by the latest SMS (`order.smsStatus`): blue = delivered, grey = sent and waiting for delivery, red = failed. The tooltip shows the status, `order.smsAt`, and `(N SMS)` when more than one was sent.
 
 Each segment (`MarkerSegment`) shows an instant CSS tooltip on hover, a dark label above the tab. It replaces the native `title`, which on an 8px target practically never appears. Tooltip texts are translated via `bookingText`. The fields are only set for admins.
+
+The status cell shows a homepage order's payment badge (Payment pending / Paid, `getPaymentStatusPresentation`) under its status pill, from the row's `paymentStatus` (returned by `GET /api/orders`).

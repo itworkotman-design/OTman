@@ -596,6 +596,7 @@ model Order {
   items                              OrderItem[]
   notifications                      OrderNotification[]
   payments                           OrderPayment[]
+  invoices                           OrderInvoice[]
   refunds                            OrderRefund[]
   pendingChanges                     OrderPendingChange[]
   recurringOrderOccurrence           RecurringOrderOccurrence?
@@ -645,6 +646,10 @@ model Order {
   // Set only by the GSM webhook when it auto-completes the order (never by
   // manual/bulk status changes). The review-request SMS keys off this.
   gsmCompletedAt             DateTime?
+  // Homepage orders paid by manual faktura (lib/orders/manualPayments.ts):
+  // "pending" | "paid"; null before the first faktura. Only the Mark paid
+  // button sets "paid"; any price change recomputes it (nextPaymentStatus).
+  paymentStatus              String?
 
   @@unique([companyId, displayId])
   @@unique([recurringOrderTemplateId, recurringOrderOccurrenceDate])
@@ -669,6 +674,7 @@ model Order {
   @@index([customPickupAddressId])
   @@index([customReturnAddressId])
   @@index([customerAccountId])
+  @@index([isWebsiteOrder, paymentStatus])
 }
 
 // A temporary login for a homepage customer: username = their email, a
@@ -723,6 +729,37 @@ model OrderPayment {
   refunds                 OrderRefund[]
 
   @@index([orderId, createdAt])
+  @@index([companyId, createdAt])
+}
+
+// A faktura (or kreditnota) sent for a homepage order while payments are
+// manual — see lib/orders/manualPayments.ts and lib/invoices/. Its number is
+// the order's ID plus the sequence (1042, 1042-2, 1042-K3). The PDF is stored
+// as sent (pdfKey) so the Payment tab shows exactly what the customer got.
+model OrderInvoice {
+  id                 String    @id @default(cuid())
+  orderId            String
+  companyId          String
+  sequence           Int
+  invoiceNumber      String
+  // "invoice" | "refund" (kreditnota).
+  kind               String    @default("invoice")
+  // Incl. VAT, always positive; kind gives the sign.
+  amountCents        Int
+  // The order total (incl. VAT) this entry brought the order up to.
+  totalAfterCents    Int
+  // buildOrderStateSnapshot (lib/orders/paidOrderSnapshot.ts) when sent.
+  orderSnapshot      Json
+  dueDate            DateTime
+  paidAt             DateTime?
+  paidByMembershipId String?
+  pdfKey             String?
+  emailMessageId     String?
+  sentByMembershipId String?
+  createdAt          DateTime  @default(now())
+  order              Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, sequence])
   @@index([companyId, createdAt])
 }
 

@@ -1513,8 +1513,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
           </h4>
           <p className="text-sm text-black/60">
             {t(
-              `Order #${submitResult.orderNumber} is pending approval. We'll email you a payment link once it's confirmed.`,
-              `Bestilling #${submitResult.orderNumber} venter på godkjenning. Vi sender deg en betalingslenke på e-post når den er bekreftet.`,
+              `Order #${submitResult.orderNumber} is pending approval. The faktura has been sent to your email.`,
+              `Bestilling #${submitResult.orderNumber} venter på godkjenning. Fakturaen er sendt til e-posten din.`,
             )}
           </p>
         </div>

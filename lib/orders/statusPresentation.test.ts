@@ -6,6 +6,7 @@ import {
   WEBSITE_ORDER_FILTER_STATUS_OPTIONS,
   WEBSITE_ORDER_STATUS_OPTIONS,
   getOrderStatusStyle,
+  getPaymentStatusPresentation,
   isAllowedWebsiteOrderStatus,
   isWebsiteOrderLocked,
   normalizeOrderStatus,
@@ -80,5 +81,18 @@ describe("pending order status", () => {
 
   it("has a Norwegian label", () => {
     expect(bookingStatusText("nb", "pending")).toBe("På vent");
+  });
+});
+
+describe("getPaymentStatusPresentation (the badge under a homepage order's status)", () => {
+  it("is amber Pending or green Paid, in both languages", () => {
+    expect(getPaymentStatusPresentation("pending", "en")).toEqual({ label: "Payment pending", style: { color: "#b45309", backgroundColor: "#fef3c7" } });
+    expect(getPaymentStatusPresentation("paid", "nb")).toEqual({ label: "Betalt", style: { color: "#15803d", backgroundColor: "#dcfce7" } });
+    expect(getPaymentStatusPresentation("pending", "nb")?.label).toBe("Betaling venter");
+  });
+
+  it("shows nothing for an order without a payment status", () => {
+    expect(getPaymentStatusPresentation(null, "en")).toBeNull();
+    expect(getPaymentStatusPresentation("weird", "en")).toBeNull();
   });
 });

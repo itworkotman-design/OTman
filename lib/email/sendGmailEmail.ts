@@ -78,6 +78,14 @@ function encodeBase64Url(value: string) {
   return Buffer.from(value).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+// A file sent with the email (e.g. a faktura PDF).
+export type GmailAttachment = { filename: string; contentType: string; content: Buffer | Uint8Array };
+
+// Base64 in 76-character lines, as MIME expects.
+function base64Lines(content: Buffer | Uint8Array) {
+  return (Buffer.from(content).toString("base64").match(/.{1,76}/g) ?? []).join("\r\n");
+}
+
 function buildMimeMessage({
   from,
   to,
@@ -92,6 +100,7 @@ function buildMimeMessage({
   orderId,
   orderNumber,
   direction,
+  attachments,
 }: {
   from: string;
   to: string;
@@ -106,8 +115,12 @@ function buildMimeMessage({
   orderId?: string;
   orderNumber?: string | null;
   direction?: "inbound" | "outbound";
+  attachments?: GmailAttachment[];
 }) {
   const boundary = `boundary_${Date.now()}`;
+  // With attachments the text/html alternative is the first part of a
+  // multipart/mixed message, the files after it.
+  const mixedBoundary = attachments?.length ? `mixed_${boundary}` : null;
 
   const headers = [
     `From: ${from}`,
@@ -120,13 +133,15 @@ function buildMimeMessage({
     bcc ? `Bcc: ${bcc}` : null,
     `Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`,
     `MIME-Version: 1.0`,
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    mixedBoundary
+      ? `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`
+      : `Content-Type: multipart/alternative; boundary="${boundary}"`,
     replyTo ? `Reply-To: ${replyTo}` : `Reply-To: ${getGmailSendAsEmail()}`,
     inReplyTo ? `In-Reply-To: ${inReplyTo}` : null,
     references?.length ? `References: ${references.join(" ")}` : null,
   ].filter(Boolean);
 
-  const body = [
+  const alternative = [
     `--${boundary}`,
     `Content-Type: text/plain; charset="UTF-8"`,
     ``,
@@ -137,6 +152,24 @@ function buildMimeMessage({
     html,
     `--${boundary}--`,
   ].join("\r\n");
+
+  const body = mixedBoundary
+    ? [
+        `--${mixedBoundary}`,
+        `Content-Type: multipart/alternative; boundary="${boundary}"`,
+        ``,
+        alternative,
+        ...(attachments ?? []).flatMap((file) => [
+          `--${mixedBoundary}`,
+          `Content-Type: ${file.contentType}; name="${file.filename}"`,
+          `Content-Disposition: attachment; filename="${file.filename}"`,
+          `Content-Transfer-Encoding: base64`,
+          ``,
+          base64Lines(file.content),
+        ]),
+        `--${mixedBoundary}--`,
+      ].join("\r\n")
+    : alternative;
 
   return `${headers.join("\r\n")}\r\n\r\n${body}`;
 }
@@ -155,6 +188,7 @@ export async function sendGmailEmail({
   orderId,
   orderNumber,
   direction,
+  attachments,
 }: {
   to: Recipient | Recipient[];
   bcc?: Recipient | Recipient[] | string;
@@ -169,6 +203,7 @@ export async function sendGmailEmail({
   orderId?: string;
   orderNumber?: string | null;
   direction?: "inbound" | "outbound";
+  attachments?: GmailAttachment[];
 }) {
   const recipients = Array.isArray(to) ? to : [to];
 
@@ -251,6 +286,7 @@ export async function sendGmailEmail({
     orderId,
     orderNumber,
     direction,
+    attachments,
   });
 
   console.log("GMAIL SEND BEFORE users.messages.send", {

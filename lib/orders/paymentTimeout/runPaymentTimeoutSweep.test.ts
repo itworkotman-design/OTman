@@ -47,6 +47,13 @@ describe("runPaymentTimeoutSweep cancellation", () => {
     mocks.orderUpdateMock.mockResolvedValue({});
     mocks.createOrderStatusChangedEventMock.mockResolvedValue(undefined);
     mocks.cancelledOrderPartnerDataMock.mockResolvedValue({});
+    process.env.HOMEPAGE_PAYMENT_MODE = "stripe";
+  });
+
+  it("does nothing while payments are manual — no Stripe link to time out", async () => {
+    delete process.env.HOMEPAGE_PAYMENT_MODE;
+    expect(await runPaymentTimeoutSweep()).toEqual({ remindersSent: 0, remindersFailed: 0, cancelled: 0, cancelFailed: 0 });
+    expect(mocks.orderFindManyMock).not.toHaveBeenCalled();
   });
 
   it("cancels the overdue order and fills the placeholder partner", async () => {

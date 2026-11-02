@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   getMovingCatalog: vi.fn(),
   getRouteDistance: vi.fn(),
   createOrderUpdatedEvent: vi.fn(),
+  refreshOrderPaymentStatus: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({ getAuthenticatedSession: mocks.getAuthenticatedSession }));
@@ -24,6 +25,7 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/integrations/mapbox/routeDistance", () => ({ getRouteDistance: mocks.getRouteDistance }));
 vi.mock("@/lib/orders/orderEvents", () => ({ createOrderUpdatedEvent: mocks.createOrderUpdatedEvent }));
+vi.mock("@/lib/invoices/orderInvoices", () => ({ refreshOrderPaymentStatus: mocks.refreshOrderPaymentStatus }));
 vi.mock("@/lib/content/getMovingCatalog", async () => {
   const actual = await vi.importActual<typeof import("@/lib/content/getMovingCatalog")>("@/lib/content/getMovingCatalog");
   return { ...actual, getMovingCatalog: mocks.getMovingCatalog };
@@ -383,5 +385,12 @@ describe("PUT /api/orders/[orderId]/moving-details (admin edit of a homepage mov
 
   it("rejects an amount that isn't kroner", async () => {
     expect((await put({ handling: { rabatt: "abc" } })).status).toBe(422);
+  });
+
+  it("recomputes the payment status after a save, never on a preview (manual payments)", async () => {
+    await put({ edit, dryRun: true });
+    expect(mocks.refreshOrderPaymentStatus).not.toHaveBeenCalled();
+    await put({ edit });
+    expect(mocks.refreshOrderPaymentStatus).toHaveBeenCalledWith(expect.any(String));
   });
 });

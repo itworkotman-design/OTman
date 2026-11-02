@@ -8,6 +8,7 @@ import { movingAdjustmentsFromOrder } from "@/lib/orders/movingOrderCalculator";
 import { movingStaffLines } from "@/lib/orders/movingHandlingLines";
 import { editCustomerOrder, normalizedCards } from "@/lib/customerAccounts/customerOrderEdit";
 import { startPaidChangeCheckout } from "@/lib/customerAccounts/customerOrderPaidChange";
+import { refreshOrderPaymentStatus } from "@/lib/invoices/orderInvoices";
 
 // "My order": a logged-in customer reads (GET) and changes (PUT) their own
 // homepage order. The change itself — the 24h policy, re-pricing, saving,
@@ -100,7 +101,18 @@ export async function PUT(req: Request, { params }: Params): Promise<NextRespons
 
   const body = await req.json().catch(() => null);
   const result = await editCustomerOrder(order, body, { now: new Date(), mode: "customer" });
-  if (!result.payFirst) return NextResponse.json(result.json, { status: result.status });
+  if (!result.payFirst) {
+    // A saved change can move the total away from what's been invoiced:
+    // the order's payment status goes back to pending (manual payments).
+    if (result.status === 200 && body?.dryRun !== true) {
+      try {
+        await refreshOrderPaymentStatus(order.id);
+      } catch (error) {
+        console.error("[customer order] payment status refresh failed", error);
+      }
+    }
+    return NextResponse.json(result.json, { status: result.status });
+  }
 
   try {
     const checkout = await startPaidChangeCheckout({ order, accountId, body, ...result.payFirst });

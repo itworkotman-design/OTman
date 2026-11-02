@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   createOrderNotification: vi.fn(),
   sendLifecycleEmails: vi.fn(),
   startPaidChangeCheckout: vi.fn(),
+  refreshOrderPaymentStatus: vi.fn(),
 }));
 
 vi.mock("@/lib/customerAccounts/customerSession", () => ({ getCustomerSession: mocks.getCustomerSession }));
@@ -45,6 +46,7 @@ vi.mock("@/lib/orders/orderEvents", () => ({
 vi.mock("@/lib/orders/orderNotifications", () => ({ createOrderNotification: mocks.createOrderNotification }));
 vi.mock("@/lib/orders/sendCustomerLifecycleEmail", () => ({ sendLifecycleEmailsForOrders: mocks.sendLifecycleEmails }));
 vi.mock("@/lib/customerAccounts/customerOrderPaidChange", () => ({ startPaidChangeCheckout: mocks.startPaidChangeCheckout }));
+vi.mock("@/lib/invoices/orderInvoices", () => ({ refreshOrderPaymentStatus: mocks.refreshOrderPaymentStatus }));
 
 import { normalizeSavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { GET, PUT } from "./route";
@@ -400,6 +402,15 @@ describe("customer order route", () => {
 
       expect(mocks.resolvePricing).toHaveBeenCalledWith(expect.objectContaining({ id: "order-1" }), [normalizeSavedProductCard(washerCard as never, 0)], [], { catalog: expect.anything() });
       expect(mocks.recompute.mock.calls[0]![2]).toMatchObject({ catalogPricing: saved });
+    });
+
+    it("recomputes the payment status after the customer saves a change, never on a preview (manual payments)", async () => {
+      mocks.recompute.mockImplementation(async (_order: unknown, cards: unknown[]) => recomputed(1300, cards));
+      await put({ productCards: [{ ...washerCard, amount: 2 }], dryRun: true });
+      expect(mocks.refreshOrderPaymentStatus).not.toHaveBeenCalled();
+      const res = await put({ productCards: [{ ...washerCard, amount: 2 }], shownTotal: 1625 });
+      expect(res.status).toBe(200);
+      expect(mocks.refreshOrderPaymentStatus).toHaveBeenCalledWith("order-1");
     });
 
     it("previews a change with dryRun without saving", async () => {

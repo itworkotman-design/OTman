@@ -114,6 +114,37 @@ describe("sendGmailEmail", () => {
     });
   });
 
+  it("sends attachments as multipart/mixed, the body still alternative text/html", async () => {
+    process.env = {
+      ...originalEnv,
+      GMAIL_ACCOUNT_EMAIL: "bestilling@otman.no",
+      GMAIL_SEND_AS_EMAIL: "bestilling@otman.no",
+      GOOGLE_CLIENT_ID: "client-id",
+      GOOGLE_CLIENT_SECRET: "client-secret",
+      GOOGLE_REFRESH_TOKEN: "refresh-token",
+    };
+    gmailMock.getProfile.mockResolvedValue({ data: { emailAddress: "bestilling@otman.no" } });
+    mockSuccessfulMetadataLookup();
+
+    await sendGmailEmail({
+      to: { email: "customer@example.com" },
+      subject: "Faktura 1042",
+      html: "<p>Hei</p>",
+      text: "Hei",
+      attachments: [{ filename: "Faktura 1042.pdf", contentType: "application/pdf", content: Buffer.from("%PDF-1.7 test") }],
+    });
+
+    const raw = gmailMock.messagesSend.mock.calls[0]![0].requestBody.raw as string;
+    const mime = decodeRawMime(raw);
+    expect(mime).toContain('Content-Type: multipart/mixed; boundary="');
+    expect(mime).toContain('Content-Type: multipart/alternative; boundary="');
+    expect(mime).toContain("<p>Hei</p>");
+    expect(mime).toContain("Content-Type: application/pdf; name=\"Faktura 1042.pdf\"");
+    expect(mime).toContain("Content-Disposition: attachment; filename=\"Faktura 1042.pdf\"");
+    expect(mime).toContain("Content-Transfer-Encoding: base64");
+    expect(mime).toContain(Buffer.from("%PDF-1.7 test").toString("base64"));
+  });
+
   it("allows the primary authenticated mailbox without alias verification", async () => {
     process.env = {
       ...originalEnv,

@@ -75,6 +75,23 @@ const ICONS: Record<ServiceIconKey, (props: IconProps) => React.JSX.Element> = {
   custom: CustomIcon,
 };
 
+// The services modal's two switch tiles (assembly, moving) — they open
+// another modal rather than being a service of their own.
+export const AssemblyIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M14.7 6.3a4 4 0 0 0-5.4 5.1L3.5 17.2a1.5 1.5 0 0 0 2.1 2.1l5.8-5.8a4 4 0 0 0 5.1-5.4l-2.4 2.4-2-.4-.4-2z" />
+  </Base>
+);
+
+export const MovingIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M2.5 6.5h11v10h-11z" />
+    <path d="M13.5 9.5h4l3 3.5v3.5h-7" />
+    <circle cx="6.5" cy="17.5" r="1.75" />
+    <circle cx="16.5" cy="17.5" r="1.75" />
+  </Base>
+);
+
 export function ServiceIcon({ iconKey, ...props }: IconProps & { iconKey: ServiceIconKey }) {
   const Icon = ICONS[iconKey];
   return <Icon {...props} />;

@@ -37,3 +37,5 @@ A `SERVICE` order with stored answers returns `{ kind: "service", service: { edi
 products: [], totalsCheck, calculator }` — `edit` from `serviceEditFromOrder` (each service's partner price `null` for viewers),
 `calculator` from `serviceOrderCalculatorView`, `handling` from `movingHandlingFromOrder`. A request sent before its answers
 were stored still answers `NOT_WHITE_GOODS_WEBSITE_ORDER` (regular modal).
+
+Every website order's answer also has `paymentMode` (`"manual"` / `"stripe"`, `lib/orders/paymentMode.ts`): with `manual` the modal's Payment card is the faktura card (`WebsiteOrderInvoiceSummary`, loading `GET /api/orders/[orderId]/invoices`) instead of `payment`.

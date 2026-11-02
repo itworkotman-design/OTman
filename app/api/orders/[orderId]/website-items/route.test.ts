@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   createOrderUpdatedEventMock: vi.fn(),
   resolveAllOrderNotificationsMock: vi.fn(),
   getRouteDistanceMock: vi.fn(),
+  refreshOrderPaymentStatusMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -63,6 +64,10 @@ vi.mock("@/lib/orders/orderNotifications", () => ({
 
 vi.mock("@/lib/integrations/mapbox/routeDistance", () => ({
   getRouteDistance: mocks.getRouteDistanceMock,
+}));
+
+vi.mock("@/lib/invoices/orderInvoices", () => ({
+  refreshOrderPaymentStatus: mocks.refreshOrderPaymentStatusMock,
 }));
 
 import { createEmptyProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
@@ -786,7 +791,29 @@ describe("/api/orders/[orderId]/website-items", () => {
     });
   });
 
+  describe("PUT (manual payments)", () => {
+    it("recomputes the payment status after a save, never on a preview", async () => {
+      await put({ ...twoCards, dryRun: true });
+      expect(mocks.refreshOrderPaymentStatusMock).not.toHaveBeenCalled();
+      await put(twoCards);
+      expect(mocks.refreshOrderPaymentStatusMock).toHaveBeenCalledWith("order-1");
+    });
+
+    it("sends no Stripe payment link while payments are manual", async () => {
+      delete process.env.HOMEPAGE_PAYMENT_MODE;
+      const res = await put({ ...twoCards, sendPaymentLink: true });
+      expect(res.status).toBe(409);
+      expect((await res.json()).reason).toBe("PAYMENT_LINKS_DISABLED");
+      expect(mocks.pricingWritesMock).not.toHaveBeenCalled();
+      process.env.HOMEPAGE_PAYMENT_MODE = "stripe";
+    });
+  });
+
   describe("PUT (save & send payment link)", () => {
+    beforeEach(() => {
+      process.env.HOMEPAGE_PAYMENT_MODE = "stripe";
+    });
+
     it("approves a new order, mints its action token and sends the payment request", async () => {
       const res = await put({ ...twoCards, sendPaymentLink: true });
       const json = await res.json();

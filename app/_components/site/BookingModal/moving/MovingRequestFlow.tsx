@@ -700,8 +700,8 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
 
               <p className="text-xs leading-relaxed text-black/50">
                 {t(
-                  "This price is based on the approximate size you selected — the final price is confirmed when we review your booking. You'll get a payment link by email once it's approved.",
-                  "Denne prisen er basert på den omtrentlige størrelsen du valgte — endelig pris bekreftes når vi har gått gjennom bestillingen. Du får en betalingslenke på e-post når den er godkjent.",
+                  "This price is based on the approximate size you selected — the final price is confirmed when we review your booking. The faktura is sent to your email; if the price changes, we'll send a new one for the difference.",
+                  "Denne prisen er basert på den omtrentlige størrelsen du valgte — endelig pris bekreftes når vi har gått gjennom bestillingen. Fakturaen sendes til e-posten din; endres prisen, sender vi en ny for differansen.",
                 )}
               </p>
 

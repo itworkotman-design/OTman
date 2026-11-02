@@ -8,6 +8,7 @@ import { sendReceiptsToGsmTask } from "@/lib/integrations/gsm/sendReceipts";
 import { planReceiptUploads } from "@/lib/integrations/gsm/receiptUploads";
 import { pickupStopAddresses } from "@/lib/integrations/gsm/buildOrderPayload";
 import { createOrderActionEvent } from "@/lib/orders/orderEvents";
+import { gsmReadiness, type GsmReadinessReason } from "@/lib/orders/manualPayments";
 
 export async function POST(req: Request) {
   const session = await getAuthenticatedSession(req);
@@ -104,9 +105,13 @@ export async function POST(req: Request) {
     receiptsSent?: number;
     receiptError?: string;
     error?: string;
+    // A homepage order sent before it's confirmed and paid (manual payments) —
+    // sent anyway; the booking list warns about these.
+    notReady?: GsmReadinessReason[];
   }> = [];
 
   for (const order of orders) {
+    const notReady = gsmReadiness(order);
     try {
       const wasAlreadySent = !!order.gsmOrderId;
 
@@ -205,6 +210,7 @@ export async function POST(req: Request) {
         wasAlreadySent,
         ...(receiptsSent !== undefined ? { receiptsSent } : {}),
         ...(receiptError ? { receiptError } : {}),
+        ...(notReady.length > 0 ? { notReady } : {}),
       });
     } catch (error) {
       results.push({
@@ -212,6 +218,7 @@ export async function POST(req: Request) {
         orderNumber: order.orderNumber ?? undefined,
         ok: false,
         error: error instanceof Error ? error.message : "UNKNOWN_ERROR",
+        ...(notReady.length > 0 ? { notReady } : {}),
       });
     }
   }

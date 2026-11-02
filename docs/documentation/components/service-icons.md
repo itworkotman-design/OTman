@@ -9,3 +9,7 @@ icons — swap any entry once real artwork exists.
 ## Functions
 ### `ServiceIcon({ iconKey, ...svgProps })`
 Renders the icon for `iconKey`.
+
+### `AssemblyIcon`, `MovingIcon`
+Icons for the services modal's two switch tiles (to the assembly/delivery and
+moving modals) — not `ServiceIconKey`s, since they aren't requestable services.

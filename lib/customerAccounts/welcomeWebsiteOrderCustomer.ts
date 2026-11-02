@@ -6,6 +6,8 @@ import type { OrderReceivedDetails } from "@/lib/orders/customerLifecycleEmails"
 import { getOrderChargeAmountIncVatNok } from "@/lib/orders/orderTotals";
 import { parseWhiteGoodsBookingDetails, withLiveOrderFields } from "@/lib/orders/websiteBookingDetails";
 import { ensureCustomerAccountForOrder } from "./ensureCustomerAccount";
+import { sendOrderInvoice } from "@/lib/invoices/orderInvoices";
+import { isManualPaymentMode } from "@/lib/orders/paymentMode";
 
 // The saved order row, as the order routes pass it. The detail fields are
 // optional so a caller can't break the email by passing a narrower order.
@@ -110,4 +112,36 @@ export async function welcomeWebsiteOrderCustomer(order: WelcomeOrder): Promise<
     orderDetails: orderReceivedDetails(order),
     ...(account ? { customerLogin: { email: account.email, password: account.newPassword } } : {}),
   });
+
+  await sendFirstInvoice(order);
+}
+
+// Manual payments: a homepage order with a price gets its faktura for the
+// whole order right away (a request not priced yet gets it from staff once
+// quoted). Never throws; a failure alerts staff to send it from the order.
+async function sendFirstInvoice(order: WelcomeOrder) {
+  if (!isManualPaymentMode() || !order.websiteOrderKind || !(order.priceExVat && order.priceExVat > 0)) return;
+  try {
+    const result = await sendOrderInvoice({
+      orderId: order.id,
+      companyId: order.companyId,
+      kind: "invoice",
+      actor: { membershipId: null, name: "website", email: "website", source: "SYSTEM" },
+    });
+    if (result.ok) return;
+    console.error("[welcome customer] First faktura not sent", order.id, result.reason);
+  } catch (error) {
+    console.error("[welcome customer] First faktura failed", order.id, error);
+  }
+  try {
+    await createOrderNotification(prisma, {
+      orderId: order.id,
+      companyId: order.companyId,
+      type: "MANUAL_REVIEW",
+      title: "Faktura NOT sent",
+      message: `The faktura for order ${order.displayId} could not be sent automatically. Send it from the order's Payment card.`,
+    });
+  } catch (alertError) {
+    console.error("[welcome customer] Could not raise staff alert", order.id, alertError);
+  }
 }
