@@ -66,7 +66,7 @@ import {
   removeProductCard,
 } from "./productQuantity";
 import { getCalculatorProductName, getSummaryProductTitle } from "./productDisplayName";
-import { localizeWebsiteLineLabel } from "@/lib/content/websiteLineLabels";
+import { localizeWebsiteLineLabel, websiteSummaryLineLabel } from "@/lib/content/websiteLineLabels";
 import {
   applyItemName,
   applySizeBracketSelection,
@@ -814,7 +814,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
         const breakdown = pricing.breakdowns.find((b) => b.cardId === card.cardId);
         const lines = sortSummaryLines(
           (breakdown?.lines ?? []).map((line) => ({
-            label: localizeWebsiteLineLabel(line.label, locale),
+            label: websiteSummaryLineLabel(line, locale),
             price: line.lineTotal,
             qty: line.qty,
             category: categorizeWhiteGoodsLineCode(line.code),

@@ -1,5 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { localizeProductsSummary, localizeWebsiteLineLabel, localizeWebsiteLineLabelList, localizeWebsiteProductName } from "./websiteLineLabels";
+import {
+  localizeProductsSummary,
+  localizeWebsiteLineLabel,
+  localizeWebsiteLineLabelList,
+  localizeWebsiteProductName,
+  websiteSummaryLineLabel,
+} from "./websiteLineLabels";
+
+describe("websiteSummaryLineLabel", () => {
+  it("names a delivery charged at the extra rate (XTRA) 'Ekstra levering' instead of its delivery type", () => {
+    expect(websiteSummaryLineLabel({ code: "XTRA", label: "Delivery to doorstep" }, "no")).toBe("Ekstra levering");
+    expect(websiteSummaryLineLabel({ code: "XTRA", label: "Delivery with carry-in" }, "en")).toBe("Extra delivery");
+  });
+
+  it("localizes every other line as usual", () => {
+    expect(websiteSummaryLineLabel({ code: "FIRST_STEP", label: "Delivery to doorstep" }, "no")).toBe("Levering til første hindring");
+    expect(websiteSummaryLineLabel({ label: "Delivery with carry-in" }, "no")).toBe("Levering med innbæring");
+  });
+});
 
 describe("localizeWebsiteLineLabel", () => {
   it("translates the seeded delivery-type labels to Norwegian", () => {

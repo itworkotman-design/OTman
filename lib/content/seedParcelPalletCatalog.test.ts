@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   priceListProductUpsert: vi.fn(),
   productFindUnique: vi.fn(),
   priceListItemFindUnique: vi.fn(),
+  priceListProductConfigUpsert: vi.fn(),
+  priceListProductConfigFindUnique: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -17,6 +19,7 @@ vi.mock("@/lib/db", () => ({
     productOption: { upsert: mocks.productOptionUpsert, findMany: async () => [], update: async () => ({}) },
     priceListItem: { upsert: mocks.priceListItemUpsert, findUnique: mocks.priceListItemFindUnique },
     priceListProduct: { upsert: mocks.priceListProductUpsert },
+    priceListProductConfig: { upsert: mocks.priceListProductConfigUpsert, findUnique: mocks.priceListProductConfigFindUnique },
   },
 }));
 
@@ -34,6 +37,8 @@ describe("seedParcelPalletCatalog", () => {
     mocks.priceListProductUpsert.mockResolvedValue({});
     mocks.productFindUnique.mockResolvedValue(null);
     mocks.priceListItemFindUnique.mockResolvedValue(null);
+    mocks.priceListProductConfigUpsert.mockResolvedValue({});
+    mocks.priceListProductConfigFindUnique.mockResolvedValue(null);
   });
 
   it("marks the price list delivery-only", async () => {
@@ -97,6 +102,28 @@ describe("seedParcelPalletCatalog", () => {
     expect(update("PKG_PALL").deliveryTypes.find((t: { key: string }) => t.key === "FIRST_STEP")).toMatchObject({ price: "776" });
     expect(update("PKG_PALL").deliveryTypes.find((t: { key: string }) => t.key === "INDOOR").enabled).toBe(false);
     expect(update("PKG_ESKER").deliveryTypes.find((t: { key: string }) => t.key === "FIRST_STEP")).toMatchObject({ price: "650" });
+  });
+
+  it("keeps prices staff entered on this list's own per-price-list config row (what the catalog reads), filling only 0 kr placeholders", async () => {
+    const zero = { price: "0", subcontractorPrice: "0", xtraPrice: "0", xtraSubcontractorPrice: "0" };
+    mocks.productUpsert.mockImplementation(async ({ create }: { create: { code: string } }) => ({ id: `id-${create.code}` }));
+    // The shared Product row still holds old prices; the list's own row is what staff edited.
+    mocks.productFindUnique.mockResolvedValue({
+      deliveryTypes: [{ key: "FIRST_STEP", enabled: true, price: "999", subcontractorPrice: "1", xtraPrice: "1", xtraSubcontractorPrice: "1" }],
+    });
+    mocks.priceListProductConfigFindUnique.mockImplementation(async ({ where }: { where: { priceListId_productId: { productId: string } } }) =>
+      where.priceListId_productId.productId === "id-PKG_PALL"
+        ? { deliveryTypes: [{ key: "FIRST_STEP", enabled: true, ...zero }] }
+        : { deliveryTypes: [{ key: "FIRST_STEP", enabled: true, price: "650", subcontractorPrice: "420", xtraPrice: "160", xtraSubcontractorPrice: "100" }] },
+    );
+    await seedParcelPalletCatalog();
+
+    const config = (code: string) =>
+      mocks.priceListProductConfigUpsert.mock.calls.find(([arg]) => arg.where.priceListId_productId.productId === `id-${code}`)![0];
+    const firstStep = (code: string) => config(code).update.deliveryTypes.find((t: { key: string }) => t.key === "FIRST_STEP");
+    expect(config("PKG_PALL").where.priceListId_productId.priceListId).toBe("pl-parcel-pallet");
+    expect(firstStep("PKG_PALL")).toMatchObject({ price: "776" });
+    expect(firstStep("PKG_ESKER")).toMatchObject({ price: "650" });
   });
 
   it("seeds taking the empty pallet at exactly 100 kr ex. VAT, not raised to the next multiple of 8", async () => {

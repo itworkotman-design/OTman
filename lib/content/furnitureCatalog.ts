@@ -22,7 +22,8 @@ import { OTHER_FURNITURE_PRODUCT_CODE, OTHER_FURNITURE_SIZE_OPTIONS } from "@/li
 //   FURNITURE_DISMANTLING_OPTIONS) and is stackable
 //   alongside any main option, assembly included.
 // - Dining set, Sofa and Sofa bed use large/heavy "Side-by-Side" delivery
-//   prices. A second heavy item is NOT discounted (xtraPrice = full price).
+//   prices, 25% off for the customer, with the normal extra-item rate for a
+//   2nd+ one (withLighterHeavyDelivery below).
 
 import { FURNITURE_PRICE_LIST_CODE } from "@/lib/content/websitePriceListCodes";
 
@@ -83,9 +84,41 @@ function withSharedDismantling(options: FurnitureOptionSeed[]): FurnitureOptionS
   return [...rest.slice(0, first), ...FURNITURE_DISMANTLING_OPTIONS, ...rest.slice(first)];
 }
 
+// Dining set, Sofa and Sofa bed (the source's "Side-by-Side" heavy items) are
+// sold at 25% below the source's customer price, and a 2nd+ one costs the same
+// extra-item rate as any other furniture instead of the full price again
+// (decided 2026-11-02). Partner prices for the first item are unchanged. Done
+// here rather than in the generated data file so a regeneration keeps it.
+const HEAVY_PRODUCT_CODES = new Set(["FN_DINING_SET", "FN_SOFA", "FN_SOFA_BED"]);
+const HEAVY_CUSTOMER_PRICE_FACTOR = 0.75;
+const NORMAL_XTRA_RATES = FURNITURE_PRODUCTS_DATA.find((p) => p.code === "FN_BED")!.deliveryTypes;
+
+function withLighterHeavyDelivery(product: FurnitureProductSeed): FurnitureProductSeed {
+  if (!HEAVY_PRODUCT_CODES.has(product.code)) return product;
+  const { firstStep, indoor } = product.deliveryTypes;
+  return {
+    ...product,
+    deliveryTypes: {
+      ...product.deliveryTypes,
+      firstStep: {
+        ...firstStep,
+        customerPrice: firstStep.customerPrice * HEAVY_CUSTOMER_PRICE_FACTOR,
+        xtraPrice: NORMAL_XTRA_RATES.firstStep.xtraPrice,
+        xtraSubcontractorPrice: NORMAL_XTRA_RATES.firstStep.xtraSubcontractorPrice,
+      },
+      indoor: {
+        ...indoor,
+        customerPrice: indoor.customerPrice * HEAVY_CUSTOMER_PRICE_FACTOR,
+        xtraPrice: NORMAL_XTRA_RATES.indoor.xtraPrice,
+        xtraSubcontractorPrice: NORMAL_XTRA_RATES.indoor.xtraSubcontractorPrice,
+      },
+    },
+  };
+}
+
 // "Other furniture" additionally gets its volume/weight size brackets (kept out
 // of the generated data file — see otherFurnitureSizeOptions.ts).
-export const FURNITURE_PRODUCTS: FurnitureProductSeed[] = FURNITURE_PRODUCTS_DATA.map((product) => {
+export const FURNITURE_PRODUCTS: FurnitureProductSeed[] = FURNITURE_PRODUCTS_DATA.map(withLighterHeavyDelivery).map((product) => {
   const options = withSharedDismantling(withHalfPriceReturn(product.options));
   return product.code === OTHER_FURNITURE_PRODUCT_CODE
     ? { ...product, options: [...options, ...OTHER_FURNITURE_SIZE_OPTIONS] }

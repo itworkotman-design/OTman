@@ -20,6 +20,7 @@ Only known seeded text is translated. A label staff have edited is shown as-is, 
 | Function | Purpose |
 |---|---|
 | `localizeWebsiteLineLabel` | A seeded delivery/extra label, or a catalog option stored by its English label, in Norwegian. |
+| `websiteSummaryLineLabel` | A price-breakdown line's label in the booking modal's summary: a delivery charged at the extra rate (code `XTRA` — a 2nd+ unit, or a card whose delivery isn't the order's dearest) is "Ekstra levering" / "Extra delivery"; anything else goes through `localizeWebsiteLineLabel`. |
 | `localizeWebsiteProductName` | "Washing machine x2" → "Vaskemaskin x2". It keeps any suffix (count, "#2", item name). |
 | `localizeProductsSummary` | A whole stored `productsSummary`, item by item. Commas inside an item name's parentheses don't split it. |
 

@@ -59,26 +59,26 @@ describe("an order mixing white goods and furniture", () => {
   it("prices each product from its own list", () => {
     expect(total([card(0, "WG_DISHWASHER", { deliveryType: "FIRST_STEP" })])).toBe(616);
     expect(total([card(0, "FN_BED", { deliveryType: "FIRST_STEP" })])).toBe(616);
-    expect(total([card(0, "FN_SOFA", { deliveryType: "FIRST_STEP" })])).toBe(1032);
+    expect(total([card(0, "FN_SOFA", { deliveryType: "FIRST_STEP" })])).toBe(776);
   });
 
   it("gives the most expensive delivery across BOTH lists full price and the other the reduced extra rate", () => {
-    // Sofa (heavy, 1032) stays full; the dishwasher drops to its 160 kr extra rate.
+    // Sofa (heavy, 776) stays full; the dishwasher drops to its 160 kr extra rate.
     expect(
       total([
         card(0, "WG_DISHWASHER", { deliveryType: "FIRST_STEP" }),
         card(1, "FN_SOFA", { deliveryType: "FIRST_STEP" }),
       ]),
-    ).toBe(1032 + 160);
+    ).toBe(776 + 160);
   });
 
-  it("does not discount extra heavy units, but does discount a normal product next to them", () => {
+  it("gives extra heavy units the normal extra rate, like the normal product next to them", () => {
     expect(
       total([
         card(0, "WG_DISHWASHER", { deliveryType: "FIRST_STEP" }),
         card(1, "FN_SOFA", { deliveryType: "FIRST_STEP", amount: 2 }),
       ]),
-    ).toBe(1032 + 1032 + 160);
+    ).toBe(776 + 160 + 160);
   });
 
   it("adds furniture assembly plus dismantling on top of carry-in, next to a white-goods delivery", () => {

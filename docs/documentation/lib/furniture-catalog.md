@@ -5,7 +5,7 @@ Types and the exported product list for the website furniture catalog (`WEBSITE_
 
 ## Exports
 ### `FURNITURE_PRODUCTS`
-The 23 furniture products, from `furnitureCatalogData.ts`. The recycling return (`RETURN_RECYCLING`) is sold at half the workbook price, customer and partner. The workbook's per-type dismantling list is replaced by `FURNITURE_DISMANTLING_OPTIONS` on every product that has dismantling (both decided 2026-10-23) — applied here, not in the generated data file, so a regeneration keeps it.
+The 23 furniture products, from `furnitureCatalogData.ts`. The recycling return (`RETURN_RECYCLING`) is sold at half the workbook price, customer and partner. The workbook's per-type dismantling list is replaced by `FURNITURE_DISMANTLING_OPTIONS` on every product that has dismantling (both decided 2026-10-23). Dining set, Sofa and Sofa bed (the heavy "Side-by-Side" items) are sold at 25% off the workbook's customer delivery price (partner price unchanged), and a 2nd+ one gets the normal furniture extra-item rate instead of full price (`withLighterHeavyDelivery`, decided 2026-11-02). All of these are applied here, not in the generated data file, so a regeneration keeps them.
 
 ### `FURNITURE_DISMANTLING_OPTIONS`
 The two shared dismantling choices, no sizes, ex. VAT (customer / partner): `DISMANTLE_DISP_STD` for disposal 480 / 335, `DISMANTLE_CAR_STD` for reuse 720 / 505 (600 / 900 incl. VAT). The seed deactivates every other `DISMANTLE_*` option (`retireMissingOptionsWithPrefix`).

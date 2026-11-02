@@ -134,6 +134,25 @@ export async function seedWebsiteCatalog({
     });
     productsUpserted += 1;
 
+    // Delivery prices are per price list since PriceListProductConfig
+    // (lib/products/productConfig.ts): the catalog reads this list's own row
+    // first and only falls back to Product.deliveryTypes, and the migration
+    // that added it gave every existing list a copy. So the seed's prices must
+    // land on this row too, or a reseed changes nothing. When preserving, the
+    // row's own (staff-edited) prices are what's kept.
+    const configKey = { priceListId_productId: { priceListId: priceList.id, productId: product.id } };
+    const storedConfig = preservePricesOnReseed
+      ? await prisma.priceListProductConfig.findUnique({ where: configKey, select: { deliveryTypes: true } })
+      : null;
+    const configDeliveryTypes = preservePricesOnReseed
+      ? mergePreservedDeliveryTypes(storedConfig?.deliveryTypes ?? stored?.deliveryTypes, deliveryTypes)
+      : deliveryTypes;
+    await prisma.priceListProductConfig.upsert({
+      where: configKey,
+      update: { deliveryTypes: configDeliveryTypes },
+      create: { priceListId: priceList.id, productId: product.id, deliveryTypes: configDeliveryTypes },
+    });
+
     // With no options there's no PriceListItem to tie the product to this
     // list, so link it explicitly (the editor lists it from this link).
     if (productSeed.options.length === 0) {

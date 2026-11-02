@@ -60,20 +60,27 @@ describe("delivery prices", () => {
     expect(indoor.xtraPrice).toBeCloseTo(236.328);
   });
 
-  it("uses Side-by-Side pricing (1030.968 / 1341.6) for exactly Dining set, Sofa and Sofa bed", () => {
-    const heavy = FURNITURE_PRODUCTS.filter((p) => p.deliveryTypes.firstStep.customerPrice > 1000).map((p) => p.code);
+  it("sells Dining set, Sofa and Sofa bed at 25% off the source's Side-by-Side price (1030.968 / 1341.6), partner price unchanged", () => {
+    const heavy = FURNITURE_PRODUCTS.filter((p) => p.deliveryTypes.firstStep.customerPrice > 700).map((p) => p.code);
     expect(heavy.sort()).toEqual(["FN_DINING_SET", "FN_SOFA", "FN_SOFA_BED"]);
-    const { firstStep, indoor } = byCode("FN_SOFA").deliveryTypes;
-    expect(firstStep.customerPrice).toBeCloseTo(1030.968);
-    expect(firstStep.subcontractorPrice).toBeCloseTo(619.2);
-    expect(indoor.customerPrice).toBeCloseTo(1341.6);
-    expect(indoor.subcontractorPrice).toBeCloseTo(825.6);
+    for (const code of heavy) {
+      const { firstStep, indoor } = byCode(code).deliveryTypes;
+      expect(firstStep.customerPrice, code).toBeCloseTo(1030.968 * 0.75);
+      expect(firstStep.subcontractorPrice, code).toBeCloseTo(619.2);
+      expect(indoor.customerPrice, code).toBeCloseTo(1341.6 * 0.75);
+      expect(indoor.subcontractorPrice, code).toBeCloseTo(825.6);
+    }
   });
 
-  it("does not discount a second heavy item: its extra-item rate equals the full heavy price", () => {
-    const { firstStep, indoor } = byCode("FN_SOFA").deliveryTypes;
-    expect(firstStep.xtraPrice).toBeCloseTo(firstStep.customerPrice);
-    expect(indoor.xtraPrice).toBeCloseTo(indoor.customerPrice);
+  it("gives a second heavy item the same extra-item rates as normal furniture", () => {
+    const normal = byCode("FN_BED").deliveryTypes;
+    for (const code of ["FN_DINING_SET", "FN_SOFA", "FN_SOFA_BED"]) {
+      const { firstStep, indoor } = byCode(code).deliveryTypes;
+      expect(firstStep.xtraPrice, code).toBeCloseTo(normal.firstStep.xtraPrice);
+      expect(firstStep.xtraSubcontractorPrice, code).toBeCloseTo(normal.firstStep.xtraSubcontractorPrice);
+      expect(indoor.xtraPrice, code).toBeCloseTo(normal.indoor.xtraPrice);
+      expect(indoor.xtraSubcontractorPrice, code).toBeCloseTo(normal.indoor.xtraSubcontractorPrice);
+    }
   });
 });
 
@@ -98,10 +105,12 @@ describe("assembly (type + manufacturer) options", () => {
 
   it("keeps delivery + assembly = carry-in + assembly for every combination (the source's own identity)", () => {
     for (const product of FURNITURE_PRODUCTS) {
+      // Against the source's carry-in price — the heavy items' discount is ours.
+      const sourceIndoor = FURNITURE_PRODUCTS_DATA.find((p) => p.code === product.code)!.deliveryTypes.indoor;
       for (const option of product.options.filter((o) => o.exclusiveGroup === "type")) {
         expect(option.combinedWithIndoorInstall, `${product.code}/${option.code}`).toBeDefined();
         expect(
-          product.deliveryTypes.indoor.customerPrice + option.customerPrice,
+          sourceIndoor.customerPrice + option.customerPrice,
           `${product.code}/${option.code} customer`,
         ).toBeCloseTo(option.combinedWithIndoorInstall!.customerPrice, 2);
         expect(

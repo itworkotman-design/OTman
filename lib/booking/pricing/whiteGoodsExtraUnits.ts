@@ -100,7 +100,10 @@ export function applyWhiteGoodsExtraUnitCharges(
         ...breakdown.items,
         {
           kind: "customPrice" as const,
-          code: charge.code,
+          // XTRA, like a later card's reduced delivery, so the summary names
+          // it "Extra delivery" (websiteSummaryLineLabel). The saved order
+          // line below keeps the delivery type's code.
+          code: OPTION_CODES.XTRA,
           label: charge.label,
           qty: charge.qty,
           unitPrice: charge.unitPrice,

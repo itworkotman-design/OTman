@@ -78,6 +78,10 @@ describe("applyWhiteGoodsExtraUnitCharges", () => {
     ]);
   });
 
+  it("marks the extra units as an XTRA (extra delivery) line, like a later card's reduced delivery", () => {
+    expect(extraUnitLines([card("FIRST_STEP", 2)])).toEqual([expect.objectContaining({ code: "XTRA" })]);
+  });
+
   it("charges the carry-in xtraPrice for carry-in delivery", () => {
     expect(extraUnitLines([card("INDOOR", 2)])).toEqual([
       expect.objectContaining({ qty: 1, unitPrice: 235, subcontractorUnitPrice: 120 }),

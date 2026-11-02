@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   productOptionUpsert: vi.fn(),
   productOptionUpdateMany: vi.fn(),
   priceListItemUpsert: vi.fn(),
+  priceListProductConfigUpsert: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -19,6 +20,7 @@ vi.mock("@/lib/db", () => ({
       update: async () => ({}),
     },
     priceListItem: { upsert: mocks.priceListItemUpsert },
+    priceListProductConfig: { upsert: mocks.priceListProductConfigUpsert },
   },
 }));
 
@@ -40,7 +42,8 @@ describe("seedFurnitureCatalog", () => {
   beforeEach(() => {
     Object.values(mocks).forEach((mock) => mock.mockReset());
     mocks.priceListUpsert.mockResolvedValue({ id: "pl-furniture" });
-    mocks.productUpsert.mockResolvedValue({ id: "p" });
+    mocks.productUpsert.mockImplementation(async ({ create }: { create: { code: string } }) => ({ id: `id-${create.code}` }));
+    mocks.priceListProductConfigUpsert.mockResolvedValue({});
     mocks.productOptionUpsert.mockResolvedValue({ id: "o" });
     mocks.priceListItemUpsert.mockResolvedValue({});
     mocks.productOptionUpdateMany.mockResolvedValue({ count: 0 });
@@ -84,11 +87,25 @@ describe("seedFurnitureCatalog", () => {
     expect((696 + 856) * 1.25).toBe(1940);
   });
 
-  it("gives heavy products the Side-by-Side delivery price and no extra-item discount", async () => {
+  it("gives heavy products 25% off the Side-by-Side delivery price and the normal extra-item rate", async () => {
     await seedFurnitureCatalog();
 
-    expect(deliveryType("FN_SOFA", "FIRST_STEP")).toMatchObject({ price: "1032", xtraPrice: "1032" });
-    expect(deliveryType("FN_SOFA", "INDOOR")).toMatchObject({ price: "1344", xtraPrice: "1344" });
+    expect(deliveryType("FN_SOFA", "FIRST_STEP")).toMatchObject({ price: "776", xtraPrice: "160" });
+    expect(deliveryType("FN_SOFA", "INDOOR")).toMatchObject({ price: "1008", xtraPrice: "240" });
+  });
+
+  it("writes the delivery prices onto the furniture list's own per-price-list config too, which the catalog reads first", async () => {
+    await seedFurnitureCatalog();
+
+    const call = mocks.priceListProductConfigUpsert.mock.calls
+      .map(([arg]) => arg)
+      .find((arg) => arg.where.priceListId_productId.productId === "id-FN_SOFA");
+    expect(call).toBeDefined();
+    expect(call.where.priceListId_productId.priceListId).toBe("pl-furniture");
+    for (const side of [call.create, call.update]) {
+      const firstStep = side.deliveryTypes.find((d: { key: string }) => d.key === "FIRST_STEP");
+      expect(firstStep).toMatchObject({ price: "776", xtraPrice: "160" });
+    }
   });
 
   it("enables assembly-only exactly where the product has assembly options", async () => {

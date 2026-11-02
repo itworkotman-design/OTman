@@ -49,6 +49,15 @@ export function localizeWebsiteLineLabel(label: string, locale: Locale): string 
   return NORWEGIAN_BY_SEEDED_LABEL[trimmed] ?? norwegianOptionLabel(trimmed) ?? companyAssemblyLabel(trimmed) ?? namedSuffixLabel(trimmed) ?? label;
 }
 
+// A price-breakdown line's label in the website modal's order summary. A
+// delivery charged at the reduced extra rate (code XTRA — a 2nd+ unit, or a
+// card whose delivery isn't the order's dearest) is "Extra delivery", not its
+// delivery type's name, so it doesn't read as a second full delivery.
+export function websiteSummaryLineLabel(line: { code?: string; label: string }, locale: Locale): string {
+  if (line.code === "XTRA") return locale === "no" ? "Ekstra levering" : "Extra delivery";
+  return localizeWebsiteLineLabel(line.label, locale);
+}
+
 // "Single bed — Hästens": an "— Other manufacturer" assembly carrying the
 // company the customer typed (lib/booking/otherManufacturer.ts). The type is
 // translated through the seeded "Single bed — Other manufacturer" label; the
