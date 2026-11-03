@@ -20,14 +20,12 @@ export type SizeDimensionsCm = { widthCm: number; heightCm: number; lengthCm: nu
 // rejected server-side, so this is the whole range a customer can price.
 export const SIZE_DIMENSION_CHOICES_CM = [20, 40, 50, 60, 80, 100, 120, 150, 200, 250] as const;
 
-// Largest volume (m³) each volume bracket covers, keyed by option code.
+// Largest volume (m³) each volume bracket covers, keyed by option code. Up to
+// 1.5 m³ is a small item, above it a large one (websiteSizeTier.ts).
 // Anything bigger than the top bracket isn't bookable online (a manual quote).
 export const VOLUME_BRACKET_MAX_M3: Record<string, number> = {
-  OF_VOL_1: 0.25,
-  OF_VOL_2: 0.5,
-  OF_VOL_3: 1,
-  OF_VOL_4: 2,
-  OF_VOL_5: 4,
+  OF_VOL_SM: 1.5,
+  OF_VOL_LG: 4,
 };
 
 export function isAllowedDimensionCm(value: unknown): value is number {

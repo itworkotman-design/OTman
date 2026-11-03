@@ -17,13 +17,10 @@ function option(id: string, code: string, category: string, active = true) {
 const product = {
   id: "p1",
   options: [
-    option("v1", "OF_VOL_1", "size_volume"), // up to 0.25
-    option("v2", "OF_VOL_2", "size_volume"), // 0.5
-    option("v3", "OF_VOL_3", "size_volume"), // 1
-    option("v4", "OF_VOL_4", "size_volume"), // 2
-    option("v5", "OF_VOL_5", "size_volume"), // 4
-    option("w1", "OF_WT_1", "size_weight"),
-    option("w2", "OF_WT_2", "size_weight"),
+    option("v1", "OF_VOL_SM", "size_volume"), // up to 1.5 (small)
+    option("v2", "OF_VOL_LG", "size_volume"), // up to 4 (large)
+    option("w1", "OF_WT_SM", "size_weight"),
+    option("w2", "OF_WT_LG", "size_weight"),
     option("unpacking", "UNPACKING", "extra"),
   ],
 } as unknown as CatalogProduct;
@@ -67,8 +64,8 @@ describe("calculateVolumeM3", () => {
 });
 
 describe("volume bracket limits", () => {
-  it("has a maximum m³ for each of the five volume brackets, ascending", () => {
-    const maxes = ["OF_VOL_1", "OF_VOL_2", "OF_VOL_3", "OF_VOL_4", "OF_VOL_5"].map((code) => VOLUME_BRACKET_MAX_M3[code]);
+  it("has a maximum m³ for the small and the large volume bracket, ascending", () => {
+    const maxes = ["OF_VOL_SM", "OF_VOL_LG"].map((code) => VOLUME_BRACKET_MAX_M3[code]);
     expect(maxes.every((m) => typeof m === "number" && m > 0)).toBe(true);
     expect(maxes).toEqual([...maxes].sort((a, b) => a - b));
   });
@@ -77,10 +74,9 @@ describe("volume bracket limits", () => {
 describe("findVolumeBracketOptionId", () => {
   it("picks the smallest bracket the volume fits in (a volume equal to the limit fits that bracket)", () => {
     expect(findVolumeBracketOptionId(product, 0.05)).toBe("v1");
-    expect(findVolumeBracketOptionId(product, 0.25)).toBe("v1");
-    expect(findVolumeBracketOptionId(product, 0.26)).toBe("v2");
-    expect(findVolumeBracketOptionId(product, 1)).toBe("v3");
-    expect(findVolumeBracketOptionId(product, 4)).toBe("v5");
+    expect(findVolumeBracketOptionId(product, 1.5)).toBe("v1");
+    expect(findVolumeBracketOptionId(product, 1.51)).toBe("v2");
+    expect(findVolumeBracketOptionId(product, 4)).toBe("v2");
   });
 
   it("returns null for a volume larger than the top bracket (not bookable online)", () => {
@@ -90,7 +86,7 @@ describe("findVolumeBracketOptionId", () => {
   it("ignores inactive brackets", () => {
     const retired = {
       id: "p",
-      options: [option("v1", "OF_VOL_1", "size_volume", false), option("v2", "OF_VOL_2", "size_volume")],
+      options: [option("v1", "OF_VOL_SM", "size_volume", false), option("v2", "OF_VOL_LG", "size_volume")],
     } as unknown as CatalogProduct;
 
     expect(findVolumeBracketOptionId(retired, 0.1)).toBe("v2");
@@ -105,9 +101,9 @@ describe("applyDimensionDerivedVolumeBrackets", () => {
   });
 
   it("overrides a volume bracket the client claimed — the server never trusts it (a small bracket with big dimensions is a way to dodge the charge)", () => {
-    const [next] = applyDimensionDerivedVolumeBrackets([card("p1", ["v1", "w1"], dims(100, 100, 100))], [product]);
+    const [next] = applyDimensionDerivedVolumeBrackets([card("p1", ["v1", "w1"], dims(200, 100, 100))], [product]);
 
-    expect(next.selectedExtraOptionIds.sort()).toEqual(["v3", "w1"]);
+    expect(next.selectedExtraOptionIds.sort()).toEqual(["v2", "w1"]);
   });
 
   it("removes the volume bracket when dimensions are missing, incomplete or not one of the allowed choices", () => {

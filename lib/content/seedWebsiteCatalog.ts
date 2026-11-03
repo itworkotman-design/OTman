@@ -118,10 +118,11 @@ export async function seedWebsiteCatalog({
   // seedParcelPalletCatalog.ts) must never have a reseed silently reset
   // those back to this seed's own (placeholder) values.
   preservePricesOnReseed?: boolean;
-  // Options with this code prefix that are no longer in a product's seed are
-  // deactivated (not deleted — saved orders still point at them). Furniture
-  // uses it for the per-type dismantling options the shared four replaced.
-  retireMissingOptionsWithPrefix?: string;
+  // Options with one of these code prefixes that are no longer in a product's
+  // seed are deactivated (not deleted — saved orders still point at them).
+  // Furniture uses it for the per-type dismantling options the shared four
+  // replaced, and Other furniture's old five-step size brackets.
+  retireMissingOptionsWithPrefix?: string | string[];
   // This list's own weight class prices over the table's (white goods' light).
   weightClassPrices?: WeightClassPriceOverrides;
 }) {
@@ -252,10 +253,10 @@ export async function seedWebsiteCatalog({
       optionsUpserted += 1;
     }
 
-    if (retireMissingOptionsWithPrefix) {
-      const kept = productSeed.options.map((o) => o.code).filter((code) => code.startsWith(retireMissingOptionsWithPrefix));
+    for (const prefix of [retireMissingOptionsWithPrefix ?? []].flat()) {
+      const kept = productSeed.options.map((o) => o.code).filter((code) => code.startsWith(prefix));
       await prisma.productOption.updateMany({
-        where: { productId: product.id, code: { startsWith: retireMissingOptionsWithPrefix, notIn: kept } },
+        where: { productId: product.id, code: { startsWith: prefix, notIn: kept } },
         data: { isActive: false },
       });
     }

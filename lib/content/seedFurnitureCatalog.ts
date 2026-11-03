@@ -9,6 +9,6 @@ export function seedFurnitureCatalog() {
     priceListCode: FURNITURE_PRICE_LIST_CODE,
     priceListName: "Website — Furniture",
     products: FURNITURE_PRODUCTS,
-    retireMissingOptionsWithPrefix: "DISMANTLE_",
+    retireMissingOptionsWithPrefix: ["DISMANTLE_", "OF_"],
   });
 }

@@ -17,6 +17,9 @@ import {
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { websiteCustomerPrice, type CustomerType } from "@/lib/booking/pricing/websiteVat";
 import { sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
+// The card's own numbered heading, so these questions continue its sections
+// (Delivery, Installation, Additional services) at the same size.
+import { SectionHeader } from "./WhiteGoodsProductCard";
 
 function optionLabel(locale: Locale, product: CatalogProduct, option: CatalogOption) {
   const seed = findWebsiteProductSeed(product.code)?.options.find((o) => o.code === option.code);
@@ -24,26 +27,12 @@ function optionLabel(locale: Locale, product: CatalogProduct, option: CatalogOpt
   return locale === "no" ? seed.labelNo : seed.labelEn;
 }
 
-// A numbered step heading, so the three questions read as a short sequence.
-function StepHeading({ step, title, hint }: { step: number; title: string; hint?: string }) {
-  return (
-    <div className="mb-2.5 flex items-start gap-2.5">
-      <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-logoblue text-[11px] font-bold text-white">
-        {step}
-      </span>
-      <div>
-        <div className="text-sm font-semibold leading-5 text-black/85">{title}</div>
-        {hint && <p className="text-xs text-black/50">{hint}</p>}
-      </div>
-    </div>
-  );
-}
 
 // What a size-priced product asks for once it is selected: what the item is, its
 // width / height / length (preset choices — the volume is calculated from them,
-// the customer never picks a volume) and its weight bracket. The price added on
-// top of delivery is the higher of the volume's and the weight's bracket price,
-// which the summary at the bottom says.
+// the customer never picks a volume) and its weight bracket. Over 1.5 m³ or
+// over 50 kg it's delivered as a large item (websiteSizeTier.ts), which the
+// summary at the bottom says.
 export function SizeBracketPicker({
   locale,
   customerType,
@@ -96,37 +85,50 @@ export function SizeBracketPicker({
   // All three chosen but no bracket fits: bigger than the top bracket.
   const tooLarge = complete && !volumeBracket;
 
-  // The bracket that actually carries the charge — the higher of the two.
+  // Over 1.5 m³ or over 50 kg — either one — it's delivered as a large item
+  // (websiteSizeTier.ts); the delivery options above show what that costs.
+  const isLarge = [volumeBracket, weightBracket].some((o) => o?.weightClass === "HEAVY");
+  // A bracket is only charged on top if staff give it a price (0 kr as seeded).
   const { chargeableId } = resolveSizeBracketCharge(product, selectedIds);
   const chargeable = chargeableId === volumeBracket?.id ? volumeBracket : weightBracket;
-  const showCharge = !!volumeBracket && !!weightBracket && !!chargeable;
-  const chargeBasis = chargeable === volumeBracket ? t("size", "størrelse") : t("weight", "vekt");
+  const surcharge = chargeable && Number(chargeable.customerPrice) > 0 ? chargeable : null;
+  const showTier = !!volumeBracket && !!weightBracket;
+  const priced = (option: { customerPrice: string }) => Number(option.customerPrice) > 0;
 
   return (
-    <div className={embedded ? "flex flex-col gap-5" : "flex flex-col gap-5 border-t border-black/10 pt-4"}>
+    // Embedded, each question is one of the card's own sections: same heading,
+    // same dividing line and spacing as Delivery / Additional services.
+    <div
+      className={
+        embedded
+          ? "flex flex-col divide-y divide-black/10 *:py-5 *:first:pt-0 *:last:pb-0"
+          : "flex flex-col gap-5 border-t border-black/10 pt-4"
+      }
+    >
       {/* This product is a catch-all, so the customer says what it is. */}
-      <label className="block">
-        <StepHeading
+      <div>
+        <SectionHeader
           step={firstStep}
           title={t("What is it?", "Hva er det?")}
-          hint={t("Write what the item is, so we know what to expect.", "Skriv hva varen er, så vi vet hva vi skal forvente.")}
+          subtitle={t("Write what the item is, so we know what to expect.", "Skriv hva varen er, så vi vet hva vi skal forvente.")}
         />
         <input
           type="text"
+          aria-label={t("What is it?", "Hva er det?")}
           value={itemName}
           maxLength={MAX_ITEM_NAME_LENGTH}
           onChange={(e) => onChangeItemName(product, sanitizeTextInput(e.target.value))}
           placeholder={t("e.g. grandfather clock, piano stool", "f.eks. bestefarsklokke, pianokrakk")}
           className="h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-sm text-black/85 outline-none transition focus:border-logoblue focus:ring-2 focus:ring-logoblue/20"
         />
-      </label>
+      </div>
 
       {hasVolume && (
         <div>
-          <StepHeading
+          <SectionHeader
             step={firstStep + 1}
             title={t("How big is it?", "Hvor stor er den?")}
-            hint={t("Pick the closest size in centimetres — we work out the volume.", "Velg nærmeste mål i centimeter — vi beregner volumet.")}
+            subtitle={t("Pick the closest size in centimetres — we work out the volume.", "Velg nærmeste mål i centimeter — vi beregner volumet.")}
           />
           <div className="flex flex-col gap-3 rounded-xl bg-black/[0.03] p-3">
             {axes.map((axis) => {
@@ -183,7 +185,7 @@ export function SizeBracketPicker({
                     <span className="font-semibold text-black/85">{Number(volumeM3.toFixed(3)).toLocaleString("nb-NO")} m³</span>
                     {volumeBracket && <span className="ml-1 text-black/50">· {optionLabel(locale, product, volumeBracket)}</span>}
                   </span>
-                  {volumeBracket && (
+                  {volumeBracket && priced(volumeBracket) && (
                     <span className="whitespace-nowrap font-semibold text-black/70">{money(volumeBracket.customerPrice)}</span>
                   )}
                 </>
@@ -195,12 +197,12 @@ export function SizeBracketPicker({
 
       {weightOptions.length > 0 && (
         <div>
-          <StepHeading
+          <SectionHeader
             step={firstStep + (hasVolume ? 2 : 1)}
             title={t("How heavy is it?", "Hvor tung er den?")}
-            hint={t("Choose the bracket the item fits in.", "Velg vektklassen varen passer i.")}
+            subtitle={t("Choose the bracket the item fits in.", "Velg vektklassen varen passer i.")}
           />
-          <div role="group" aria-label={t("Weight", "Vekt")} className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          <div role="group" aria-label={t("Weight", "Vekt")} className="grid grid-cols-2 gap-2">
             {weightOptions.map((option) => {
               const selected = selectedIds.includes(option.id);
               return (
@@ -217,25 +219,33 @@ export function SizeBracketPicker({
                   ].join(" ")}
                 >
                   <span className="text-sm font-semibold text-black/85">{optionLabel(locale, product, option)}</span>
-                  <span className="text-xs font-medium text-black/55">{money(option.customerPrice)}</span>
+                  {priced(option) && <span className="text-xs font-medium text-black/55">{money(option.customerPrice)}</span>}
                 </button>
               );
             })}
           </div>
-        </div>
-      )}
 
-      {/* What the customer will be charged for this, once both are chosen. */}
-      {showCharge && (
-        <div
-          aria-live="polite"
-          className="flex items-center justify-between gap-3 rounded-xl border border-logoblue/25 bg-logoblue/5 px-4 py-3"
-        >
-          <div>
-            <div className="text-sm font-semibold text-black/85">{t("Added to delivery", "Legges til leveringen")}</div>
-            <div className="text-xs text-black/55">{t(`Priced by ${chargeBasis} — the higher of the two.`, `Priset følger ${chargeBasis} — det høyeste av de to.`)}</div>
-          </div>
-          <div className="whitespace-nowrap text-lg font-bold text-logoblue">{money(chargeable.customerPrice)}</div>
+          {/* Small or large item, once both are chosen — part of the last
+              question, not a section of its own. */}
+          {showTier && (
+            <div
+              aria-live="polite"
+              className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-logoblue/25 bg-logoblue/5 px-4 py-3"
+            >
+              <div>
+                <div className="text-sm font-semibold text-black/85">
+                  {isLarge ? t("Delivered as a large item", "Leveres som stor vare") : t("Delivered as a small item", "Leveres som liten vare")}
+                </div>
+                <div className="text-xs text-black/55">
+                  {t(
+                    "Over 1.5 m³ or over 50 kg counts as a large item.",
+                    "Over 1,5 m³ eller over 50 kg regnes som stor vare.",
+                  )}
+                </div>
+              </div>
+              {surcharge && <div className="whitespace-nowrap text-lg font-bold text-logoblue">+{money(surcharge.customerPrice)}</div>}
+            </div>
+          )}
         </div>
       )}
     </div>

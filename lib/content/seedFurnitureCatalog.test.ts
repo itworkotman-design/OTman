@@ -172,4 +172,23 @@ describe("seedFurnitureCatalog", () => {
       data: { isActive: false },
     });
   });
+
+  it("deactivates Other furniture's old five-step size brackets that small/large replace", async () => {
+    mocks.productUpsert.mockImplementation(async ({ create }) => ({ id: `p-${create.code}` }));
+    await seedFurnitureCatalog();
+
+    const call = mocks.productOptionUpdateMany.mock.calls
+      .map(([arg]) => arg)
+      .find((arg) => arg.where.productId === "p-FN_OTHER_FURNITURE" && arg.where.code.startsWith === "OF_");
+    expect(call).toEqual({
+      where: {
+        productId: "p-FN_OTHER_FURNITURE",
+        code: {
+          startsWith: "OF_",
+          notIn: ["OF_VOL_SM", "OF_VOL_LG", "OF_WT_SM", "OF_WT_LG", "OF_LG_FIRST_STEP", "OF_LG_INDOOR"],
+        },
+      },
+      data: { isActive: false },
+    });
+  });
 });

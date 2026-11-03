@@ -40,10 +40,10 @@ const catalogProducts = [
     label: "Other furniture",
     active: true,
     options: [
-      option("vol-1", "size_volume", "OF_VOL_1"),
-      option("vol-3", "size_volume", "OF_VOL_3"),
-      option("wt-1", "size_weight", "OF_WT_1"),
-      option("wt-2", "size_weight", "OF_WT_2"),
+      option("vol-1", "size_volume", "OF_VOL_SM"),
+      option("vol-3", "size_volume", "OF_VOL_LG"),
+      option("wt-1", "size_weight", "OF_WT_SM"),
+      option("wt-2", "size_weight", "OF_WT_LG"),
     ],
   },
 ];

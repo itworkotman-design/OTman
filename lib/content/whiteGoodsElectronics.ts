@@ -53,7 +53,7 @@ export type WhiteGoodsDeliveryTypes = {
 
 // size_volume / size_weight: volume (m³) and weight (kg) brackets for products
 // priced by size — see lib/booking/pricing/sizeBrackets.ts.
-export type WhiteGoodsOptionCategory = "install" | "extra" | "return" | "size_volume" | "size_weight";
+export type WhiteGoodsOptionCategory = "install" | "extra" | "return" | "size_volume" | "size_weight" | "size_large_delivery";
 
 export type WhiteGoodsOptionSeed = Money & {
   code: string;

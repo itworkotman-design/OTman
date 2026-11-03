@@ -191,6 +191,44 @@ describe("previewCardDeliveryOptions", () => {
   });
 });
 
+describe("previewCardDeliveryOptions — Other furniture small/large", () => {
+  const sizeOption = (id: string, code: string, category: string, price = "0", weightClass?: "LIGHT" | "HEAVY") => ({
+    id,
+    code,
+    label: code,
+    description: null,
+    category,
+    customerPrice: price,
+    subcontractorPrice: "0",
+    effectiveCustomerPrice: price,
+    active: true,
+    weightClass,
+  });
+  const other: CatalogProduct = {
+    ...makeProduct("other", 616, 696),
+    options: [
+      sizeOption("vol-s", "OF_VOL_SM", "size_volume", "0", "LIGHT"),
+      sizeOption("wt-l", "OF_WT_LG", "size_weight", "0", "HEAVY"),
+      sizeOption("large-first", "OF_LG_FIRST_STEP", "size_large_delivery", "1040"),
+      sizeOption("large-indoor", "OF_LG_INDOOR", "size_large_delivery", "1344"),
+    ],
+  };
+
+  it("shows a large item's delivery at its large-item prices", () => {
+    const card = { ...createEmptyProductCard(0), productId: "other", deliveryType: "" as const, selectedExtraOptionIds: ["vol-s", "wt-l"] };
+    const preview = previewCardDeliveryOptions([card], [other], card.cardId);
+    expect(preview.firstStep.price).toBe(1040);
+    expect(preview.indoor.price).toBe(1344);
+  });
+
+  it("shows a small item at the product's own prices", () => {
+    const card = { ...createEmptyProductCard(0), productId: "other", deliveryType: "" as const, selectedExtraOptionIds: ["vol-s"] };
+    const preview = previewCardDeliveryOptions([card], [other], card.cardId);
+    expect(preview.firstStep.price).toBe(616);
+    expect(preview.indoor.price).toBe(696);
+  });
+});
+
 describe("previewCardDeliveryOptions — installation only", () => {
   const products = [makeProduct("A", 500, 700), makeProduct("B", 600, 800)];
 

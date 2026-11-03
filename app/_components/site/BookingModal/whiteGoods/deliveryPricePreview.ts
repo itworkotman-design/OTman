@@ -2,6 +2,7 @@ import type { CatalogProduct, SavedProductCard } from "@/app/_components/Dahsboa
 import { getAutomaticXtraDeliveryCardIds } from "@/lib/booking/pricing/sharedDeliveryLogic";
 import { getProductDeliveryType } from "@/lib/products/deliveryTypes";
 import { previewInstallOnlyVisitPrice } from "@/lib/booking/pricing/websiteInstallOnlyVisit";
+import { withWebsiteSizeTiers } from "@/lib/booking/pricing/websiteSizeTier";
 
 export type DeliveryOptionPreview = {
   price: number;
@@ -38,6 +39,8 @@ export function previewCardDeliveryOptions(
   catalogProducts: CatalogProduct[],
   cardId: number,
 ): { firstStep: DeliveryOptionPreview; indoor: DeliveryOptionPreview; installOnly: number | null } {
+  // A large Other furniture item shows its large-item prices, as priced.
+  catalogProducts = withWebsiteSizeTiers(cards, catalogProducts);
   const card = cards.find((c) => c.cardId === cardId);
   const product = card ? catalogProducts.find((p) => p.id === card.productId) : undefined;
   const isCardExtra = getAutomaticXtraDeliveryCardIds(cards, catalogProducts, {

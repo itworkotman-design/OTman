@@ -111,6 +111,24 @@ describe("cardWeightClass", () => {
     expect(cardWeightClass(card(0, "outdoor", { selectedInstallOptionIds: ["outdoor-chair"] }), outdoor)).toBe("LIGHT");
     expect(cardWeightClass(card(0, "outdoor", { selectedInstallOptionIds: ["outdoor-lounge"] }), outdoor)).toBe("HEAVY");
   });
+
+  it("classes a size-priced item (Other furniture) by its heavier picked size bracket", () => {
+    const other = product("other", {
+      weightClass: "MEDIUM",
+      options: [
+        option("vol-s", "size_volume", { weightClass: "LIGHT" }),
+        option("vol-l", "size_volume", { weightClass: "HEAVY" }),
+        option("wt-s", "size_weight", { weightClass: "LIGHT" }),
+        option("wt-l", "size_weight", { weightClass: "HEAVY" }),
+      ],
+    });
+    const sized = (ids: string[]) => card(0, "other", { selectedExtraOptionIds: ids });
+    expect(cardWeightClass(sized(["vol-s", "wt-s"]), other)).toBe("LIGHT");
+    expect(cardWeightClass(sized(["vol-l", "wt-s"]), other)).toBe("HEAVY");
+    expect(cardWeightClass(sized(["vol-s", "wt-l"]), other)).toBe("HEAVY");
+    // Nothing picked yet: the product's own class.
+    expect(cardWeightClass(sized([]), other)).toBe("MEDIUM");
+  });
 });
 
 describe("orderWeightClass", () => {

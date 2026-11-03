@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FURNITURE_PRODUCTS, FURNITURE_PRICE_LIST_CODE } from "./furnitureCatalog";
 import { FURNITURE_PRODUCTS_DATA } from "./furnitureCatalogData";
-import { WHITE_GOODS_ORDER_LEVEL_EXTRAS } from "./whiteGoodsElectronics";
+import { WHITE_GOODS_ELECTRONICS_PRODUCTS, WHITE_GOODS_ORDER_LEVEL_EXTRAS } from "./whiteGoodsElectronics";
 import { VOLUME_BRACKET_MAX_M3 } from "@/lib/booking/pricing/sizeDimensions";
 
 // Source: "Otman_furniture_product_options_2026_FINAL(2).xlsx". The catalog
@@ -206,12 +206,12 @@ describe("Other furniture size brackets", () => {
   const sizeOptions = (productCode: string, category: string) =>
     byCode(productCode).options.filter((o) => o.category === category);
 
-  it("offers 5 volume (m³) and 5 weight (kg) brackets, each a radio group", () => {
+  it("offers a small and a large volume (m³) and weight (kg) bracket, each a radio group", () => {
     const volume = sizeOptions("FN_OTHER_FURNITURE", "size_volume");
     const weight = sizeOptions("FN_OTHER_FURNITURE", "size_weight");
 
-    expect(volume.map((o) => o.code)).toEqual(["OF_VOL_1", "OF_VOL_2", "OF_VOL_3", "OF_VOL_4", "OF_VOL_5"]);
-    expect(weight.map((o) => o.code)).toEqual(["OF_WT_1", "OF_WT_2", "OF_WT_3", "OF_WT_4", "OF_WT_5"]);
+    expect(volume.map((o) => o.code)).toEqual(["OF_VOL_SM", "OF_VOL_LG"]);
+    expect(weight.map((o) => o.code)).toEqual(["OF_WT_SM", "OF_WT_LG"]);
     expect(volume.every((o) => o.exclusiveGroup === "size_volume")).toBe(true);
     expect(weight.every((o) => o.exclusiveGroup === "size_weight")).toBe(true);
   });
@@ -223,9 +223,38 @@ describe("Other furniture size brackets", () => {
     }
   });
 
+  it("splits small from large at 1.5 m³ and 50 kg, keeping 4 m³ as the online limit", () => {
+    expect(VOLUME_BRACKET_MAX_M3).toEqual({ OF_VOL_SM: 1.5, OF_VOL_LG: 4 });
+    expect(opt("FN_OTHER_FURNITURE", "OF_WT_SM").labelNo).toBe("Opptil 50 kg");
+    expect(opt("FN_OTHER_FURNITURE", "OF_WT_LG").labelNo).toBe("Over 50 kg");
+  });
+
+  it("classes the small brackets LIGHT and the large ones HEAVY — the heavier pick decides", () => {
+    expect(opt("FN_OTHER_FURNITURE", "OF_VOL_SM").weightClass).toBe("LIGHT");
+    expect(opt("FN_OTHER_FURNITURE", "OF_WT_SM").weightClass).toBe("LIGHT");
+    expect(opt("FN_OTHER_FURNITURE", "OF_VOL_LG").weightClass).toBe("HEAVY");
+    expect(opt("FN_OTHER_FURNITURE", "OF_WT_LG").weightClass).toBe("HEAVY");
+  });
+
+  it("carries its own large-item delivery prices, seeded from the side-by-side fridge's", () => {
+    const sideBySide = WHITE_GOODS_ELECTRONICS_PRODUCTS.find((p) => p.code === "WG_SIDE_BY_SIDE_FRIDGE")!.deliveryTypes;
+    const large = sizeOptions("FN_OTHER_FURNITURE", "size_large_delivery");
+    expect(large.map((o) => o.code)).toEqual(["OF_LG_FIRST_STEP", "OF_LG_INDOOR"]);
+    expect(opt("FN_OTHER_FURNITURE", "OF_LG_FIRST_STEP")).toMatchObject({
+      customerPrice: sideBySide.firstStep.customerPrice,
+      subcontractorPrice: sideBySide.firstStep.subcontractorPrice,
+    });
+    expect(opt("FN_OTHER_FURNITURE", "OF_LG_INDOOR")).toMatchObject({
+      customerPrice: sideBySide.indoor.customerPrice,
+      subcontractorPrice: sideBySide.indoor.subcontractorPrice,
+    });
+    // Staff edit them in Edit prices; a reseed keeps what they set.
+    expect(large.every((o) => o.staffPriced === true)).toBe(true);
+  });
+
   it("labels every bracket in both languages with its unit", () => {
-    expect(sizeOptions("FN_OTHER_FURNITURE", "size_volume")).toHaveLength(5);
-    expect(sizeOptions("FN_OTHER_FURNITURE", "size_weight")).toHaveLength(5);
+    expect(sizeOptions("FN_OTHER_FURNITURE", "size_volume")).toHaveLength(2);
+    expect(sizeOptions("FN_OTHER_FURNITURE", "size_weight")).toHaveLength(2);
     for (const o of sizeOptions("FN_OTHER_FURNITURE", "size_volume")) {
       expect(o.labelEn).toMatch(/m³/);
       expect(o.labelNo).toMatch(/m³/);
@@ -242,21 +271,24 @@ describe("Other furniture size brackets", () => {
 
     for (const category of ["size_volume", "size_weight"]) {
       const values = numbers(category);
-      expect(values).toHaveLength(5);
+      expect(values).toHaveLength(2);
       expect(values.every(Number.isFinite)).toBe(true);
       expect(values).toEqual([...values].sort((a, b) => a - b));
     }
   });
 
-  it("ships priced at 0 kr and flagged staff-priced, so a reseed never wipes prices staff have entered", () => {
+  it("ships the brackets at 0 kr and flagged staff-priced — the size only picks the delivery price", () => {
     const options = [...sizeOptions("FN_OTHER_FURNITURE", "size_volume"), ...sizeOptions("FN_OTHER_FURNITURE", "size_weight")];
 
-    expect(options).toHaveLength(10);
+    expect(options).toHaveLength(4);
     expect(options.every((o) => o.customerPrice === 0 && o.subcontractorPrice === 0)).toBe(true);
     expect(options.every((o) => o.staffPriced === true)).toBe(true);
   });
 
-  it("keeps the flat delivery prices — the size charge is added on top", () => {
+  it("keeps the oven's delivery prices for a small item", () => {
+    const oven = WHITE_GOODS_ELECTRONICS_PRODUCTS.find((p) => p.code === "WG_OVEN")!.deliveryTypes;
+    expect(byCode("FN_OTHER_FURNITURE").deliveryTypes.firstStep.customerPrice).toBe(oven.firstStep.customerPrice);
+    expect(byCode("FN_OTHER_FURNITURE").deliveryTypes.indoor.customerPrice).toBe(oven.indoor.customerPrice);
     expect(byCode("FN_OTHER_FURNITURE").deliveryTypes.firstStep.customerPrice).toBe(608.88);
     expect(byCode("FN_OTHER_FURNITURE").deliveryTypes.indoor.customerPrice).toBe(690.408);
   });

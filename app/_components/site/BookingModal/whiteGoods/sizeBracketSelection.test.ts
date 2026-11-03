@@ -74,9 +74,9 @@ describe("applySizeDimension", () => {
   const sized = {
     id: "p1",
     options: [
-      { id: "v1", code: "OF_VOL_1", category: "size_volume", active: true, customerPrice: "0" },
-      { id: "v3", code: "OF_VOL_3", category: "size_volume", active: true, customerPrice: "0" },
-      { id: "w1", code: "OF_WT_1", category: "size_weight", active: true, customerPrice: "0" },
+      { id: "v1", code: "OF_VOL_SM", category: "size_volume", active: true, customerPrice: "0" },
+      { id: "v3", code: "OF_VOL_LG", category: "size_volume", active: true, customerPrice: "0" },
+      { id: "w1", code: "OF_WT_SM", category: "size_weight", active: true, customerPrice: "0" },
     ],
   } as unknown as CatalogProduct;
 
@@ -99,11 +99,11 @@ describe("applySizeDimension", () => {
   });
 
   it("re-derives when a dimension changes, keeping the chosen weight", () => {
-    let cards = [card("p1", ["w1"], { widthCm: 100, heightCm: 50, lengthCm: 50 })];
-    cards = applySizeDimension(cards, sized, "lengthCm", 100);
+    let cards = [card("p1", ["w1"], { widthCm: 100, heightCm: 100, lengthCm: 100 })];
+    cards = applySizeDimension(cards, sized, "lengthCm", 200);
 
-    expect(cards[0].sizeDimensionsCm).toEqual({ widthCm: 100, heightCm: 50, lengthCm: 100 });
-    // 100 x 50 x 100 = 0.5 m³ — above OF_VOL_1 (0.25), so the next bracket up (OF_VOL_3, up to 1 m³).
+    expect(cards[0].sizeDimensionsCm).toEqual({ widthCm: 100, heightCm: 100, lengthCm: 200 });
+    // 100 x 100 x 200 = 2 m³ — above OF_VOL_SM (1.5), so the large bracket (OF_VOL_LG, up to 4 m³).
     expect(cards[0].selectedExtraOptionIds.sort()).toEqual(["v3", "w1"]);
   });
 

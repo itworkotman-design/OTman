@@ -11,7 +11,8 @@ a bracket id.
   60, 80, 100, 120, 150, 200, 250). **Placeholders** (business content); a value
   outside the list is rejected server-side.
 - `VOLUME_BRACKET_MAX_M3` — the largest volume each bracket covers, keyed by
-  option code (0.25 / 0.5 / 1 / 2 / 4 m³). This table lives **in code**: staff
+  option code: `OF_VOL_SM` 1.5 m³ (a small item) and `OF_VOL_LG` 4 m³ (a large one —
+  see `website-size-tier.md`). This table lives **in code**: staff
   edit bracket *prices*, but moving where a bracket ends is a code change. The
   bracket options/labels in `otherFurnitureSizeOptions.ts` are generated from it.
   Larger than the top bracket = not bookable online (manual quote).

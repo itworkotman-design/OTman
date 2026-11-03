@@ -205,6 +205,69 @@ describe("priceWebsiteOrder — lines set to 0", () => {
   });
 });
 
+describe("priceWebsiteOrder — Other furniture small/large", () => {
+  const sizeOption = (id: string, code: string, category: string, extra: Partial<CatalogProduct["options"][number]> = {}) => ({
+    id,
+    code,
+    label: code,
+    description: "",
+    category,
+    customerPrice: "0",
+    subcontractorPrice: "0",
+    effectiveCustomerPrice: "0",
+    active: true,
+    ...extra,
+  });
+  const other: CatalogProduct = {
+    ...washer,
+    id: "p-other",
+    code: "FN_OTHER_FURNITURE",
+    deliveryTypes: [
+      deliveryType(DELIVERY_TYPES.FIRST_STEP, "616", "Doorstep"),
+      deliveryType(DELIVERY_TYPES.INDOOR, "696", "Delivery with carry-in"),
+    ],
+    options: [
+      sizeOption("vol-s", "OF_VOL_SM", "size_volume", { weightClass: "LIGHT" }),
+      sizeOption("vol-l", "OF_VOL_LG", "size_volume", { weightClass: "HEAVY" }),
+      sizeOption("wt-s", "OF_WT_SM", "size_weight", { weightClass: "LIGHT" }),
+      sizeOption("wt-l", "OF_WT_LG", "size_weight", { weightClass: "HEAVY" }),
+      sizeOption("large-first", "OF_LG_FIRST_STEP", "size_large_delivery", { customerPrice: "1040", effectiveCustomerPrice: "1040", subcontractorPrice: "620" }),
+      sizeOption("large-indoor", "OF_LG_INDOOR", "size_large_delivery", { customerPrice: "1344", effectiveCustomerPrice: "1344", subcontractorPrice: "825" }),
+    ],
+  };
+  const otherCard = (cardId: number, sizeIds: string[]) =>
+    card(cardId, { productId: "p-other", selectedInstallOptionIds: [], selectedReturnOptionId: null, selectedExtraOptionIds: sizeIds });
+  const sizedInput = (cards: SavedProductCard[]): WebsiteOrderPricingInput => ({
+    ...input("21", cards),
+    catalogProducts: [washer, other],
+  });
+  const carryIn = (i: WebsiteOrderPricingInput) =>
+    priceWebsiteOrder(i).result.breakdowns.flatMap((b) => b.lines).filter((l) => l.label === "Delivery with carry-in").map((l) => l.lineTotal);
+
+  it("delivers a small item (≤ 1.5 m³ and ≤ 50 kg) at the product's own price", () => {
+    expect(carryIn(sizedInput([otherCard(0, ["vol-s", "wt-s"])]))).toEqual([696]);
+  });
+
+  it("delivers a large item at the large-item price, whether the volume or the weight is large", () => {
+    expect(carryIn(sizedInput([otherCard(0, ["vol-l", "wt-s"])]))).toEqual([1344]);
+    expect(carryIn(sizedInput([otherCard(0, ["vol-s", "wt-l"])]))).toEqual([1344]);
+  });
+
+  it("lets the large item keep the full delivery price next to a washer (the washer gets the extra-item rate)", () => {
+    const i = sizedInput([card(0, { selectedInstallOptionIds: [], selectedReturnOptionId: null }), otherCard(1, ["vol-l", "wt-s"])]);
+    expect(carryIn(i)).toEqual([235, 1344]);
+  });
+
+  it("stores the same delivery prices, so the stored lines add up to the total", () => {
+    const i = sizedInput([card(0, { selectedInstallOptionIds: [], selectedReturnOptionId: null }), otherCard(1, ["vol-s", "wt-l"])]);
+    const items = buildWebsiteOrderItems(i.cards, i.catalogProducts, i.catalogSpecialOptions, { drivingDistance: i.drivingDistance });
+    const lines = items.reduce((sum, item) => sum + (item.customerPriceCents ?? 0), 0) / 100;
+    const { result, orderExtras } = priceWebsiteOrder(i);
+    expect(lines + orderExtras.reduce((sum, extra) => sum + extra.price, 0)).toBeCloseTo(result.totals.totalExVat, 2);
+    expect(items.some((item) => item.customerPriceCents === 134400)).toBe(true);
+  });
+});
+
 describe("priceWebsiteOrder — weight classes", () => {
   const charge = (code: string, price: string, subcontractorPrice: string) => ({ code, description: code, price, subcontractorPrice });
   const weighted = normalizePriceListSettings({

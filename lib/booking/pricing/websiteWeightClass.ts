@@ -6,6 +6,7 @@ import type {
 import type { PriceListChargeSetting, PriceListSettings, WeightClassPricing } from "@/lib/products/priceListSettings";
 import { DEFAULT_WEIGHT_CLASS, heaviestWeightClass, type WeightClass } from "@/lib/products/weightClass";
 import { isReturnOption } from "@/lib/booking/pricing/rules";
+import { isSizeBracketCategory } from "@/lib/booking/pricing/sizeBrackets";
 import { applyNulledLineKeys, type BuiltOrderItem } from "@/lib/orders/buildOrderItemsFromCards";
 import type { ProductBreakdown } from "@/lib/booking/pricing/types";
 
@@ -27,6 +28,14 @@ export function cardWeightClass(card: SavedProductCard, product: CatalogProduct 
     .map((id) => product.options.find((option) => option.id === id)?.weightClass)
     .filter((weightClass): weightClass is WeightClass => !!weightClass);
   if (pickedTypeClasses.length > 0) return heaviestWeightClass(pickedTypeClasses);
+  // A size-priced item (Other furniture) is as heavy as its heavier picked
+  // volume/weight bracket (websiteSizeTier.ts).
+  const pickedSizeClasses = card.selectedExtraOptionIds
+    .map((id) => product.options.find((option) => option.id === id))
+    .filter((option) => !!option && isSizeBracketCategory(option.category))
+    .map((option) => option?.weightClass)
+    .filter((weightClass): weightClass is WeightClass => !!weightClass);
+  if (pickedSizeClasses.length > 0) return heaviestWeightClass(pickedSizeClasses);
   return product.weightClass ?? DEFAULT_WEIGHT_CLASS;
 }
 

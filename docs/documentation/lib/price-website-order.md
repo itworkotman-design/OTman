@@ -16,8 +16,8 @@ So what the customer is shown is exactly what is stored and charged. Previously 
 
 ## Functions
 
-- `priceWebsiteOrder(input)` — product breakdowns, then extra-unit charges, assembly extras and the install-only visit, then the white-goods calculator extras (distance, floors, extra pickups, express, and an admin-set `deviation` fee whose price comes from the website price list's deviation settings, or the custom deviation's own price), then `calculateBookingPricing`. Over 100 km (`parseDistanceKm`), base delivery prices are 0, since the per-km charge replaces them. Returns `{ result, orderExtras }`.
-- `buildWebsiteOrderItems(cards, products, specialOptions, { drivingDistance })` — the stored order lines (`OrderItem` rows / `pricingSnapshot.lines`), priced by the same rules so they add up to the total. Returns are priced and over-100 km delivery is stored at 0 kr.
+- `priceWebsiteOrder(input)` — first applies `withWebsiteSizeTiers` (a large Other furniture item is delivered at its large-item prices — see [website-size-tier.md](website-size-tier.md)), then product breakdowns, then extra-unit charges, assembly extras and the install-only visit, then the white-goods calculator extras (distance, floors, extra pickups, express, and an admin-set `deviation` fee whose price comes from the website price list's deviation settings, or the custom deviation's own price), then `calculateBookingPricing`. Over 100 km (`parseDistanceKm`), base delivery prices are 0, since the per-km charge replaces them. Returns `{ result, orderExtras }`.
+- `buildWebsiteOrderItems(cards, products, specialOptions, { drivingDistance })` — the stored order lines (`OrderItem` rows / `pricingSnapshot.lines`), priced by the same rules so they add up to the total. It applies `withWebsiteSizeTiers` too. Returns are priced and over-100 km delivery is stored at 0 kr.
 
 The tests check that the lines + order extras equal the total, within and over 100 km.
 

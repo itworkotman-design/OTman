@@ -20,6 +20,7 @@ import {
   applyWebsiteWeightClassReturnPrices,
   websiteFloorSurchargeSetting,
 } from "@/lib/booking/pricing/websiteWeightClass";
+import { withWebsiteSizeTiers } from "@/lib/booking/pricing/websiteSizeTier";
 
 // THE price of a homepage website order. The customer's summary
 // (WhiteGoodsBookingFlow), order creation (app/api/site/white-goods-order) and
@@ -68,7 +69,9 @@ function zeroBaseDelivery(drivingDistance: string) {
 }
 
 export function priceWebsiteOrder(input: WebsiteOrderPricingInput) {
-  const { cards, catalogProducts, catalogSpecialOptions } = input;
+  const { cards, catalogSpecialOptions } = input;
+  // A large Other furniture item is delivered at its large-item prices.
+  const catalogProducts = withWebsiteSizeTiers(cards, input.catalogProducts);
   const baseBreakdowns = buildProductBreakdowns(cards, catalogProducts, catalogSpecialOptions, {
     zeroBaseDeliveryPricesOver100Km: zeroBaseDelivery(input.drivingDistance),
     installOnlyVisitPricing: true,
@@ -130,6 +133,7 @@ export function buildWebsiteOrderItems(
   // The list's settings — for weight class return prices (omitted: none).
   options: { drivingDistance: string; priceListSettings?: PriceListSettings },
 ) {
+  catalogProducts = withWebsiteSizeTiers(cards, catalogProducts);
   const baseItems = buildOrderItemsFromCards(cards, catalogProducts, catalogSpecialOptions, {
     installOnlyVisitPricing: true,
     zeroBaseDeliveryPricesOver100Km: zeroBaseDelivery(options.drivingDistance),

@@ -9,6 +9,11 @@ list in `/dashboard/booking/editPrices`) whose `category` is `size_volume` or
 of the flat delivery price is the **higher** of the two brackets' prices (light
 but bulky → volume; small but heavy → weight).
 
+> **Update:** the brackets are now 0 kr. Other furniture is priced as a small or
+> a large item instead (over 1.5 m³ or over 50 kg = large, delivered at its own
+> large-item prices) — see `website-size-tier.md`. The bracket charge below
+> still applies if staff give a bracket a price.
+
 Selections are stored in `SavedProductCard.selectedExtraOptionIds` and
 recognised by option category — no card/schema change. Both brackets stay on
 the card and the order items (staff/drivers need the real size and weight);
