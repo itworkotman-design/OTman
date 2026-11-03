@@ -679,23 +679,31 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     setEditedCardIds((ids) => (cardIds.every((id) => ids.includes(id)) ? ids : [...new Set([...ids, ...cardIds])]));
   }
   function updateCard(cardId: number, next: SavedProductCard) {
-    const updated = productCards.map((c) => (c.cardId === cardId ? next : c));
     const previous = productCards.find((c) => c.cardId === cardId);
     const listCode = next.productId ? listCodeByProductId[next.productId] : undefined;
     // A new order's first card of a list changing delivery type sets it for
     // the list's untouched cards too — once per list (deliveryCascade.ts).
-    const cascaded =
-      !customer && listCode && previous && previous.deliveryType !== next.deliveryType && !deliveryCascadedListCodes.includes(listCode)
+    const mayCascade =
+      !customer && !!listCode && !!previous && previous.deliveryType !== next.deliveryType && !deliveryCascadedListCodes.includes(listCode);
+    const cascadeOn = (cards: SavedProductCard[]) =>
+      mayCascade && listCode
         ? cascadeFirstCardDelivery({
-            cards: updated,
+            cards,
             changedCardId: cardId,
             listProducts: loadedProducts[listCode] ?? [],
             editedCardIds,
             locale,
           })
         : null;
-    if (cascaded && listCode) setDeliveryCascadedListCodes((codes) => [...codes, listCode]);
-    setProductCards(cascaded ?? updated);
+    // Applied to the latest cards (not this render's), so a change made just
+    // before on another path — the size picker's — is never overwritten.
+    setProductCards((cards) => {
+      const updated = cards.map((c) => (c.cardId === cardId ? next : c));
+      return cascadeOn(updated) ?? updated;
+    });
+    if (listCode && cascadeOn(productCards.map((c) => (c.cardId === cardId ? next : c)))) {
+      setDeliveryCascadedListCodes((codes) => [...codes, listCode]);
+    }
     markCardsEdited([cardId]);
   }
   const productCardIds = (product: CatalogProduct) =>

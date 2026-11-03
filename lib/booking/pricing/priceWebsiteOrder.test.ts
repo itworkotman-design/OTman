@@ -266,6 +266,43 @@ describe("priceWebsiteOrder — Other furniture small/large", () => {
     expect(lines + orderExtras.reduce((sum, extra) => sum + extra.price, 0)).toBeCloseTo(result.totals.totalExVat, 2);
     expect(items.some((item) => item.customerPriceCents === 134400)).toBe(true);
   });
+
+  describe("return and no-lift floors", () => {
+    const charge = (code: string, price: string) => ({ code, description: code, price, subcontractorPrice: "0" });
+    const weighted = normalizePriceListSettings({
+      weightClassPricing: {
+        floorSurcharge: { LIGHT: charge("FLOOR_SURCHARGE_LIGHT", "32"), MEDIUM: charge("FLOOR_SURCHARGE_MEDIUM", "56"), HEAVY: charge("FLOOR_SURCHARGE_HEAVY", "80") },
+        returnPrice: { LIGHT: charge("RETURN_LIGHT", "80"), MEDIUM: charge("RETURN_MEDIUM", "152"), HEAVY: charge("RETURN_HEAVY", "304") },
+      },
+    } as never);
+    // As the website catalog loads it: the list's class prices on the product.
+    const withReturn: CatalogProduct = {
+      ...other,
+      weightClassPricing: weighted.weightClassPricing,
+      options: [...other.options, { ...washer.options[1], id: "other-ret" }],
+    };
+    const priced = (sizeIds: string[]) => {
+      const i: WebsiteOrderPricingInput = {
+        ...input("21", [{ ...otherCard(0, sizeIds), selectedReturnOptionId: "other-ret" }]),
+        catalogProducts: [withReturn],
+        priceListSettings: weighted,
+      };
+      const { result, orderExtras } = priceWebsiteOrder(i);
+      return {
+        returnPrice: result.breakdowns.flatMap((b) => b.lines).find((l) => l.label === "Retur av gammel vare til gjenvinning")?.lineTotal,
+        floor: orderExtras.find((extra) => extra.label.startsWith("FLOOR_SURCHARGE"))?.label,
+      };
+    };
+
+    it("prices a small item's return and floors as light", () => {
+      expect(priced(["vol-s", "wt-s"])).toEqual({ returnPrice: 80, floor: "FLOOR_SURCHARGE_LIGHT" });
+    });
+
+    it("prices a large item's return and floors as heavy", () => {
+      expect(priced(["vol-s", "wt-l"])).toEqual({ returnPrice: 304, floor: "FLOOR_SURCHARGE_HEAVY" });
+      expect(priced(["vol-l", "wt-s"])).toEqual({ returnPrice: 304, floor: "FLOOR_SURCHARGE_HEAVY" });
+    });
+  });
 });
 
 describe("priceWebsiteOrder — weight classes", () => {
