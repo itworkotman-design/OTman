@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import PickupAddressAutocomplete from "./PickupAddressAutocomplete";
+import { offersSavedPickupAddresses } from "./matchSavedPickupAddresses";
 import { BuildingIcon, PinIcon, StorefrontIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
@@ -203,6 +204,7 @@ export function PickupContactCard({
             locale={bookingLocale}
             placeholder={pickupAddressPlaceholder}
             icon={<PinIcon />}
+            showSavedAddresses={offersSavedPickupAddresses(pickupSource)}
           />
           {addressNotSelected && (
             <p className="mt-1.5 text-xs text-red-500">

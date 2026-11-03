@@ -9,6 +9,12 @@ export type SavedPickupAddress = {
   color: string;
 };
 
+// The saved locations are stores and businesses — offered when picking up from
+// a store or a business, never for a private person's address.
+export function offersSavedPickupAddresses(source: "store" | "private" | "business"): boolean {
+  return source !== "private";
+}
+
 // Below this, almost anything would "match" — not a useful suggestion yet.
 const MIN_QUERY_LENGTH = 2;
 

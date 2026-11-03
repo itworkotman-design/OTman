@@ -21,3 +21,5 @@ Renders the address/contact fields for one pickup location in the homepage white
 | --- | --- |
 | `PickupContactCard(...)` | The card itself. The checkbox + checklist block only renders once the pool (summed across every section) has more than one card — nothing to choose between otherwise. Each checklist row shows a `ProductIcon` next to the name, matching the product grid's own icon-per-tile convention. |
 | `isPickupContactStepReady` | Whether this location's own required fields (not the checklist — see `pickupLocations.isPickupLocationReady` for the combined gate) are filled, given `pickupSource`. |
+
+The pickup address field (`PickupAddressAutocomplete`) offers the saved pickup locations (stores, businesses) only when picking up from a store or a business, never for a private person (`offersSavedPickupAddresses` in `matchSavedPickupAddresses.ts`).

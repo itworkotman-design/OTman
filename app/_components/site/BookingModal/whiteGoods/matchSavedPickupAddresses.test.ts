@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchSavedPickupAddresses, type SavedPickupAddress } from "./matchSavedPickupAddresses";
+import { matchSavedPickupAddresses, offersSavedPickupAddresses, type SavedPickupAddress } from "./matchSavedPickupAddresses";
 
 const ADDRESSES: SavedPickupAddress[] = [
   { id: "1", name: "Power Grünerløkka", address: "Thorvald Meyers gate 1, 0472 Oslo", icon: "power", color: "amber" },
@@ -35,5 +35,16 @@ describe("matchSavedPickupAddresses", () => {
 
   it("trims the query before matching", () => {
     expect(matchSavedPickupAddresses("  power  ", ADDRESSES)).toEqual([ADDRESSES[0]]);
+  });
+});
+
+describe("offersSavedPickupAddresses", () => {
+  it("offers the saved locations for a store or business pickup", () => {
+    expect(offersSavedPickupAddresses("store")).toBe(true);
+    expect(offersSavedPickupAddresses("business")).toBe(true);
+  });
+
+  it("never for a private person's address", () => {
+    expect(offersSavedPickupAddresses("private")).toBe(false);
   });
 });

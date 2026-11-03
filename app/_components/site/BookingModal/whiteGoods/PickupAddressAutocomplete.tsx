@@ -42,6 +42,9 @@ type Props = {
   icon?: ReactNode;
   hasError?: boolean;
   onBlur?: () => void;
+  // Off for a private pickup: the saved locations are stores and businesses
+  // (offersSavedPickupAddresses).
+  showSavedAddresses?: boolean;
 };
 
 // Same address-search UX as AddressAutocompleteInput (Mapbox suggestions,
@@ -61,6 +64,7 @@ export default function PickupAddressAutocomplete({
   icon,
   hasError = false,
   onBlur,
+  showSavedAddresses = true,
 }: Props) {
   const t = (text: string) => bookingText(locale, text);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -229,7 +233,7 @@ export default function PickupAddressAutocomplete({
   // just-selected saved address (now sitting in `query` as plain text)
   // would trivially match its own address field and reopen the panel right
   // after commitSelection() closed it.
-  const matchedSaved = hasInteracted ? matchSavedPickupAddresses(query, savedAddresses) : [];
+  const matchedSaved = hasInteracted && showSavedAddresses ? matchSavedPickupAddresses(query, savedAddresses) : [];
   // Independent of `open` (which only the Mapbox-fetch path drives) — a
   // saved match can show up well before a query is long enough to trigger
   // that fetch. With no match, the panel's visibility/content is exactly
