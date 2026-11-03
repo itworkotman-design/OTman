@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyProductCard, type CatalogProduct, type SavedProductCard } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import {
-  SIZE_DIMENSION_CHOICES_CM,
+  SIZE_DIMENSION_MAX_CM,
+  SIZE_DIMENSION_MIN_CM,
+  SIZE_DIMENSION_SCALE_MARKS_CM,
+  SIZE_DIMENSION_STEP_CM,
   VOLUME_BRACKET_MAX_M3,
   applyDimensionDerivedVolumeBrackets,
   calculateVolumeM3,
   findVolumeBracketOptionId,
+  getVolumeBracketLimitsM3,
   isAllowedDimensionCm,
   isCompleteDimensions,
+  parseTypedDimensionCm,
 } from "./sizeDimensions";
 
 function option(id: string, code: string, category: string, active = true) {
@@ -31,27 +36,54 @@ function card(productId: string, selectedExtraOptionIds: string[], sizeDimension
   return { ...createEmptyProductCard(0), productId, selectedExtraOptionIds, sizeDimensionsCm } as SavedProductCard;
 }
 
-describe("dimension choices", () => {
-  it("offers a fixed list of centimetre choices, ascending", () => {
-    const values = [...SIZE_DIMENSION_CHOICES_CM];
-    expect(values.length).toBeGreaterThan(3);
-    expect(values).toEqual([...values].sort((a, b) => a - b));
+describe("dimension range", () => {
+  it("allows centimetres in 5 cm steps from 5 to 300", () => {
+    expect([SIZE_DIMENSION_MIN_CM, SIZE_DIMENSION_MAX_CM, SIZE_DIMENSION_STEP_CM]).toEqual([5, 300, 5]);
+    for (const cm of [5, 10, 135, 300]) expect(isAllowedDimensionCm(cm), String(cm)).toBe(true);
   });
 
-  it("only allows values from that list", () => {
-    expect(isAllowedDimensionCm(SIZE_DIMENSION_CHOICES_CM[0])).toBe(true);
-    expect(isAllowedDimensionCm(7)).toBe(false);
-    expect(isAllowedDimensionCm(-50)).toBe(false);
-    expect(isAllowedDimensionCm("50")).toBe(false);
-    expect(isAllowedDimensionCm(NaN)).toBe(false);
+  it("rejects anything outside that, between steps, a fraction, or not a number", () => {
+    for (const bad of [0, 1, 7, 137, 305, -50, 12.5, NaN, Infinity, "50", null]) {
+      expect(isAllowedDimensionCm(bad), String(bad)).toBe(false);
+    }
+  });
+
+  it("puts faint scale marks along the ruler, inside the range, ascending", () => {
+    const marks = [...SIZE_DIMENSION_SCALE_MARKS_CM];
+    expect(marks.length).toBeGreaterThan(3);
+    expect(marks).toEqual([...marks].sort((a, b) => a - b));
+    expect(marks.every((cm) => isAllowedDimensionCm(cm))).toBe(true);
   });
 
   it("isCompleteDimensions needs all three allowed values", () => {
     expect(isCompleteDimensions(dims(100, 50, 50))).toBe(true);
     expect(isCompleteDimensions({ widthCm: 100, heightCm: 50 })).toBe(false);
-    expect(isCompleteDimensions(dims(100, 50, 7))).toBe(false);
+    expect(isCompleteDimensions(dims(100, 50, 0))).toBe(false);
     expect(isCompleteDimensions(null)).toBe(false);
     expect(isCompleteDimensions(undefined)).toBe(false);
+  });
+});
+
+describe("parseTypedDimensionCm", () => {
+  it("reads what the customer typed into the box, rounded to the nearest 5 cm", () => {
+    expect(parseTypedDimensionCm("120")).toBe(120);
+    expect(parseTypedDimensionCm(" 85 cm ")).toBe(85);
+    expect(parseTypedDimensionCm("122")).toBe(120);
+    expect(parseTypedDimensionCm("123")).toBe(125);
+    expect(parseTypedDimensionCm("12,6")).toBe(15);
+    expect(parseTypedDimensionCm("12.4")).toBe(10);
+  });
+
+  it("clamps to the ruler's range", () => {
+    expect(parseTypedDimensionCm("450")).toBe(300);
+    expect(parseTypedDimensionCm("0")).toBe(5);
+    expect(parseTypedDimensionCm("2")).toBe(5);
+  });
+
+  it("is null for nothing typed or no number", () => {
+    expect(parseTypedDimensionCm("")).toBeNull();
+    expect(parseTypedDimensionCm("   ")).toBeNull();
+    expect(parseTypedDimensionCm("abc")).toBeNull();
   });
 });
 
@@ -68,6 +100,18 @@ describe("volume bracket limits", () => {
     const maxes = ["OF_VOL_SM", "OF_VOL_LG"].map((code) => VOLUME_BRACKET_MAX_M3[code]);
     expect(maxes.every((m) => typeof m === "number" && m > 0)).toBe(true);
     expect(maxes).toEqual([...maxes].sort((a, b) => a - b));
+  });
+});
+
+describe("getVolumeBracketLimitsM3", () => {
+  it("lists the product's volume bracket limits, smallest first — the last is the most bookable online", () => {
+    expect(getVolumeBracketLimitsM3(product)).toEqual([1.5, 4]);
+  });
+
+  it("skips inactive brackets, and is empty for a product without any", () => {
+    const retired = { id: "p", options: [option("v1", "OF_VOL_SM", "size_volume", false), option("v2", "OF_VOL_LG", "size_volume")] } as unknown as CatalogProduct;
+    expect(getVolumeBracketLimitsM3(retired)).toEqual([4]);
+    expect(getVolumeBracketLimitsM3({ id: "x", options: [] } as unknown as CatalogProduct)).toEqual([]);
   });
 });
 
@@ -106,8 +150,8 @@ describe("applyDimensionDerivedVolumeBrackets", () => {
     expect(next.selectedExtraOptionIds.sort()).toEqual(["v2", "w1"]);
   });
 
-  it("removes the volume bracket when dimensions are missing, incomplete or not one of the allowed choices", () => {
-    for (const bad of [undefined, null, { widthCm: 100, heightCm: 50 }, dims(100, 50, 7)]) {
+  it("removes the volume bracket when dimensions are missing, incomplete or out of range", () => {
+    for (const bad of [undefined, null, { widthCm: 100, heightCm: 50 }, dims(100, 50, 0)]) {
       const [next] = applyDimensionDerivedVolumeBrackets(
         [card("p1", ["v1", "w1"], bad as SavedProductCard["sizeDimensionsCm"])],
         [product],
@@ -117,7 +161,7 @@ describe("applyDimensionDerivedVolumeBrackets", () => {
   });
 
   it("removes the volume bracket when the item is larger than the top bracket", () => {
-    const [next] = applyDimensionDerivedVolumeBrackets([card("p1", ["w1"], dims(250, 250, 250))], [product]);
+    const [next] = applyDimensionDerivedVolumeBrackets([card("p1", ["w1"], dims(300, 300, 300))], [product]);
 
     expect(next.selectedExtraOptionIds).toEqual(["w1"]);
   });

@@ -20,7 +20,7 @@ the card and the order items (staff/drivers need the real size and weight);
 only the chargeable one has a price, the other is **waived** (priced 0).
 
 > **Update:** the customer no longer picks the volume bracket. They choose
-> width / height / length from preset choices and the volume is **calculated**
+> width / height / length (5–300 cm in 5 cm steps, on a ruler or typed) and the volume is **calculated**
 > from them (`sizeDimensions.ts`, see `size-dimensions.md`); the volume bracket
 > is derived from that m³ (server-side too). They still pick the weight bracket.
 

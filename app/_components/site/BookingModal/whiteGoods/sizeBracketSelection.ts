@@ -34,7 +34,7 @@ export function applySizeBracketSelection(
   );
 }
 
-// Sets one of the item's width / height / length (from the preset choices) on
+// Sets one of the item's width / height / length (5–300 cm, in 5 cm steps) on
 // this product's card and re-derives its volume bracket from the dimensions —
 // the volume is calculated, the customer never picks a volume bracket. Until
 // all three are chosen (or when the item is too big for any bracket) the card

@@ -9,8 +9,8 @@ import {
   resolveSizeBracketCharge,
 } from "@/lib/booking/pricing/sizeBrackets";
 import {
-  SIZE_DIMENSION_CHOICES_CM,
   calculateVolumeM3,
+  getVolumeBracketLimitsM3,
   isCompleteDimensions,
   type SizeDimensionsCm,
 } from "@/lib/booking/pricing/sizeDimensions";
@@ -20,6 +20,7 @@ import { sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
 // The card's own numbered heading, so these questions continue its sections
 // (Delivery, Installation, Additional services) at the same size.
 import { SectionHeader } from "./WhiteGoodsProductCard";
+import { DimensionRuler } from "./DimensionRuler";
 
 function optionLabel(locale: Locale, product: CatalogProduct, option: CatalogOption) {
   const seed = findWebsiteProductSeed(product.code)?.options.find((o) => o.code === option.code);
@@ -29,7 +30,7 @@ function optionLabel(locale: Locale, product: CatalogProduct, option: CatalogOpt
 
 
 // What a size-priced product asks for once it is selected: what the item is, its
-// width / height / length (preset choices — the volume is calculated from them,
+// width / height / length (5–300 cm in 5 cm steps, on a ruler or typed — the volume is calculated from them,
 // the customer never picks a volume) and its weight bracket. Over 1.5 m³ or
 // over 50 kg it's delivered as a large item (websiteSizeTier.ts), which the
 // summary at the bottom says.
@@ -84,6 +85,11 @@ export function SizeBracketPicker({
   const weightBracket = weightOptions.find((o) => selectedIds.includes(o.id)) ?? null;
   // All three chosen but no bracket fits: bigger than the top bracket.
   const tooLarge = complete && !volumeBracket;
+  // The volume meter's scale: where small ends, and the most bookable online.
+  const volumeLimits = getVolumeBracketLimitsM3(product);
+  const maxM3 = volumeLimits.at(-1) ?? null;
+  const smallLimitM3 = volumeLimits.length > 1 ? volumeLimits[0] : null;
+  const m3 = (value: number) => Number(value.toFixed(3)).toLocaleString("nb-NO");
 
   // Over 1.5 m³ or over 50 kg — either one — it's delivered as a large item
   // (websiteSizeTier.ts); the delivery options above show what that costs.
@@ -128,67 +134,77 @@ export function SizeBracketPicker({
           <SectionHeader
             step={firstStep + 1}
             title={t("How big is it?", "Hvor stor er den?")}
-            subtitle={t("Pick the closest size in centimetres — we work out the volume.", "Velg nærmeste mål i centimeter — vi beregner volumet.")}
+            subtitle={t(
+              "Drag each line to the size in centimetres, or type it in the box — we work out the volume.",
+              "Dra hver linje til målet i centimeter, eller skriv det i boksen — vi beregner volumet.",
+            )}
           />
-          <div className="flex flex-col gap-3 rounded-xl bg-black/[0.03] p-3">
-            {axes.map((axis) => {
-              const current = dimensions?.[axis.key] ?? null;
-              return (
-                <div key={axis.key} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
-                  <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-black/50">{axis.label}</span>
-                  <div role="group" aria-label={`${axis.label} (cm)`} className="flex flex-wrap gap-1.5">
-                    {SIZE_DIMENSION_CHOICES_CM.map((cm) => {
-                      const selected = current === cm;
-                      return (
-                        <button
-                          key={cm}
-                          type="button"
-                          aria-pressed={selected}
-                          onClick={() => onSelectDimension(product, axis.key, cm)}
-                          className={[
-                            "h-9 min-w-11 rounded-lg border px-2 text-sm font-medium tabular-nums transition",
-                            selected
-                              ? "border-logoblue bg-logoblue text-white shadow-sm"
-                              : "border-black/10 bg-white text-black/75 hover:border-logoblue/40 hover:text-black",
-                          ].join(" ")}
-                        >
-                          {cm}
-                        </button>
-                      );
-                    })}
-                    <span className="self-center pl-1 text-xs text-black/40">cm</span>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="flex flex-col gap-3">
+            {axes.map((axis) => (
+              <DimensionRuler
+                key={axis.key}
+                label={axis.label}
+                valueCm={dimensions?.[axis.key] ?? null}
+                onChange={(cm) => onSelectDimension(product, axis.key, cm)}
+              />
+            ))}
 
+            {/* Volume meter: fills up to the most bookable online, with a
+                mark where a small item ends. */}
             <div
               aria-live="polite"
               className={[
-                "flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-sm",
+                "rounded-lg border px-3 py-2.5 text-sm",
                 tooLarge ? "border-red-200 bg-red-50" : "border-black/10 bg-white",
               ].join(" ")}
             >
-              {volumeM3 === null ? (
-                <span className="text-black/50">{t("Volume is calculated from the size.", "Volumet beregnes fra størrelsen.")}</span>
-              ) : tooLarge ? (
-                <span className="font-semibold text-red-600">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-black/60">
+                  {t("Volume", "Volum")}{" "}
+                  <span className={["font-semibold tabular-nums", tooLarge ? "text-red-600" : "text-black/85"].join(" ")}>
+                    {volumeM3 === null ? "–" : m3(volumeM3)} m³
+                  </span>
+                  {volumeBracket && (
+                    <span className="ml-1 text-black/50">
+                      · {volumeBracket.weightClass === "HEAVY" ? t("large item", "stor vare") : t("small item", "liten vare")}
+                    </span>
+                  )}
+                </span>
+                <span className="flex items-baseline gap-2 whitespace-nowrap">
+                  {volumeBracket && priced(volumeBracket) && (
+                    <span className="font-semibold text-black/70">{money(volumeBracket.customerPrice)}</span>
+                  )}
+                  {maxM3 !== null && <span className="text-xs text-black/45">{t("max", "maks")} {m3(maxM3)} m³</span>}
+                </span>
+              </div>
+
+              {maxM3 !== null && (
+                <div aria-hidden className="relative mt-2.5 mb-4">
+                  <div className="h-2 overflow-hidden rounded-full bg-black/10">
+                    <div
+                      className={[
+                        "h-full rounded-full transition-[width] duration-300",
+                        tooLarge ? "bg-red-500" : volumeBracket?.weightClass === "HEAVY" ? "bg-logoblue" : "bg-logoblue/60",
+                      ].join(" ")}
+                      style={{ width: `${Math.min(1, (volumeM3 ?? 0) / maxM3) * 100}%` }}
+                    />
+                  </div>
+                  {smallLimitM3 !== null && (
+                    <div className="absolute top-0 flex -translate-x-1/2 flex-col items-center" style={{ left: `${(smallLimitM3 / maxM3) * 100}%` }}>
+                      <span className="-mt-0.5 h-3 w-0.5 rounded-full bg-black/35" />
+                      <span className="mt-0.5 whitespace-nowrap text-[10px] leading-none text-black/40">{m3(smallLimitM3)} m³</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {tooLarge && (
+                <p className="font-semibold text-red-600">
                   {t(
                     "Too large to book online — contact us for a quote.",
                     "For stor til å bestille på nett — kontakt oss for et tilbud.",
                   )}
-                </span>
-              ) : (
-                <>
-                  <span className="text-black/60">
-                    {t("Volume", "Volum")}{" "}
-                    <span className="font-semibold text-black/85">{Number(volumeM3.toFixed(3)).toLocaleString("nb-NO")} m³</span>
-                    {volumeBracket && <span className="ml-1 text-black/50">· {optionLabel(locale, product, volumeBracket)}</span>}
-                  </span>
-                  {volumeBracket && priced(volumeBracket) && (
-                    <span className="whitespace-nowrap font-semibold text-black/70">{money(volumeBracket.customerPrice)}</span>
-                  )}
-                </>
+                </p>
               )}
             </div>
           </div>

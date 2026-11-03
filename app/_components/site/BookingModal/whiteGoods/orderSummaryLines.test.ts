@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildOrderAdjustmentLines, sortSummaryLines } from "./orderSummaryLines";
+import { buildOrderAdjustmentLines, dropFreeSizeBracketLines, sortSummaryLines } from "./orderSummaryLines";
 
 const line = (label: string, category: "delivery" | "install" | "other") => ({
   label,
@@ -37,5 +37,26 @@ describe("buildOrderAdjustmentLines", () => {
 
   it("adds nothing without adjustments", () => {
     expect(buildOrderAdjustmentLines({ discount: 0, extra: 0 }, "no")).toEqual([]);
+  });
+});
+
+describe("dropFreeSizeBracketLines", () => {
+  const product = {
+    options: [
+      { code: "OF_VOL_LG", category: "size_volume" },
+      { code: "OF_WT_LG", category: "size_weight" },
+      { code: "UNPACKING", category: "extra" },
+    ],
+  };
+  const priced = (code: string, lineTotal: number) => ({ code, lineTotal });
+
+  it("leaves out the size brackets the calculator charges nothing for (Opptil 4 m³, Over 50 kg)", () => {
+    const lines = [priced("INDOOR", 1344), priced("OF_VOL_LG", 0), priced("OF_WT_LG", 0), priced("UNPACKING", 0)];
+    expect(dropFreeSizeBracketLines(lines, product).map((l) => l.code)).toEqual(["INDOOR", "UNPACKING"]);
+  });
+
+  it("keeps a size bracket staff have priced — it's a real charge", () => {
+    const lines = [priced("OF_VOL_LG", 200), priced("OF_WT_LG", 0)];
+    expect(dropFreeSizeBracketLines(lines, product).map((l) => l.code)).toEqual(["OF_VOL_LG"]);
   });
 });

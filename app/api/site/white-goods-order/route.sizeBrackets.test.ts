@@ -105,10 +105,10 @@ describe("POST /api/site/white-goods-order — size brackets", () => {
     expect(res.status).toBe(422);
   });
 
-  it("rejects dimensions that aren't one of the preset choices", async () => {
+  it("rejects dimensions outside 5–300 cm or between 5 cm steps", async () => {
     const res = await post({
       ...validBody,
-      productCards: [{ ...baseCard, sizeDimensionsCm: { widthCm: 7, heightCm: 50, lengthCm: 50 }, selectedExtraOptionIds: ["wt-1"] }],
+      productCards: [{ ...baseCard, sizeDimensionsCm: { widthCm: 102, heightCm: 50, lengthCm: 50 }, selectedExtraOptionIds: ["wt-1"] }],
     });
 
     expect(res.status).toBe(422);

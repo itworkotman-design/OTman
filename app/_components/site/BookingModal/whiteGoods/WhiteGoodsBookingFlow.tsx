@@ -75,7 +75,7 @@ import {
   getSizeDimensions,
 } from "./sizeBracketSelection";
 import { previewCardDeliveryOptions } from "./deliveryPricePreview";
-import { buildOrderAdjustmentLines, sortSummaryLines } from "./orderSummaryLines";
+import { buildOrderAdjustmentLines, dropFreeSizeBracketLines, sortSummaryLines } from "./orderSummaryLines";
 import { categorizeWhiteGoodsLineCode } from "@/lib/content/whiteGoodsLineCategory";
 import { OrderDetailsCard } from "./OrderDetailsCard";
 import { isOrderDetailsStepReady } from "./orderDetailsReady";
@@ -817,7 +817,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
         if (!product) return null;
         const breakdown = pricing.breakdowns.find((b) => b.cardId === card.cardId);
         const lines = sortSummaryLines(
-          (breakdown?.lines ?? []).map((line) => ({
+          dropFreeSizeBracketLines(breakdown?.lines ?? [], product).map((line) => ({
             label: websiteSummaryLineLabel(line, locale),
             price: line.lineTotal,
             qty: line.qty,

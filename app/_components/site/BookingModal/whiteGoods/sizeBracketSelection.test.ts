@@ -116,9 +116,10 @@ describe("applySizeDimension", () => {
     expect(cards[0].selectedExtraOptionIds).toEqual([]);
   });
 
-  it("ignores a value that isn't one of the preset choices, and cards it doesn't belong to", () => {
+  it("ignores a value outside 5–300 cm or between 5 cm steps, and cards it doesn't belong to", () => {
     const cards = [card("p1")];
-    expect(applySizeDimension(cards, sized, "widthCm", 7)).toBe(cards);
+    expect(applySizeDimension(cards, sized, "widthCm", 305)).toBe(cards);
+    expect(applySizeDimension(cards, sized, "widthCm", 12)).toBe(cards);
 
     const other = [card("p2")];
     expect(applySizeDimension(other, sized, "widthCm", 100)).toBe(other);

@@ -2,7 +2,7 @@ import type { CatalogProduct, SavedProductCard } from "@/app/_components/Dahsboa
 import { SIZE_VOLUME_CATEGORY } from "@/lib/booking/pricing/sizeBrackets";
 
 // Size-priced products (website furniture "Other furniture"): the customer
-// picks width, height and length from preset choices, the volume (m³) is
+// sets width, height and length in 5 cm steps, the volume (m³) is
 // calculated from them, and that volume selects one of the volume brackets
 // (lib/booking/pricing/sizeBrackets.ts) — so the pricing engines only ever see
 // a bracket id, exactly as before. The customer picks the weight bracket
@@ -15,10 +15,15 @@ import { SIZE_VOLUME_CATEGORY } from "@/lib/booking/pricing/sizeBrackets";
 
 export type SizeDimensionsCm = { widthCm: number; heightCm: number; lengthCm: number };
 
-// The preset choices for each of width, height and length (cm). Placeholders —
-// business content nobody has supplied yet; a value outside this list is
-// rejected server-side, so this is the whole range a customer can price.
-export const SIZE_DIMENSION_CHOICES_CM = [20, 40, 50, 60, 80, 100, 120, 150, 200, 250] as const;
+// Width, height and length are each set in 5 cm steps in this range — dragged
+// on a ruler or typed in (DimensionRuler). Anything else is rejected
+// server-side, so this is the whole range a customer can price.
+export const SIZE_DIMENSION_STEP_CM = 5;
+export const SIZE_DIMENSION_MIN_CM = 5;
+export const SIZE_DIMENSION_MAX_CM = 300;
+
+// The faint "about this many cm" marks behind the ruler.
+export const SIZE_DIMENSION_SCALE_MARKS_CM = [50, 100, 150, 200, 250, 300] as const;
 
 // Largest volume (m³) each volume bracket covers, keyed by option code. Up to
 // 1.5 m³ is a small item, above it a large one (websiteSizeTier.ts).
@@ -29,7 +34,23 @@ export const VOLUME_BRACKET_MAX_M3: Record<string, number> = {
 };
 
 export function isAllowedDimensionCm(value: unknown): value is number {
-  return typeof value === "number" && (SIZE_DIMENSION_CHOICES_CM as readonly number[]).includes(value);
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value % SIZE_DIMENSION_STEP_CM === 0 &&
+    value >= SIZE_DIMENSION_MIN_CM &&
+    value <= SIZE_DIMENSION_MAX_CM
+  );
+}
+
+// What the customer typed into a dimension's box ("120", "85 cm", "12,6"):
+// rounded to the nearest 5 cm step and clamped to the ruler's range. Null when
+// there's no number.
+export function parseTypedDimensionCm(text: string): number | null {
+  const match = text.replace(",", ".").match(/\d+(\.\d+)?/);
+  if (!match) return null;
+  const cm = Math.round(Number(match[0]) / SIZE_DIMENSION_STEP_CM) * SIZE_DIMENSION_STEP_CM;
+  return Math.min(SIZE_DIMENSION_MAX_CM, Math.max(SIZE_DIMENSION_MIN_CM, cm));
 }
 
 export function isCompleteDimensions(value: Partial<SizeDimensionsCm> | null | undefined): value is SizeDimensionsCm {
@@ -42,7 +63,7 @@ export function isCompleteDimensions(value: Partial<SizeDimensionsCm> | null | u
 }
 
 // cm x cm x cm -> m³ (1 m³ = 1,000,000 cm³). Integer cm inputs keep this exact
-// for every preset combination.
+// for any combination.
 export function calculateVolumeM3(dimensions: SizeDimensionsCm): number {
   return (dimensions.widthCm * dimensions.heightCm * dimensions.lengthCm) / 1_000_000;
 }
@@ -56,6 +77,12 @@ function volumeBrackets(product: VolumeProductLike) {
     .sort((a, b) => a.maxM3 - b.maxM3);
 }
 
+// The product's volume bracket limits (m³), smallest first — for the volume
+// meter: the first is where small ends, the last the most bookable online.
+export function getVolumeBracketLimitsM3(product: VolumeProductLike): number[] {
+  return volumeBrackets(product).map((bracket) => bracket.maxM3);
+}
+
 // The smallest volume bracket the volume fits in (a volume equal to a limit
 // fits that bracket); null when it is larger than the top one.
 export function findVolumeBracketOptionId(product: VolumeProductLike, volumeM3: number): string | null {
@@ -64,8 +91,8 @@ export function findVolumeBracketOptionId(product: VolumeProductLike, volumeM3: 
 
 // Makes each size-priced card's volume bracket the one its dimensions imply.
 // The client sends both, but the bracket is only ever DERIVED here — a claimed
-// bracket that doesn't match (or dimensions that are missing, aren't one of the
-// preset choices, or are too big) is dropped, never trusted, since a small
+// bracket that doesn't match (or dimensions that are missing, outside the
+// 5–300 cm range / 5 cm steps, or too big) is dropped, never trusted, since a small
 // bracket with big dimensions would dodge the charge. A card left without a
 // volume bracket then fails the size-bracket check (see sizeBrackets.ts).
 export function applyDimensionDerivedVolumeBrackets(
