@@ -65,6 +65,7 @@ import {
   nextCardId,
   removeProductCard,
 } from "./productQuantity";
+import { cascadeFirstCardDelivery } from "./deliveryCascade";
 import { getCalculatorProductName, getSummaryProductTitle } from "./productDisplayName";
 import { localizeWebsiteLineLabel, websiteSummaryLineLabel } from "@/lib/content/websiteLineLabels";
 import {
@@ -159,6 +160,12 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   // "No, continue" answered on "any other products?" — holds back the steps
   // after it until then. Asked again after a category is added.
   const [declinedMoreProducts, setDeclinedMoreProducts] = useState(false);
+  // The first card's delivery change cascading to its list's other cards
+  // (deliveryCascade.ts): the cards the customer has changed something on —
+  // a choice there is never overridden — and the lists it has already run for
+  // (once per list).
+  const [editedCardIds, setEditedCardIds] = useState<number[]>([]);
+  const [deliveryCascadedListCodes, setDeliveryCascadedListCodes] = useState<string[]>([]);
   const catalogProducts = useMemo(
     () => chosenListCodes.flatMap((code) => loadedProducts[code] ?? []),
     [chosenListCodes, loadedProducts],
@@ -668,25 +675,51 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
 
   const remainingLists = filterUnusedLists(availableLists, chosenListCodes);
 
-  function updateCard(cardId: number, next: SavedProductCard) {
-    setProductCards((cards) => cards.map((c) => (c.cardId === cardId ? next : c)));
+  function markCardsEdited(cardIds: number[]) {
+    setEditedCardIds((ids) => (cardIds.every((id) => ids.includes(id)) ? ids : [...new Set([...ids, ...cardIds])]));
   }
+  function updateCard(cardId: number, next: SavedProductCard) {
+    const updated = productCards.map((c) => (c.cardId === cardId ? next : c));
+    const previous = productCards.find((c) => c.cardId === cardId);
+    const listCode = next.productId ? listCodeByProductId[next.productId] : undefined;
+    // A new order's first card of a list changing delivery type sets it for
+    // the list's untouched cards too — once per list (deliveryCascade.ts).
+    const cascaded =
+      !customer && listCode && previous && previous.deliveryType !== next.deliveryType && !deliveryCascadedListCodes.includes(listCode)
+        ? cascadeFirstCardDelivery({
+            cards: updated,
+            changedCardId: cardId,
+            listProducts: loadedProducts[listCode] ?? [],
+            editedCardIds,
+            locale,
+          })
+        : null;
+    if (cascaded && listCode) setDeliveryCascadedListCodes((codes) => [...codes, listCode]);
+    setProductCards(cascaded ?? updated);
+    markCardsEdited([cardId]);
+  }
+  const productCardIds = (product: CatalogProduct) =>
+    productCards.filter((c) => c.productId === product.id).map((c) => c.cardId);
   function setProductQuantity(productId: string, amount: number) {
     const deliveryTypes = catalogProducts.find((p) => p.id === productId)?.deliveryTypes;
     setProductCards((cards) => applyProductQuantity(cards, productId, amount, nextCardId(cards), deliveryTypes));
   }
   // Volume / weight for size-priced products (Other furniture), chosen in the
   // product tile itself.
+  // These are edits to the item's card, like any choice made on it.
   function selectSizeBracket(product: CatalogProduct, optionId: string) {
     setProductCards((cards) => applySizeBracketSelection(cards, product, optionId));
+    markCardsEdited(productCardIds(product));
   }
   // What the size-priced item is (Other furniture), in the customer's words.
   function changeItemName(product: CatalogProduct, name: string) {
     setProductCards((cards) => applyItemName(cards, product, name));
+    markCardsEdited(productCardIds(product));
   }
   // Width / height / length: the volume bracket is calculated from them.
   function selectSizeDimension(product: CatalogProduct, axis: "widthCm" | "heightCm" | "lengthCm", valueCm: number) {
     setProductCards((cards) => applySizeDimension(cards, product, axis, valueCm));
+    markCardsEdited(productCardIds(product));
   }
 
   function addAnotherCard(productId: string) {

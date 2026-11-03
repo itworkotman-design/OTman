@@ -13,15 +13,14 @@ import { dropExtrasMissingRequirement, isExtraOptionAllowed } from "@/lib/conten
 import type { FurnitureOptionSeed } from "@/lib/content/furnitureCatalog";
 import { findWebsiteProductSeed } from "@/lib/content/websiteCatalogs";
 import { isAssemblyCompatibleExtraCode } from "@/lib/booking/pricing/websiteAssemblyExtras";
-import { isSizeBracketCategory } from "@/lib/booking/pricing/sizeBrackets";
 import { websiteReturnDisplayPrice } from "@/lib/booking/pricing/websiteWeightClass";
 import {
   groupAssemblyOptions,
   groupDismantlingOptions,
-  pickDefaultInstallOptionId,
   toggleDismantlingSelection,
   toggleDismantlingEnabled,
 } from "./optionGroups";
+import { cardWithDeliveryType } from "./deliveryCascade";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
 import { ProductIcon } from "./productIcons";
 import { HoverTip, InfoHint } from "./InfoHint";
@@ -260,11 +259,6 @@ export function WhiteGoodsProductCard({
     return isInstallAddOnAllowed(o.code, selectedTypeCode) || value.selectedInstallOptionIds.includes(o.id);
   });
 
-  // Size-priced products (Other furniture) get their volume and weight chosen in
-  // the "Choose products" tile (WhiteGoodsProductGrid). They live in
-  // selectedExtraOptionIds, so changing delivery type below must not clear them.
-  const sizeOptionIds = product.options.filter((o) => isSizeBracketCategory(o.category)).map((o) => o.id);
-
   const unpackingOption =
     product.options.find((o) => o.code === "UNPACKING") ?? null;
   const demontOption = product.options.find((o) => o.code === "DEMONT") ?? null;
@@ -364,22 +358,10 @@ export function WhiteGoodsProductCard({
   });
   const extrasStepNumber = showInstallStep ? 3 : 2;
 
-  // Installation only can never be left with nothing to install: picking it
-  // starts with the first installation option, and it can't be cleared.
-  const defaultInstallOptionId = pickDefaultInstallOptionId({ assemblyGroups, typeOptions });
-
+  // Changing delivery clears the add-ons (not the item's size/weight) — the
+  // same change the flow cascades to a list's other cards (deliveryCascade.ts).
   function setDeliveryType(next: SavedProductCard["deliveryType"]) {
-    emit({
-      ...value,
-      deliveryType: next,
-      selectedInstallOptionIds:
-        next === "INSTALL_ONLY" && defaultInstallOptionId ? [defaultInstallOptionId] : [],
-      // Changing delivery clears the add-ons, but the item's size/weight
-      // describe the item itself and must survive.
-      selectedExtraOptionIds: value.selectedExtraOptionIds.filter((id) => sizeOptionIds.includes(id)),
-      selectedReturnOptionId: null,
-      demontEnabled: false,
-    });
+    emit(cardWithDeliveryType(value, product, next, locale));
   }
 
   // The company typed for "Other manufacturer" (kept in modelNumber) only
