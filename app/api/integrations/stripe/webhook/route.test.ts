@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   constructEventMock: vi.fn(),
   sendLifecycleEmailsForOrdersMock: vi.fn(),
   applyPaidChangeMock: vi.fn(),
+  welcomePaidBookingOrderMock: vi.fn(),
+  cancelUnpaidBookingOrderMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -35,6 +37,11 @@ vi.mock("@/lib/orders/sendCustomerLifecycleEmail", () => ({
 }));
 
 vi.mock("@/lib/customerAccounts/customerOrderPaidChange", () => ({ applyPaidChange: mocks.applyPaidChangeMock }));
+
+vi.mock("@/lib/orders/bookingCheckout", () => ({
+  welcomePaidBookingOrder: mocks.welcomePaidBookingOrderMock,
+  cancelUnpaidBookingOrder: mocks.cancelUnpaidBookingOrderMock,
+}));
 
 vi.mock("@/lib/stripe/stripeClient", () => ({
   getStripeClient: () => ({ webhooks: { constructEvent: mocks.constructEventMock } }),
@@ -108,7 +115,7 @@ describe("POST /api/integrations/stripe/webhook", () => {
     });
     expect(mocks.orderUpdateMock).toHaveBeenCalledWith({
       where: { id: "order1" },
-      data: { status: "confirmed", stripePaymentIntentId: "pi_test", stripeAmountChargedCents: 500000 },
+      data: { status: "confirmed", paymentStatus: "paid", stripePaymentIntentId: "pi_test", stripeAmountChargedCents: 500000 },
     });
     expect(mocks.createOrderStatusChangedEventMock).toHaveBeenCalledWith(
       expect.anything(),
@@ -216,7 +223,7 @@ describe("POST /api/integrations/stripe/webhook", () => {
     expect(res.status).toBe(200);
     expect(mocks.orderUpdateMock).toHaveBeenCalledWith({
       where: { id: "order1" },
-      data: { status: undefined, stripePaymentIntentId: "pi_test", stripeAmountChargedCents: 800000 },
+      data: { status: undefined, paymentStatus: "paid", stripePaymentIntentId: "pi_test", stripeAmountChargedCents: 800000 },
     });
     expect(mocks.createOrderStatusChangedEventMock).not.toHaveBeenCalled();
     expect(mocks.createOrderActionEventMock).toHaveBeenCalledWith(
@@ -245,5 +252,93 @@ describe("POST /api/integrations/stripe/webhook", () => {
     expect(mocks.orderUpdateMock.mock.calls[0][0].data.status).toBeUndefined();
     expect(mocks.createOrderStatusChangedEventMock).not.toHaveBeenCalled();
     expect(mocks.sendLifecycleEmailsForOrdersMock).not.toHaveBeenCalled();
+  });
+
+  describe("paid at booking (homepage checkout)", () => {
+    const awaitingOrder = {
+      id: "order1",
+      companyId: "company1",
+      status: "processing",
+      paymentStatus: "pending",
+      payments: [],
+      email: "customer@example.com",
+      actionToken: "a".repeat(32),
+      extraPickupAddress: [],
+    };
+
+    it("keeps the order processing for staff, marks it paid, and only now welcomes the customer", async () => {
+      mocks.orderFindUniqueMock.mockResolvedValue(awaitingOrder);
+      mocks.recordOrderPaymentMock.mockResolvedValue({ id: "payment1" });
+      mocks.orderPaymentFindManyMock.mockResolvedValue([{ amountChargedCents: 500000 }]);
+
+      const res = await POST(webhookRequest(checkoutSessionCompletedEvent({ metadata: { orderId: "order1", chargeKind: "booking" } })));
+
+      expect(res.status).toBe(200);
+      expect(mocks.orderUpdateMock).toHaveBeenCalledWith({
+        where: { id: "order1" },
+        data: { status: undefined, paymentStatus: "paid", stripePaymentIntentId: "pi_test", stripeAmountChargedCents: 500000 },
+      });
+      expect(mocks.createOrderStatusChangedEventMock).not.toHaveBeenCalled();
+      expect(mocks.createOrderActionEventMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ orderId: "order1", title: "Payment received via Stripe" }),
+      );
+      expect(mocks.welcomePaidBookingOrderMock).toHaveBeenCalledWith("order1");
+      // The order isn't confirmed yet: no order-confirmed email.
+      expect(mocks.sendLifecycleEmailsForOrdersMock).not.toHaveBeenCalled();
+    });
+
+    it("still returns 200 when welcoming the customer fails (the payment is recorded)", async () => {
+      mocks.orderFindUniqueMock.mockResolvedValue(awaitingOrder);
+      mocks.recordOrderPaymentMock.mockResolvedValue({ id: "payment1" });
+      mocks.orderPaymentFindManyMock.mockResolvedValue([{ amountChargedCents: 500000 }]);
+      mocks.welcomePaidBookingOrderMock.mockRejectedValue(new Error("Brevo down"));
+      vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const res = await POST(webhookRequest(checkoutSessionCompletedEvent({})));
+
+      expect(res.status).toBe(200);
+    });
+
+    it("a later payment on a processing order that is already paid neither confirms it nor welcomes again", async () => {
+      mocks.orderFindUniqueMock.mockResolvedValue({ ...awaitingOrder, paymentStatus: "paid", payments: [{ id: "payment1" }] });
+      mocks.recordOrderPaymentMock.mockResolvedValue({ id: "payment2" });
+      mocks.orderPaymentFindManyMock.mockResolvedValue([{ amountChargedCents: 500000 }, { amountChargedCents: 20000 }]);
+
+      await POST(webhookRequest(checkoutSessionCompletedEvent({ amount_total: 20000 })));
+
+      expect(mocks.orderUpdateMock.mock.calls[0][0].data.status).toBeUndefined();
+      expect(mocks.welcomePaidBookingOrderMock).not.toHaveBeenCalled();
+      expect(mocks.createOrderActionEventMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ title: expect.stringMatching(/additional payment/i) }),
+      );
+    });
+
+    function expiredEvent(metadata: Record<string, string>) {
+      return { type: "checkout.session.expired", data: { object: { id: "cs_old", metadata } } };
+    }
+
+    it("cancels the order when its booking checkout expires unpaid", async () => {
+      mocks.orderFindUniqueMock.mockResolvedValue({ ...awaitingOrder, displayId: 20012, stripeCheckoutSessionId: "cs_old" });
+      mocks.cancelUnpaidBookingOrderMock.mockResolvedValue(true);
+
+      const res = await POST(webhookRequest(expiredEvent({ orderId: "order1", chargeKind: "booking" })));
+
+      expect(res.status).toBe(200);
+      expect(mocks.cancelUnpaidBookingOrderMock).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "order1" }),
+        expect.objectContaining({ sessionId: "cs_old" }),
+      );
+    });
+
+    it("ignores an expired session that isn't a booking checkout, or isn't the order's latest one", async () => {
+      mocks.orderFindUniqueMock.mockResolvedValue({ ...awaitingOrder, stripeCheckoutSessionId: "cs_newer" });
+
+      await POST(webhookRequest(expiredEvent({ orderId: "order1", chargeKind: "initial" })));
+      await POST(webhookRequest(expiredEvent({ orderId: "order1", chargeKind: "booking" })));
+
+      expect(mocks.cancelUnpaidBookingOrderMock).not.toHaveBeenCalled();
+    });
   });
 });

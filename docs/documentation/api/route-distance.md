@@ -15,3 +15,5 @@ Calculates the ordered driving distance for pickup, extra pickups, delivery, and
 | `toOptionalString` | Normalizes unknown request values to strings for single-address fields. |
 | `toStringArray` | Filters the extra-pickup input down to a string array. |
 | `POST` | Validates the session, normalizes the request body, calculates the Mapbox route distance, and returns the computed kilometer string and ordered stops. |
+
+The public `app/api/site/route-distance/route.ts`, which serves the homepage flows' live price, answers through `getCachedRouteDistance`, so the order booked from that price reuses the same distance. See `docs/documentation/integrations/mapbox-route-distance-cache.md`.

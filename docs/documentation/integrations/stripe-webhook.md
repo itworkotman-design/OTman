@@ -29,3 +29,10 @@ A session with `metadata.pendingChangeId` is a customer paying for a "My order" 
 - `handleCheckoutSessionCompleted(session)` — the logic above.
 - `POST` — signature verification, dispatches to the handler above for
   `checkout.session.completed`; all other event types are ignored (200 OK).
+
+## Paid at booking (`HOMEPAGE_PAYMENT_MODE=stripe`)
+See `docs/documentation/lib/booking-payment.md`. Every recorded payment sets `Order.paymentStatus = "paid"`. A payment on a `processing` order never confirms it: staff do. The first one on an order awaiting its booking payment (`isAwaitingBookingPayment`) logs "Payment received via Stripe" and calls `welcomePaidBookingOrder` (staff alert + "My order" login + order-received email, best-effort). A later one logs an additional payment.
+
+`checkout.session.expired` is handled too: a session with `metadata.chargeKind === "booking"` that is still the order's `stripeCheckoutSessionId`, on an order still awaiting payment, cancels the order (`cancelUnpaidBookingOrder`). Other expired sessions are ignored. **The Stripe webhook endpoint must subscribe to both `checkout.session.completed` and `checkout.session.expired`.**
+
+- `handleCheckoutSessionExpired(session)` — the expiry logic above.

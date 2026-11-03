@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getRouteDistance } from "@/lib/integrations/mapbox/routeDistance";
+import { getCachedRouteDistance } from "@/lib/integrations/mapbox/routeDistanceCache";
 
 const _rl = { lastAt: 0 };
 
@@ -35,8 +35,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = await getRouteDistance({ pickupAddress, extraPickupAddresses, deliveryAddress });
-    return NextResponse.json({ ok: true, distanceKm: result?.distanceKm ?? "" });
+    // Remembered, so the order booked from this price reuses this distance
+    // (white-goods-order, moving-request).
+    const distanceKm = await getCachedRouteDistance({ pickupAddress, extraPickupAddresses, deliveryAddress });
+    return NextResponse.json({ ok: true, distanceKm });
   } catch (error) {
     const reason = error instanceof Error && error.message ? error.message : "ROUTE_DISTANCE_FAILED";
     const status = reason === "MAPBOX_ACCESS_TOKEN_MISSING" ? 500 : 502;

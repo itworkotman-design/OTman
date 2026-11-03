@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   orderCreate: vi.fn(),
   orderItemCreateMany: vi.fn(),
   getWebsiteOrderCatalog: vi.fn(),
+  getRouteDistance: vi.fn(async () => ({ distanceKm: "171.12", stopAddresses: [] })),
   promotePendingQuoteAttachments: vi.fn(),
   linkPendingQuoteAttachments: vi.fn(),
   pendingQuoteAttachmentFindMany: vi.fn(),
@@ -26,6 +27,8 @@ vi.mock("@/lib/orders/orderNumber", () => ({ reserveNextManualOrderNumber: vi.fn
 vi.mock("@/lib/orders/publicOrderNumber", () => ({ reservePublicOrderNumber: vi.fn().mockResolvedValue("G8SMMP58") }));
 vi.mock("@/lib/orders/orderEvents", () => ({ createOrderCreatedEvent: vi.fn(), buildOrderEventSnapshot: vi.fn() }));
 vi.mock("@/lib/orders/orderNotifications", () => ({ createOrderNotification: vi.fn() }));
+// The km charge comes from the server's own Mapbox lookup, never from the request.
+vi.mock("@/lib/integrations/mapbox/routeDistance", () => ({ getRouteDistance: mocks.getRouteDistance }));
 vi.mock("@/lib/orders/orderAttachmentStorage", () => ({ promoteTempAttachmentToOrders: vi.fn() }));
 vi.mock("@/lib/orders/pendingQuoteAttachments", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/orders/pendingQuoteAttachments")>()),

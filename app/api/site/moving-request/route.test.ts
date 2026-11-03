@@ -264,6 +264,7 @@ describe("POST /api/site/moving-request — driving distance", () => {
 
     expect(mocks.getRouteDistanceMock).toHaveBeenCalledWith({
       pickupAddress: validBody.pickupAddress,
+      extraPickupAddresses: [],
       deliveryAddress: validBody.deliveryAddress,
     });
   });

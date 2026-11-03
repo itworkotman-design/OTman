@@ -45,6 +45,10 @@ import {
   promotePendingQuoteAttachments,
 } from "@/lib/orders/pendingQuoteAttachments";
 import { PICKUP_DOCUMENT_SOURCE, stopsMissingPickupDocument, storePickupStopIndexes } from "@/lib/orders/pickupDocuments";
+import { isManualPaymentMode } from "@/lib/orders/paymentMode";
+import { createOrderActionToken } from "@/lib/orders/orderActionToken";
+import { startBookingCheckout } from "@/lib/orders/bookingCheckout";
+import { lookUpWebsiteDrivingDistance } from "@/lib/orders/websiteDrivingDistance";
 
 // Independent from transport-request's rate limiter by design — a separate
 // public order-creation flow gets its own budget rather than sharing state
@@ -144,9 +148,16 @@ class SizeBracketSelectionError extends Error {
   }
 }
 
+class PaymentStartError extends Error {}
+
+// With Stripe (HOMEPAGE_PAYMENT_MODE=stripe) the customer pays as they book:
+// the order is saved unpaid and `checkoutUrl` is where the browser goes next.
+// Staff and the customer hear about it once the payment lands (Stripe webhook,
+// lib/orders/bookingCheckout.ts).
 async function createWhiteGoodsOrder(
   body: RequestBody,
-): Promise<{ orderId: string; displayId: number; orderNumber: string | null }> {
+): Promise<{ orderId: string; displayId: number; orderNumber: string | null; checkoutUrl?: string }> {
+  const payAtBooking = !isManualPaymentMode();
   const membershipId = process.env.WEBSITE_MEMBERSHIP_ID;
   if (!membershipId) throw new Error("WEBSITE_MEMBERSHIP_ID not configured");
 
@@ -212,7 +223,6 @@ async function createWhiteGoodsOrder(
     catalog.priceListSettings,
   );
 
-  const drivingDistanceStr = str(body.drivingDistance) ?? "";
   const expressDelivery = body.expressDelivery === true;
   // A store pickup never asks for a floor/lift on the client — stores always
   // have loading access — so the pickup leg is authoritatively treated as
@@ -235,6 +245,16 @@ async function createWhiteGoodsOrder(
             .filter((a): a is string => typeof a === "string" && a.trim().length > 0)
             .map((address) => ({ address }))
         : [];
+
+  // The km charge's distance, through the same stops the flow routed (pickup,
+  // extra pickups, delivery) — looked up here, never taken from the request,
+  // and normally the very distance the customer's price was shown with
+  // (lib/orders/websiteDrivingDistance.ts).
+  const drivingDistanceStr = await lookUpWebsiteDrivingDistance({
+    pickupAddress: str(body.pickupAddress) ?? "",
+    extraPickupAddresses: extraPickupsForPricing.map((pickup) => pickup.address),
+    deliveryAddress: str(body.deliveryAddress) ?? "",
+  });
 
   // THE price — the same function the customer's summary used
   // (priceWebsiteOrder), so the total below is the one they were shown.
@@ -409,6 +429,8 @@ async function createWhiteGoodsOrder(
       })) as unknown as Prisma.InputJsonValue,
       pricingSnapshot: pricingSnapshot as unknown as Prisma.InputJsonValue,
       ...summaries,
+      // The token backs the payment page Stripe returns to (/betaling/[token]).
+      ...(payAtBooking ? { paymentStatus: "pending", actionToken: createOrderActionToken() } : {}),
     },
   });
 
@@ -463,6 +485,12 @@ async function createWhiteGoodsOrder(
       ...summaries,
     }),
   });
+
+  if (payAtBooking) {
+    const checkout = await startBookingCheckout(order);
+    if (!checkout.ok) throw new PaymentStartError();
+    return { orderId: order.id, displayId: order.displayId, orderNumber: order.orderNumber, checkoutUrl: checkout.url };
+  }
 
   const catalogLabels =
     [
@@ -614,6 +642,9 @@ export async function POST(req: Request) {
     const result = await createWhiteGoodsOrder(body);
     return NextResponse.json({ ok: true, ...result }, { status: 200 });
   } catch (err) {
+    if (err instanceof PaymentStartError) {
+      return NextResponse.json({ ok: false, reason: "PAYMENT_START_FAILED" }, { status: 502 });
+    }
     if (err instanceof ShownTotalRequiredError) {
       return NextResponse.json({ ok: false, reason: "SHOWN_TOTAL_REQUIRED" }, { status: 400 });
     }

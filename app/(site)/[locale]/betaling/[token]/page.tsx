@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getOrderByActionToken, isOrderPayable, isTopUpPayable } from "@/lib/orders/publicOrderAccess";
+import { isAwaitingBookingPayment } from "@/lib/orders/bookingPayment";
 import { getOrderChargeAmountIncVatNok, getOrderRemainingBalanceIncVatNok } from "@/lib/orders/orderTotals";
 import { sumOrderPayments } from "@/lib/orders/orderPayments";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
@@ -17,6 +18,9 @@ const TEXT = {
     heading: "Betaling for din bestilling",
     notFound: "Fant ikke bestillingen. Sjekk lenken, eller ta kontakt med oss.",
     alreadyConfirmed: "Denne bestillingen er allerede betalt. Takk!",
+    bookingPaid: "Takk! Betalingen er mottatt, og bekreftelsen er sendt til e-posten din. Vi går gjennom bestillingen og bekrefter den snart.",
+    confirmingPayment: "Takk! Vi registrerer betalingen din. Oppdater siden om et øyeblikk.",
+    cancelled: "Denne bestillingen er kansellert. Ble ikke betalingen fullført, kan du bestille på nytt.",
     notPayable: "Denne bestillingen kan ikke betales akkurat nå. Ta kontakt med oss om du tror dette er feil.",
     balanceDueNotice: "Bestillingen din er oppdatert. Betal restbeløpet under for å bekrefte.",
     changesHeading: "Dette er endret siden du betalte",
@@ -33,6 +37,9 @@ const TEXT = {
     heading: "Payment for your order",
     notFound: "We couldn't find that order. Check the link, or contact us.",
     alreadyConfirmed: "This order has already been paid. Thank you!",
+    bookingPaid: "Thank you! Your payment was received, and the confirmation has been sent to your email. We will review the order and confirm it shortly.",
+    confirmingPayment: "Thank you! We are registering your payment. Refresh the page in a moment.",
+    cancelled: "This order has been cancelled. If the payment was not completed, you can book again.",
     notPayable: "This order can't be paid right now. Contact us if you think this is a mistake.",
     balanceDueNotice: "Your order was updated. Pay the remaining balance below to confirm.",
     changesHeading: "What changed since you paid",
@@ -70,7 +77,10 @@ export default async function OrderPaymentPage({
   }
 
   const normalizedStatus = normalizeOrderStatus(order.status);
-  const payable = isOrderPayable(order.status);
+  // Paid at booking (lib/orders/bookingPayment.ts): Stripe returns here.
+  const awaitingBookingPayment = isAwaitingBookingPayment(order);
+  const bookingPaid = normalizedStatus === "processing" && order.paymentStatus === "paid";
+  const payable = isOrderPayable(order.status) || awaitingBookingPayment;
   const amountIncVat = getOrderChargeAmountIncVatNok(order);
   const totalPaidCents = sumOrderPayments(order.payments);
   const remainingBalanceIncVat = getOrderRemainingBalanceIncVatNok(order, totalPaidCents);
@@ -150,6 +160,13 @@ export default async function OrderPaymentPage({
           </>
         ) : normalizedStatus === "confirmed" ? (
           <p className="mt-6 text-sm font-medium text-green-700">{t.alreadyConfirmed}</p>
+        ) : bookingPaid ? (
+          <p className="mt-6 text-sm font-medium text-green-700">{t.bookingPaid}</p>
+        ) : normalizedStatus === "cancelled" ? (
+          <p className="mt-6 text-sm text-textColorThird">{t.cancelled}</p>
+        ) : awaitingBookingPayment && result === "success" ? (
+          // Stripe can send the customer back before its webhook lands.
+          <p className="mt-6 text-sm font-medium text-green-700">{t.confirmingPayment}</p>
         ) : !payable ? (
           <p className="mt-6 text-sm text-textColorThird">{t.notPayable}</p>
         ) : (

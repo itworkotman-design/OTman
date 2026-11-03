@@ -132,6 +132,19 @@ describe("POST /api/public/orders/[token]/checkout", () => {
     expect(res.status).toBe(409);
   });
 
+  it("lets a customer retry paying a homepage order that is still awaiting its booking payment, with a short-lived booking session", async () => {
+    mocks.getOrderByActionTokenMock.mockResolvedValue({ ...baseOrder, status: "processing", paymentStatus: "pending" });
+
+    const res = await call();
+
+    expect(res.status).toBe(200);
+    const createArgs = mocks.checkoutSessionsCreateMock.mock.calls[0][0];
+    expect(createArgs.line_items[0].price_data.unit_amount).toBe(125000);
+    expect(createArgs.metadata.chargeKind).toBe("booking");
+    expect(createArgs.expires_at).toBeTypeOf("number");
+    expect(mocks.orderUpdateMock).toHaveBeenCalledWith({ where: { id: "order1" }, data: { stripeCheckoutSessionId: "cs_new" } });
+  });
+
   it("requires a customer email", async () => {
     mocks.getOrderByActionTokenMock.mockResolvedValue({ ...baseOrder, status: "approved", email: null });
 

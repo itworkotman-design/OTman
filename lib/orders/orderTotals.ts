@@ -182,7 +182,7 @@ export function getPricingSnapshotCustomerVatTotals(
   return { totalIncVat, vat: getSnapshotNumber(customer?.vat) ?? roundNok(totalIncVat - totalIncVat / 1.25) };
 }
 
-type ChargeableOrder = {
+export type ChargeableOrder = {
   priceExVat: number;
   rabatt: string | null | undefined;
   leggTil: string | null | undefined;

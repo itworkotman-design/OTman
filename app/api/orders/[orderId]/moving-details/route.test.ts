@@ -142,7 +142,7 @@ describe("PUT /api/orders/[orderId]/moving-details (admin edit of a homepage mov
     const res = await put({ edit: { ...edit, deliveryAddress: "Bragernes torg 1, Drammen", serviceCodes: ["SERVICE_FLYTTEVASK"] } });
     const json = await res.json();
     expect(json.ok).toBe(true);
-    expect(mocks.getRouteDistance).toHaveBeenCalledWith({ pickupAddress: edit.pickupAddress, deliveryAddress: "Bragernes torg 1, Drammen" });
+    expect(mocks.getRouteDistance).toHaveBeenCalledWith({ pickupAddress: edit.pickupAddress, extraPickupAddresses: [], deliveryAddress: "Bragernes torg 1, Drammen" });
     expect(json.priceExVat).toBe(5000 + 4800 + Math.round((2890 * 43) / 100));
 
     const ops = mocks.transaction.mock.calls[0][0];

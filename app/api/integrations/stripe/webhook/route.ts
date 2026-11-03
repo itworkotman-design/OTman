@@ -8,6 +8,8 @@ import { recordOrderPayment, sumOrderPayments } from "@/lib/orders/orderPayments
 import { sendLifecycleEmailsForOrders } from "@/lib/orders/sendCustomerLifecycleEmail";
 import { buildOrderStateSnapshot } from "@/lib/orders/paidOrderSnapshot";
 import { applyPaidChange } from "@/lib/customerAccounts/customerOrderPaidChange";
+import { isAwaitingBookingPayment } from "@/lib/orders/bookingPayment";
+import { cancelUnpaidBookingOrder, welcomePaidBookingOrder } from "@/lib/orders/bookingCheckout";
 
 const ALREADY_CONFIRMED = new Set(["confirmed", "active", "completed"]);
 
@@ -50,12 +52,18 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       deliveryDate: true,
       timeWindow: true,
       drivingDistance: true,
+      paymentStatus: true,
+      payments: { select: { id: true } },
     },
   });
 
   if (!order) {
     return;
   }
+
+  // Paid as it was placed on the homepage (lib/orders/bookingPayment.ts):
+  // stays processing for staff to confirm.
+  const isBookingPayment = isAwaitingBookingPayment(order);
 
   const paymentIntentId =
     typeof session.payment_intent === "string" ? session.payment_intent : (session.payment_intent?.id ?? null);
@@ -88,15 +96,19 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   const totalPaidCents = sumOrderPayments(payments);
 
   // Confirmed or further along (on its way, done): a top-up never moves an
-  // order back to "confirmed".
-  const wasAlreadyConfirmed = ALREADY_CONFIRMED.has(normalizeOrderStatus(order.status));
+  // order back to "confirmed". Nor does any payment on a processing order —
+  // paid at booking, it waits for staff to confirm it.
+  const normalizedStatus = normalizeOrderStatus(order.status);
+  const wasAlreadyConfirmed = ALREADY_CONFIRMED.has(normalizedStatus);
+  const keepsStatus = wasAlreadyConfirmed || normalizedStatus === "processing";
 
   await prisma.order.update({
     where: { id: order.id },
     data: {
       // Only the first payment moves the order to "confirmed" — a top-up
       // payment on an order that's already confirmed leaves status alone.
-      status: wasAlreadyConfirmed ? undefined : "confirmed",
+      status: keepsStatus ? undefined : "confirmed",
+      paymentStatus: "paid",
       stripePaymentIntentId: paymentIntentId,
       // Kept as a "total paid so far" convenience snapshot for existing
       // readers of this field — OrderPayment is the source of truth.
@@ -104,7 +116,23 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     },
   });
 
-  if (wasAlreadyConfirmed) {
+  if (isBookingPayment) {
+    await createOrderActionEvent(prisma, {
+      orderId: order.id,
+      companyId: order.companyId,
+      actor: { source: "SYSTEM", name: "Stripe" },
+      title: "Payment received via Stripe",
+      details: [`${((session.amount_total ?? 0) / 100).toLocaleString("nb-NO")} kr — paid at booking.`],
+    });
+
+    // Best-effort, like the order-confirmed email below: the payment is
+    // recorded either way, and staff can resend the login from the order.
+    try {
+      await welcomePaidBookingOrder(order.id);
+    } catch (error) {
+      console.error("[stripe webhook] Failed to welcome the customer of a paid booking", order.id, error);
+    }
+  } else if (keepsStatus) {
     await createOrderActionEvent(prisma, {
       orderId: order.id,
       companyId: order.companyId,
@@ -146,6 +174,39 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   }
 }
 
+// A booking checkout (lib/orders/bookingPayment.ts) that expired unpaid
+// cancels its order — unless the customer has since opened a newer session
+// from the payment page, which then decides.
+async function handleCheckoutSessionExpired(session: Stripe.Checkout.Session) {
+  const orderId = session.metadata?.orderId;
+  if (!orderId || session.metadata?.chargeKind !== "booking") {
+    return;
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      companyId: true,
+      displayId: true,
+      status: true,
+      paymentStatus: true,
+      stripeCheckoutSessionId: true,
+      subcontractorMembershipId: true,
+      subcontractor: true,
+      payments: { select: { id: true } },
+    },
+  });
+  if (!order || order.stripeCheckoutSessionId !== session.id || !isAwaitingBookingPayment(order)) {
+    return;
+  }
+
+  await cancelUnpaidBookingOrder(order, {
+    sessionId: session.id,
+    note: "Not paid: the Stripe checkout expired.",
+  });
+}
+
 export async function POST(req: Request) {
   const signature = req.headers.get("stripe-signature");
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -167,6 +228,8 @@ export async function POST(req: Request) {
   try {
     if (event.type === "checkout.session.completed") {
       await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
+    } else if (event.type === "checkout.session.expired") {
+      await handleCheckoutSessionExpired(event.data.object as Stripe.Checkout.Session);
     }
   } catch (error) {
     console.error("Failed to process Stripe webhook event", event.type, error);

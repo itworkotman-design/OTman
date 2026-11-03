@@ -4,7 +4,9 @@ import { getOrderByActionToken, isOrderPayable, isTopUpPayable } from "@/lib/ord
 import { getOrderChargeAmountIncVatNok, getOrderRemainingBalanceIncVatNok } from "@/lib/orders/orderTotals";
 import { sumOrderPayments } from "@/lib/orders/orderPayments";
 import { getStripeClient, getOrderActionBaseUrl } from "@/lib/stripe/stripeClient";
+import { createOrderCheckoutSession, type OrderChargeKind } from "@/lib/stripe/orderCheckoutSession";
 import { isManualPaymentMode } from "@/lib/orders/paymentMode";
+import { isAwaitingBookingPayment } from "@/lib/orders/bookingPayment";
 
 // Deliberately creates a brand-new Stripe Checkout Session on every call
 // instead of reusing/caching one on the order. Checkout Sessions expire in
@@ -16,6 +18,10 @@ import { isManualPaymentMode } from "@/lib/orders/paymentMode";
 // staff have since added items to. In that case the charge is the remaining
 // balance (order total minus everything already recorded in OrderPayment),
 // not the full total again — see docs/homepage-ordering-roadmap.md §4.
+//
+// And a retry of a booking payment (lib/orders/bookingPayment.ts): a homepage
+// order whose customer left Stripe Checkout before paying. That session is
+// short-lived too, and replaces the order's earlier one.
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
   // Homepage orders are paid by faktura until Stripe is connected (lib/invoices/).
   if (isManualPaymentMode()) {
@@ -32,8 +38,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   const totalPaidCents = sumOrderPayments(order.payments);
   const remainingBalanceIncVatNok = getOrderRemainingBalanceIncVatNok(order, totalPaidCents);
   const isTopUp = isTopUpPayable(order.status, remainingBalanceIncVatNok);
+  const isBooking = isAwaitingBookingPayment(order);
 
-  if (!isOrderPayable(order.status) && !isTopUp) {
+  if (!isOrderPayable(order.status) && !isTopUp && !isBooking) {
     return NextResponse.json({ ok: false, reason: "ORDER_NOT_PAYABLE" }, { status: 409 });
   }
 
@@ -48,40 +55,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     return NextResponse.json({ ok: false, reason: "INVALID_AMOUNT" }, { status: 409 });
   }
 
-  const baseUrl = getOrderActionBaseUrl();
-  const stripe = getStripeClient();
-
-  // Same number the customer sees in every email and on the order pages.
-  const orderReference = order.orderNumber?.trim() || order.displayId;
-  const orderLabel = orderReference ? `Otman bestilling #${orderReference}` : "Otman bestilling";
-
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    customer_email: order.email,
-    line_items: [
-      {
-        quantity: 1,
-        price_data: {
-          currency: "nok",
-          unit_amount: amountOre,
-          product_data: {
-            name: isTopUp ? `${orderLabel} — tilleggsbetaling` : orderLabel,
-            description: order.productsSummary ?? undefined,
-          },
-        },
-      },
-    ],
-    success_url: `${baseUrl}/betaling/${token}?result=success`,
-    cancel_url: `${baseUrl}/betaling/${token}?result=cancelled`,
-    metadata: {
-      orderId: order.id,
-      actionToken: token,
-      // Not read by the webhook's own accounting (that's driven entirely by
-      // the OrderPayment ledger + order status, so it's correct either way)
-      // — kept for observability/debugging when looking at a session in the
-      // Stripe dashboard or an OrderEvent log.
-      chargeKind: isTopUp ? "topup" : "initial",
-    },
+  const chargeKind: OrderChargeKind = isBooking ? "booking" : isTopUp ? "topup" : "initial";
+  const session = await createOrderCheckoutSession(getStripeClient(), {
+    order: { ...order, email: order.email },
+    token,
+    amountIncVatNok,
+    chargeKind,
+    baseUrl: getOrderActionBaseUrl(),
   });
 
   await prisma.order.update({

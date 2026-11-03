@@ -62,6 +62,8 @@ export async function getOrderByActionToken(token: string | null | undefined) {
       actionToken: true,
       stripeCheckoutSessionId: true,
       stripePaymentIntentId: true,
+      // "pending" while a homepage order awaits its booking payment (lib/orders/bookingPayment.ts).
+      paymentStatus: true,
       payments: { select: ORDER_PAYMENT_LEDGER_SELECT },
     },
   });

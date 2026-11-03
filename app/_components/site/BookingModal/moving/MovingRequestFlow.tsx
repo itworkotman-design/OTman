@@ -356,6 +356,7 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
     !submitLoading;
 
   async function handleSubmit() {
+    let redirectingToPayment = false;
     setSubmitLoading(true);
     setSubmitError(null);
     try {
@@ -375,20 +376,49 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
           phone,
           email,
           notes,
+          // The total shown above, incl. VAT — the server only books the
+          // move at this price (see app/api/site/moving-request).
+          shownTotal: totals.totalIncVat,
         }),
       });
       const data = await res.json();
+      if (!data.ok && data.reason === "PRICE_CHANGED") {
+        const total = Number(data.total);
+        setSubmitError(
+          t(
+            `The price has changed to ${total.toLocaleString("nb-NO")} kr since you started. Please reload the page to see the updated price before ordering.`,
+            `Prisen er endret til ${total.toLocaleString("nb-NO")} kr siden du startet. Last inn siden på nytt for å se oppdatert pris før du bestiller.`,
+          ),
+        );
+        return;
+      }
+      if (!data.ok && data.reason === "PAYMENT_START_FAILED") {
+        setSubmitError(
+          t(
+            "We couldn't open the payment, so the order was not placed. Please try again in a moment.",
+            "Vi fikk ikke åpnet betalingen, så bestillingen ble ikke lagt inn. Prøv igjen om litt.",
+          ),
+        );
+        return;
+      }
       if (!res.ok || !data.ok) {
         setSubmitError(
           t("Something went wrong. Please try again.", "Noe gikk galt. Prøv igjen."),
         );
         return;
       }
+      // Paying at booking (Stripe): the move is saved; pay to complete it.
+      if (typeof data.checkoutUrl === "string") {
+        redirectingToPayment = true;
+        window.location.href = data.checkoutUrl;
+        return;
+      }
       setSubmitResult({ orderNumber: data.orderNumber ?? String(data.displayId) });
     } catch {
       setSubmitError(t("Something went wrong. Please try again.", "Noe gikk galt. Prøv igjen."));
     } finally {
-      setSubmitLoading(false);
+      // Kept busy while the browser leaves for Stripe, so it can't be sent twice.
+      if (!redirectingToPayment) setSubmitLoading(false);
     }
   }
 

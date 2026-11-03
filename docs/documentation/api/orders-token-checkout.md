@@ -26,3 +26,5 @@ payable for up to 3 days).
   session, stores its id on the order, returns `{ ok, url }`.
 
 While homepage payments are manual (`HOMEPAGE_PAYMENT_MODE` not `stripe`, see `lib/payment-mode.md`) it answers `409 PAYMENTS_ARE_MANUAL` before looking anything up.
+
+A third case, **booking payment** (`isAwaitingBookingPayment`, see `docs/documentation/lib/booking-payment.md`): a homepage order whose customer left Stripe Checkout before paying. The `/betaling/[token]` page offers a retry, which charges the full total with a short-lived `chargeKind: "booking"` session. That session replaces the order's earlier one, so only it can cancel the order on expiry. The session itself is built by `lib/stripe/orderCheckoutSession.ts`.

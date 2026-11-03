@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   orderCreate: vi.fn(),
   orderItemCreateMany: vi.fn(),
   getWebsiteOrderCatalog: vi.fn(),
+  getRouteDistance: vi.fn(async () => ({ distanceKm: "171.12", stopAddresses: [] })),
 }));
 
 vi.mock("@/lib/customerAccounts/welcomeWebsiteOrderCustomer", () => ({ welcomeWebsiteOrderCustomer: vi.fn() }));
@@ -24,6 +25,8 @@ vi.mock("@/lib/orders/orderNumber", () => ({ reserveNextManualOrderNumber: vi.fn
 vi.mock("@/lib/orders/publicOrderNumber", () => ({ reservePublicOrderNumber: vi.fn().mockResolvedValue("G8SMMP58") }));
 vi.mock("@/lib/orders/orderEvents", () => ({ createOrderCreatedEvent: vi.fn(), buildOrderEventSnapshot: vi.fn() }));
 vi.mock("@/lib/orders/orderNotifications", () => ({ createOrderNotification: vi.fn() }));
+// The km charge comes from the server's own Mapbox lookup, never from the request.
+vi.mock("@/lib/integrations/mapbox/routeDistance", () => ({ getRouteDistance: mocks.getRouteDistance }));
 
 import { createEmptyProductCard, type CatalogProduct } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { DELIVERY_TYPES } from "@/lib/booking/constants";
@@ -164,6 +167,22 @@ describe("POST /api/site/white-goods-order — the price the customer saw", () =
     const linesTotal = items.reduce((sum, item) => sum + (item.customerPriceCents ?? 0), 0) / 100;
     const extrasTotal = (data.websiteBookingDetails.orderExtras as { price: number }[]).reduce((s, e) => s + e.price, 0);
     expect(linesTotal + extrasTotal).toBeCloseTo(total, 2);
+  });
+
+  it("prices the km from its own driving-distance lookup, never from a distance the request sends", async () => {
+    const res = await post(body({ drivingDistance: "0", shownTotal: serverTotal("171.12") }));
+
+    expect(res.status).toBe(200);
+    expect(mocks.getRouteDistance).toHaveBeenCalledWith({
+      pickupAddress: "Smalvollveien 65, Oslo",
+      extraPickupAddresses: [],
+      deliveryAddress: "Otto Blehrs vei 25c, Nesøya",
+    });
+    expect(mocks.orderCreate.mock.calls[0]![0].data.drivingDistance).toBe("171.12");
+
+    // A cheaper total worked out from a made-up distance is refused.
+    const cheated = await post(body({ drivingDistance: "0", shownTotal: serverTotal("0") }));
+    expect(cheated.status).toBe(409);
   });
 
   it("refuses the order when the shown total isn't what the server calculates, and says the real price", async () => {

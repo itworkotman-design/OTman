@@ -998,6 +998,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   }
 
   async function handleSubmit() {
+    let redirectingToPayment = false;
     setSubmitLoading(true);
     setSubmitError(null);
     try {
@@ -1084,18 +1085,36 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
         );
         return;
       }
+      if (!json.ok && json.reason === "PAYMENT_START_FAILED") {
+        setSubmitError(
+          t(
+            "We couldn't open the payment, so the order was not placed. Please try again in a moment.",
+            "Vi fikk ikke åpnet betalingen, så bestillingen ble ikke lagt inn. Prøv igjen om litt.",
+          ),
+        );
+        return;
+      }
       if (!json.ok) {
         setSubmitError(
           t("Something went wrong. Please check your details and try again.", "Noe gikk galt. Sjekk opplysningene og prøv igjen."),
         );
         return;
       }
+      // Paying at booking (Stripe): the order is saved; pay to complete it.
+      if (typeof json.checkoutUrl === "string") {
+        redirectingToPayment = true;
+        window.location.href = json.checkoutUrl;
+        return;
+      }
       setSubmitResult({ orderNumber: json.orderNumber ?? String(json.displayId) });
     } catch {
       setSubmitError(t("Something went wrong. Please try again.", "Noe gikk galt. Prøv igjen."));
     } finally {
-      setSubmitLoading(false);
-      setSubmitProgress(null);
+      // Kept busy while the browser leaves for Stripe, so it can't be sent twice.
+      if (!redirectingToPayment) {
+        setSubmitLoading(false);
+        setSubmitProgress(null);
+      }
     }
   }
 

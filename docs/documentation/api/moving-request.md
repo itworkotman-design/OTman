@@ -77,3 +77,8 @@ services are checked before the Mapbox lookup. The order is saved as `websiteOrd
 `websiteBookingDetails` (`buildMovingBookingDetails`, incl. the `customerType` the flow sends), the notes in `customerComments`
 too, and one order line per priced line (`movingOrderItemRows`, `createMany`). `welcomeWebsiteOrderCustomer` then creates/links the
 "My order" login and sends the order-received email (covered in `route.create.test.ts`).
+
+## Price confirmation and paying at booking
+The flow sends `shownTotal`, the total incl. VAT it showed. If it is sent and differs from the server's quote (`pricingSnapshot.customer.totalIncVat`) by 0.5 kr or more, the route answers `409 PRICE_CHANGED` with the real `total`, and nothing is saved.
+
+With `HOMEPAGE_PAYMENT_MODE=stripe`, `shownTotal` is required (`400 SHOWN_TOTAL_REQUIRED`) and the customer pays as they book, the same as white goods (`docs/documentation/lib/booking-payment.md`). The order is saved `processing` with `paymentStatus: "pending"` and an `actionToken`, and the response carries `checkoutUrl`. The staff alert and the welcome wait for the Stripe webhook. If the payment can't be started, the order is cancelled and the route answers `502 PAYMENT_START_FAILED`.

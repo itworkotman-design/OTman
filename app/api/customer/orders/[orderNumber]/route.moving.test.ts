@@ -136,7 +136,7 @@ describe("customer order route — a homepage move", () => {
     const res = await put({ moving: changed, shownTotal: 11250 + 1554 });
     const json = await res.json();
     expect(json.ok).toBe(true);
-    expect(mocks.getRouteDistance).toHaveBeenCalledWith({ pickupAddress: moving.pickupAddress, deliveryAddress: "Bragernes torg 1, Drammen" });
+    expect(mocks.getRouteDistance).toHaveBeenCalledWith({ pickupAddress: moving.pickupAddress, extraPickupAddresses: [], deliveryAddress: "Bragernes torg 1, Drammen" });
     const ops = mocks.transaction.mock.calls[0][0];
     expect(ops.map((op: { op: string }) => op.op)).toEqual(["items.deleteMany", "items.createMany", "order.update"]);
     expect(mocks.orderUpdate.mock.calls[0][0].data).toMatchObject({ deliveryAddress: "Bragernes torg 1, Drammen", drivingDistance: "42.86" });

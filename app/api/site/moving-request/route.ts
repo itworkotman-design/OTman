@@ -12,6 +12,9 @@ import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import { reservePublicOrderNumber } from "@/lib/orders/publicOrderNumber";
 import { welcomeWebsiteOrderCustomer } from "@/lib/customerAccounts/welcomeWebsiteOrderCustomer";
 import { getMovingCatalog } from "@/lib/content/getMovingCatalog";
+import { isManualPaymentMode } from "@/lib/orders/paymentMode";
+import { createOrderActionToken } from "@/lib/orders/orderActionToken";
+import { startBookingCheckout } from "@/lib/orders/bookingCheckout";
 import {
   validateEmailField,
   validatePhoneField,
@@ -62,12 +65,19 @@ class CatalogNotSeededError extends Error {
   }
 }
 
+class PaymentStartError extends Error {}
+
+// With Stripe (HOMEPAGE_PAYMENT_MODE=stripe) the customer pays as they book,
+// like a white-goods order (lib/orders/bookingPayment.ts): the move is saved
+// unpaid and `checkoutUrl` is where the browser goes next. Staff and the
+// customer hear about it once the payment lands (Stripe webhook).
 async function createMovingRequest(
   body: RequestBody,
   {
     quote,
     drivingDistance,
     bookingDetails,
+    payAtBooking,
   }: {
     // The move priced from the catalog (priceMovingOrder).
     quote: MovingQuote;
@@ -75,8 +85,9 @@ async function createMovingRequest(
     drivingDistance: string;
     // The customer's answers, kept for the admin modal (movingBookingDetails).
     bookingDetails: MovingBookingDetails;
+    payAtBooking: boolean;
   },
-): Promise<{ orderId: string; displayId: number; orderNumber: string | null }> {
+): Promise<{ orderId: string; displayId: number; orderNumber: string | null; checkoutUrl?: string }> {
   const membershipId = process.env.WEBSITE_MEMBERSHIP_ID;
   if (!membershipId) throw new Error("WEBSITE_MEMBERSHIP_ID not configured");
 
@@ -127,6 +138,8 @@ async function createMovingRequest(
       ...movingPricing,
       pricingSnapshot: movingPricing.pricingSnapshot as unknown as Prisma.InputJsonValue,
       productsSummary: summary,
+      // The token backs the payment page Stripe returns to (/betaling/[token]).
+      ...(payAtBooking ? { paymentStatus: "pending", actionToken: createOrderActionToken() } : {}),
     },
   });
 
@@ -155,6 +168,12 @@ async function createMovingRequest(
       productsSummary: order.productsSummary,
     }),
   });
+
+  if (payAtBooking) {
+    const checkout = await startBookingCheckout(order);
+    if (!checkout.ok) throw new PaymentStartError();
+    return { orderId: order.id, displayId: order.displayId, orderNumber: order.orderNumber, checkoutUrl: checkout.url };
+  }
 
   await createOrderNotification(prisma, {
     orderId: order.id,
@@ -250,6 +269,18 @@ export async function POST(req: Request) {
     const quote = priceMovingOrder(catalog, { ...input, drivingDistance });
     if (!quote.ok) throw new Error("Moving order re-pricing failed after validation");
 
+    // The total (incl. VAT) the customer saw and confirms: the move is only
+    // booked at it. Required when they pay at booking — that is the charge.
+    const payAtBooking = !isManualPaymentMode();
+    const shownTotal = typeof body.shownTotal === "number" && Number.isFinite(body.shownTotal) ? body.shownTotal : null;
+    const total = quote.pricing.pricingSnapshot.customer.totalIncVat;
+    if (shownTotal === null && payAtBooking) {
+      return NextResponse.json({ ok: false, reason: "SHOWN_TOTAL_REQUIRED" }, { status: 400 });
+    }
+    if (shownTotal !== null && Math.abs(shownTotal - total) >= 0.5) {
+      return NextResponse.json({ ok: false, reason: "PRICE_CHANGED", total }, { status: 409 });
+    }
+
     const customerType = body.customerType === "private" || body.customerType === "business" ? body.customerType : null;
     const bookingDetails = buildMovingBookingDetails({
       customerType,
@@ -257,9 +288,12 @@ export async function POST(req: Request) {
       destination: input.destination,
       serviceCodes: quote.services.map((service) => service.code),
     });
-    const result = await createMovingRequest(body, { quote, drivingDistance, bookingDetails });
+    const result = await createMovingRequest(body, { quote, drivingDistance, bookingDetails, payAtBooking });
     return NextResponse.json({ ok: true, ...result }, { status: 200 });
   } catch (err) {
+    if (err instanceof PaymentStartError) {
+      return NextResponse.json({ ok: false, reason: "PAYMENT_START_FAILED" }, { status: 502 });
+    }
     console.error("[moving-request] Order creation failed:", err);
     return NextResponse.json({ ok: false, reason: "ORDER_CREATION_FAILED" }, { status: 500 });
   }
