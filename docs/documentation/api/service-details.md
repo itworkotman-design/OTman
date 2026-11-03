@@ -18,4 +18,4 @@ access as `moving-details` (owner/admin or Website orders at ADMIN level). Teste
 Lines are replaced in a transaction (`SERVICE_ITEM_PRODUCT_CODES`). No catalog, so no `useCurrentPrices`. Status and partner
 save through `/api/orders/bulk`. Changes are logged on the order's history.
 
-After a save (never a dry run) the order's payment status is recomputed (`refreshOrderPaymentStatus`, `lib/invoices/orderInvoices.ts`): a total that moved away from what's been invoiced turns it `pending` (manual payments).
+After a save (never a dry run) the order's payment status is recomputed (`refreshOrderPaymentStatus`, `lib/invoices/orderInvoices.ts`): a total that moved away from what's been invoiced turns it `pending` (manual payments); with Stripe, a total above what's been paid turns it `pending` and back to `paid` once covered.

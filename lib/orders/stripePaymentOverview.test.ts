@@ -1,0 +1,76 @@
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/db", () => ({ prisma: {} }));
+
+import { buildStripePaymentOverview, nextStripePaymentStatus } from "./stripePaymentOverview";
+import type { OrderStateSnapshot } from "./paidOrderSnapshot";
+
+const current = { version: 1, totalIncVatNok: 5110, lines: [], details: [] } as unknown as OrderStateSnapshot;
+
+const booking = {
+  id: "p1",
+  amountChargedCents: 450000,
+  stripePaymentIntentId: "pi_1",
+  createdAt: new Date("2026-11-03T14:30:00Z"),
+  orderSnapshot: null,
+  refunds: [],
+};
+const change = {
+  id: "p2",
+  amountChargedCents: 61000,
+  stripePaymentIntentId: "pi_2",
+  createdAt: new Date("2026-11-03T15:00:00Z"),
+  orderSnapshot: null,
+  refunds: [],
+};
+
+describe("buildStripePaymentOverview", () => {
+  it("lists every Stripe payment newest first — the first one is the booking payment, later ones additional — and how the order stands", () => {
+    const overview = buildStripePaymentOverview([booking, change], current);
+
+    expect(overview.payments.map((p) => [p.id, p.kind, p.amountCents])).toEqual([
+      ["p2", "additional", 61000],
+      ["p1", "booking", 450000],
+    ]);
+    expect(overview.payments[1]).toMatchObject({ stripePaymentIntentId: "pi_1", createdAt: "2026-11-03T14:30:00.000Z" });
+    expect(overview.comparison).toEqual({
+      outcome: "settled",
+      totalPaidIncVatNok: 5110,
+      currentTotalIncVatNok: 5110,
+      differenceIncVatNok: 0,
+    });
+  });
+
+  it("shows refunds under their payment and nets them out of what's paid", () => {
+    const refunded = {
+      ...change,
+      refunds: [{ id: "r1", amountRefundedCents: 20000, reason: "Removed an item", createdAt: new Date("2026-11-03T16:00:00Z"), orderSnapshot: null }],
+    };
+
+    const overview = buildStripePaymentOverview([booking, refunded], current);
+
+    expect(overview.payments[0]!.refunds).toEqual([
+      { id: "r1", amountCents: 20000, reason: "Removed an item", createdAt: "2026-11-03T16:00:00.000Z" },
+    ]);
+    expect(overview.comparison).toMatchObject({ totalPaidIncVatNok: 4910, differenceIncVatNok: 200, outcome: "due" });
+  });
+
+  it("an order with no Stripe payment yet is unpaid", () => {
+    expect(buildStripePaymentOverview([], current).comparison).toMatchObject({ outcome: "unpaid", totalPaidIncVatNok: 0 });
+  });
+});
+
+describe("nextStripePaymentStatus — the order's payment status from its Stripe payments", () => {
+  it("is pending while more is due than was paid", () => {
+    expect(nextStripePaymentStatus("due")).toBe("pending");
+  });
+
+  it("is paid once covered — also when the order got cheaper and a refund is owed", () => {
+    expect(nextStripePaymentStatus("settled")).toBe("paid");
+    expect(nextStripePaymentStatus("refund")).toBe("paid");
+  });
+
+  it("has no say over an order nothing was paid on yet (a booking still in checkout keeps its own status)", () => {
+    expect(nextStripePaymentStatus("unpaid")).toBeNull();
+  });
+});

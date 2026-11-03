@@ -5,7 +5,8 @@ import { htmlToText } from "@/lib/email/htmlToText";
 import { createOrderActionEvent, type OrderEventActor } from "@/lib/orders/orderEvents";
 import { buildReplyToAddress, createOrderEmailThreadToken } from "@/lib/orders/orderEmail";
 import { isS3AttachmentStorageConfigured, uploadAttachmentBufferToS3 } from "@/lib/orders/orderAttachmentStorage";
-import { buildOrderStateSnapshot, ORDER_STATE_SOURCE_SELECT } from "@/lib/orders/paidOrderSnapshot";
+import { buildOrderStateSnapshot, compareOrderWithPayments, ORDER_STATE_SOURCE_SELECT } from "@/lib/orders/paidOrderSnapshot";
+import { nextStripePaymentStatus } from "@/lib/orders/stripePaymentOverview";
 import { invoiceLedger, invoiceNumber, nextPaymentStatus, type InvoiceEntry, type InvoiceKind, type PaymentStatus } from "@/lib/orders/manualPayments";
 import { formatKr } from "@/lib/orders/orderChangeText";
 import {
@@ -357,12 +358,33 @@ export async function getOrderInvoiceOverview(orderId: string, companyId: string
   };
 }
 
-// After anything that changes an order's price: its payment status again
-// (nextPaymentStatus). Orders without fakturas are left alone (null).
+// After anything that changes an order's price: its payment status again —
+// from its fakturas (nextPaymentStatus) or, paid by Stripe, from its Stripe
+// payments (nextStripePaymentStatus). Orders with neither are left alone (null).
 export async function refreshOrderPaymentStatus(orderId: string): Promise<PaymentStatus | null> {
-  const order = await prisma.order.findFirst({ where: { id: orderId }, select: INVOICE_ORDER_SELECT });
-  if (!order || order.invoices.length === 0) return null;
-  const paymentStatus = nextPaymentStatus(asEntries(order.invoices), buildOrderStateSnapshot(order).totalIncVatNok);
+  const order = await prisma.order.findFirst({
+    where: { id: orderId },
+    select: {
+      ...INVOICE_ORDER_SELECT,
+      payments: {
+        select: {
+          amountChargedCents: true,
+          createdAt: true,
+          orderSnapshot: true,
+          refunds: { select: { amountRefundedCents: true, createdAt: true, orderSnapshot: true } },
+        },
+      },
+    },
+  });
+  if (!order) return null;
+  const current = buildOrderStateSnapshot(order);
+  const paymentStatus =
+    order.invoices.length > 0
+      ? nextPaymentStatus(asEntries(order.invoices), current.totalIncVatNok)
+      : order.payments.length > 0
+        ? nextStripePaymentStatus(compareOrderWithPayments({ payments: order.payments, current }).outcome)
+        : null;
+  if (!paymentStatus) return null;
   if (paymentStatus !== order.paymentStatus) {
     await prisma.order.update({ where: { id: order.id }, data: { paymentStatus } });
   }

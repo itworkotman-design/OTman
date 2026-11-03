@@ -231,10 +231,31 @@ describe("refreshOrderPaymentStatus — after anything that changes the price", 
     expect(mocks.orderUpdate).toHaveBeenCalledWith({ where: { id: "o1" }, data: { paymentStatus: "pending" } });
   });
 
-  it("leaves an order without fakturas alone", async () => {
-    mocks.orderFindFirst.mockResolvedValue(order());
+  it("leaves an order without fakturas or Stripe payments alone", async () => {
+    mocks.orderFindFirst.mockResolvedValue(order({ payments: [] }));
     expect(await refreshOrderPaymentStatus("o1")).toBeNull();
     expect(mocks.orderUpdate).not.toHaveBeenCalled();
+  });
+
+  it("turns a Stripe-paid order pending once its total goes above what was paid", async () => {
+    mocks.orderFindFirst.mockResolvedValue(
+      order({
+        priceExVat: 1200,
+        pricingSnapshot: { customer: { totalExVat: 1200, totalIncVat: 1500 }, lines: [] },
+        paymentStatus: "paid",
+        payments: [{ amountChargedCents: 125000, createdAt: new Date(), orderSnapshot: null, refunds: [] }],
+      }),
+    );
+    expect(await refreshOrderPaymentStatus("o1")).toBe("pending");
+    expect(mocks.orderUpdate).toHaveBeenCalledWith({ where: { id: "o1" }, data: { paymentStatus: "pending" } });
+  });
+
+  it("turns it paid again once the total is back within what was paid", async () => {
+    mocks.orderFindFirst.mockResolvedValue(
+      order({ paymentStatus: "pending", payments: [{ amountChargedCents: 125000, createdAt: new Date(), orderSnapshot: null, refunds: [] }] }),
+    );
+    expect(await refreshOrderPaymentStatus("o1")).toBe("paid");
+    expect(mocks.orderUpdate).toHaveBeenCalledWith({ where: { id: "o1" }, data: { paymentStatus: "paid" } });
   });
 });
 
