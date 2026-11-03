@@ -6,8 +6,8 @@ import { offersSavedPickupAddresses } from "./matchSavedPickupAddresses";
 import { BuildingIcon, PinIcon, StorefrontIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
-import { PersonIcon, PhoneIcon } from "./orderDetailsIcons";
-import { AddressLabel, FieldLabel, fieldClass } from "./formFieldStyles";
+import { MessageIcon, PersonIcon, PhoneIcon } from "./orderDetailsIcons";
+import { AddressLabel, FieldLabel, fieldClass, inputClass } from "./formFieldStyles";
 import { FloorLiftField } from "./floorLiftField";
 import { ProductIcon } from "./productIcons";
 import { PickupDocumentField } from "./PickupDocumentField";
@@ -54,6 +54,10 @@ type Props = {
   setPickupContactName: (value: string) => void;
   pickupContactPhone: string;
   setPickupContactPhone: (value: string) => void;
+  // Optional note for the driver about this stop (gate code, loading dock…) —
+  // offered for every pickup source, never required.
+  pickupComment: string;
+  setPickupComment: (value: string) => void;
   // The other product cards on the order this location could claim, grouped
   // by category — omitted (or one card or fewer total) when there's nothing
   // to choose between, which hides the checkbox and checklist below
@@ -96,6 +100,8 @@ export function PickupContactCard({
   setPickupContactName,
   pickupContactPhone,
   setPickupContactPhone,
+  pickupComment,
+  setPickupComment,
   productPoolSections,
   allRemainingHere,
   setAllRemainingHere,
@@ -269,6 +275,22 @@ export function PickupContactCard({
             </label>
           </div>
         )}
+
+        <label className="block">
+          <FieldLabel icon={<MessageIcon className="h-4 w-4" />}>
+            {t("Comment for this pickup (optional)", "Kommentar til hentestedet (valgfritt)")}
+          </FieldLabel>
+          <textarea
+            value={pickupComment}
+            onChange={(e) => setPickupComment(sanitizeTextInput(e.target.value))}
+            rows={2}
+            placeholder={t(
+              "e.g. gate code, use the loading dock, call on arrival",
+              "f.eks. portkode, bruk varemottaket, ring ved ankomst",
+            )}
+            className={`${inputClass} h-auto resize-none py-2.5`}
+          />
+        </label>
 
         {productPoolSections && productPoolSections.reduce((n, s) => n + s.items.length, 0) > 1 && (
           <div className="flex flex-col gap-2">

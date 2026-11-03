@@ -133,6 +133,11 @@ describe("classifyCustomerOrderEdit", () => {
     expect(classifyCustomerOrderEdit(state(), state({ customer: { ...state().customer, comments: "Ring på" } }))).toEqual(["notes"]);
   });
 
+  it("counts a pickup stop's comment as notes, not an address change", () => {
+    const pickups = state().pickups!.map((stop) => ({ ...stop, comment: "Varemottak" }));
+    expect(classifyCustomerOrderEdit(state(), state({ pickups }))).toEqual(["notes"]);
+  });
+
   it("finds schedule changes", () => {
     expect(classifyCustomerOrderEdit(state(), state({ timeWindow: "16:00-21:00" }))).toEqual(["schedule"]);
     expect(classifyCustomerOrderEdit(state(), state({ preferredDate: "2026-10-08" }))).toEqual(["schedule"]);

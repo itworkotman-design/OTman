@@ -34,6 +34,15 @@ const valid: AdminOrderDetails = {
 };
 
 describe("parseAdminOrderDetails", () => {
+  it("keeps each stop's comment, trimmed, and checks it for disallowed characters", () => {
+    const result = parseAdminOrderDetails({ ...valid, pickups: [{ ...valid.pickups[0], comment: "  Varemottak " }] });
+    expect(result.ok && result.details.pickups[0].comment).toBe("Varemottak");
+    const blank = parseAdminOrderDetails({ ...valid, pickups: [{ ...valid.pickups[0], comment: " " }] });
+    expect(blank.ok && blank.details.pickups[0]).not.toHaveProperty("comment");
+    const bad = parseAdminOrderDetails({ ...valid, pickups: [{ ...valid.pickups[0], comment: "<script>" }] });
+    expect(bad).toMatchObject({ ok: false, errors: { "pickup.1.comment": expect.any(String) } });
+  });
+
   it("accepts well-formed details, trimming text", () => {
     const result = parseAdminOrderDetails({
       ...valid,
@@ -293,6 +302,18 @@ describe("editableDetailsFromOrder — business customer", () => {
 });
 
 describe("editableDetailsFromOrder", () => {
+  it("keeps each stop's comment through a save and back into the form, and in the description", () => {
+    const withComment: AdminOrderDetails = { ...valid, pickups: [{ ...valid.pickups[0], comment: "Varemottak" }] };
+    const { bookingDetails, orderData } = buildDetailsUpdate({
+      details: withComment,
+      drivingDistance: "21",
+      storedBookingDetails: null,
+      storedDescription: null,
+    });
+    expect(orderData.description).toContain("    *comment: Varemottak");
+    expect(editableDetailsFromOrder({ ...orderData, websiteBookingDetails: bookingDetails })).toEqual(withComment);
+  });
+
   it("reads the form values back from the order", () => {
     const { bookingDetails, orderData } = buildDetailsUpdate({
       details: valid,

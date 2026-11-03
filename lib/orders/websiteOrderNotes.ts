@@ -10,6 +10,9 @@
 //
 //   Pickup 2 - Private: Troll / 00000000 (Eivind Olsens vei, Drammen) - picking up: Kommode
 //       *floor 10, no lift
+//       *comment: Kodelås 1234
+//
+// (the "*comment" line only when the customer left one for that stop).
 
 export type PickupNoteStop = {
   source: string | null;
@@ -21,6 +24,7 @@ export type PickupNoteStop = {
   contactName: string | null;
   contactPhone: string | null;
   productNames: string[];
+  comment?: string | null;
 };
 
 const STOP_TYPE_LABELS: Record<string, string> = {
@@ -58,6 +62,7 @@ export function buildPickupNoteLines(params: {
   const blocks = params.stops.map((stop, i) => [
     stopLine(stop, i),
     ...(stop.source !== "store" && stop.floor !== 0 ? [floorLine(stop.floor, stop.liftAvailable)] : []),
+    ...(stop.comment?.trim() ? [`    *comment: ${stop.comment.trim()}`] : []),
   ]);
 
   const deliveryShownByGsm =

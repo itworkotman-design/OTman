@@ -37,6 +37,8 @@ export type AdminPickupStop = {
   // display names, and the product card ids they are.
   productNames: string[];
   cardIds?: number[];
+  // The customer's comment for this stop; absent when blank.
+  comment?: string;
 };
 
 export type AdminOrderDetails = {
@@ -135,6 +137,9 @@ export function parseAdminOrderDetails(raw: unknown): ParsedAdminOrderDetails {
     };
     const cardIds = cardIdList(s.cardIds);
     if (cardIds) stop.cardIds = cardIds;
+    const comment = text(s.comment);
+    if (comment) stop.comment = comment;
+    if (validateTextField(comment)) errors[`pickup.${i + 1}.comment`] = "Contains disallowed characters";
     if (stop.contactPhone && validatePhoneField(stop.contactPhone)) errors[`pickup.${i + 1}.contactPhone`] = "Invalid phone number";
     return stop;
   });
@@ -194,6 +199,7 @@ function toBookingDetails(
       contactPhone: stop.contactPhone,
       ...(stop.productNames.length > 0 ? { productNames: stop.productNames } : {}),
       ...(stop.cardIds ? { cardIds: stop.cardIds } : {}),
+      ...(stop.comment ? { comment: stop.comment } : {}),
     })),
     delivery: { ...details.delivery },
     preferredDate: details.preferredDate,
@@ -242,6 +248,7 @@ function generatedNotes(details: WhiteGoodsBookingDetails): string | null {
       contactName: stop.contactName || null,
       contactPhone: stop.contactPhone || null,
       productNames: stop.productNames ?? [],
+      comment: stop.comment ?? null,
     })),
     deliveryFloor: pair.deliveryFloor,
     deliveryLiftAvailable: details.delivery.liftAvailable,
@@ -384,6 +391,7 @@ export function editableDetailsFromOrder(order: {
       contactPhone: stop.contactPhone,
       productNames: stop.productNames ?? [],
       ...(stop.cardIds ? { cardIds: stop.cardIds } : {}),
+      ...(stop.comment ? { comment: stop.comment } : {}),
     })),
     delivery: { ...details.delivery },
     preferredDate: details.preferredDate,

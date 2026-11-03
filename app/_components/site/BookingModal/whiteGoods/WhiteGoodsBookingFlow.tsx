@@ -259,6 +259,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   const [pickupPlaceName, setPickupPlaceName] = useState("");
   const [pickupContactName, setPickupContactName] = useState("");
   const [pickupContactPhone, setPickupContactPhone] = useState("");
+  // Optional note for the driver about the first pickup (any source).
+  const [pickupComment, setPickupComment] = useState("");
   // Required store receipt / order confirmation for the first pickup (extra
   // stops keep theirs on PickupLocationState.document). Uploaded on submit
   // under one token; what was already sent survives a failed submit so a
@@ -532,6 +534,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     setPickupLiftAvailable(first?.liftAvailable ?? false);
     setPickupContactName(first?.contactName ?? "");
     setPickupContactPhone(first?.contactPhone ?? "");
+    setPickupComment(first?.comment ?? "");
 
     // Which products each stop collects — the names stored at booking
     // are the Norwegian checklist names (the site's default language).
@@ -1010,6 +1013,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
           pickupPlaceName,
           pickupContactName,
           pickupContactPhone,
+          pickupComment,
           ...(pickupDocumentToken ? { pickupDocumentToken } : {}),
           pickupAddress,
           deliveryAddress,
@@ -1050,6 +1054,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
                   liftAvailable: loc.liftAvailable,
                   contactName: loc.contactName,
                   contactPhone: loc.contactPhone,
+                  comment: loc.comment,
                   productNames: claimedCardIds(extraPickupPools[i] ?? [], loc.allRemainingHere, loc.selectedCardIds).map(
                     pickupChecklistName,
                   ),
@@ -1395,6 +1400,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
               setPickupContactName={setPickupContactName}
               pickupContactPhone={pickupContactPhone}
               setPickupContactPhone={setPickupContactPhone}
+              pickupComment={pickupComment}
+              setPickupComment={setPickupComment}
               productPoolSections={poolCardIds.length > 1 ? pickupPoolSections(poolCardIds) : undefined}
               allRemainingHere={allProductsPickedUpHere}
               setAllRemainingHere={setAllProductsPickedUpHere}
@@ -1536,6 +1543,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
         contactPhone: pickupSource === "store" ? "" : pickupContactPhone,
         productNames:
           !allProductsPickedUpHere && poolCardIds.length > 1 ? location0Claimed.map(pickupChecklistName) : undefined,
+        comment: pickupComment,
       },
       ...extraPickupLocations.map((loc, i) => ({
         source: loc.source,
@@ -1548,6 +1556,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
         productNames: claimedCardIds(extraPickupPools[i] ?? [], loc.allRemainingHere, loc.selectedCardIds).map(
           pickupChecklistName,
         ),
+        comment: loc.comment,
       })),
     ],
     delivery: { address: deliveryAddress, floor: deliveryFloor, liftAvailable: deliveryLiftAvailable },
@@ -1667,6 +1676,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
       contactPhone: pickupSource === "store" ? "" : pickupContactPhone,
       cardIds: location0Claimed,
       productNames: location0Claimed.map(pickupChecklistName),
+      comment: pickupComment,
     },
     extraPickups: extraPickupLocations.map((loc, i) => {
       const claimed = claimedCardIds(extraPickupPools[i] ?? [], loc.allRemainingHere, loc.selectedCardIds);
@@ -1680,6 +1690,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
         contactPhone: loc.source === "store" ? "" : loc.contactPhone,
         cardIds: claimed,
         productNames: claimed.map(pickupChecklistName),
+        comment: loc.comment,
       };
     }),
     delivery: { address: deliveryAddress, floor: deliveryFloor, liftAvailable: deliveryLiftAvailable },

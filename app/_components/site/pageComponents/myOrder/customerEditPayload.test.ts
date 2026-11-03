@@ -68,6 +68,23 @@ describe("withPickupContacts", () => {
   });
 });
 
+describe("withPickupContacts — comments", () => {
+  it("also takes each stop's comment from the form, leaving it out when blank", () => {
+    const loaded = [
+      { address: "Strømmen 1", contactName: "", contactPhone: "", comment: "Gammel" },
+      { address: "Bjerkeveien 2", contactName: "", contactPhone: "" },
+    ];
+    const form = [
+      { address: "Strømmen 1", contactName: "", contactPhone: "" },
+      { address: "Bjerkeveien 2", contactName: "", contactPhone: "", comment: "Kodelås 1234" },
+    ];
+    expect(withPickupContacts(loaded, form)).toEqual([
+      { address: "Strømmen 1", contactName: "", contactPhone: "" },
+      { address: "Bjerkeveien 2", contactName: "", contactPhone: "", comment: "Kodelås 1234" },
+    ]);
+  });
+});
+
 describe("customerEditPrimaryAction", () => {
   it("goes to the summary first when the whole order can still be changed", () => {
     expect(customerEditPrimaryAction({ beforeCutoff: true, summaryOpen: false })).toBe("summary");

@@ -6,6 +6,15 @@ import {
 } from "./websiteExtraPickupLocations";
 
 describe("parseExtraPickupLocations", () => {
+  it("keeps the customer's comment for the stop, trimmed, and leaves it out when blank", () => {
+    const [withComment, blank] = parseExtraPickupLocations([
+      { address: "Storgata 3", comment: "  Ring på bakdøren " },
+      { address: "Storgata 4", comment: "   " },
+    ]);
+    expect(withComment.comment).toBe("Ring på bakdøren");
+    expect(blank).not.toHaveProperty("comment");
+  });
+
   it("returns nothing for a non-array or empty input", () => {
     expect(parseExtraPickupLocations(undefined)).toEqual([]);
     expect(parseExtraPickupLocations(null)).toEqual([]);

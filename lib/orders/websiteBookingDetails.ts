@@ -28,6 +28,8 @@ export type BookingPickupStop = {
   // the admin editor uses to put each product back on its stop.
   productNames?: string[];
   cardIds?: number[];
+  // The customer's comment for this stop (any stop type); absent when blank.
+  comment?: string;
 };
 
 export type WhiteGoodsBookingDetails = {
@@ -65,6 +67,7 @@ export type WhiteGoodsBookingDetailsInput = {
     contactPhone: string | null;
     productNames: string[];
     cardIds?: number[];
+    comment?: string | null;
   };
   extraPickups: ParsedExtraPickupLocation[];
   delivery: { address: string | null; floor: number; liftAvailable: boolean };
@@ -115,11 +118,13 @@ function stop(fields: {
   contactPhone: unknown;
   productNames: unknown;
   cardIds?: unknown;
+  comment?: unknown;
 }): BookingPickupStop {
   const source = pickupSource(fields.source);
   // A store is never asked for a floor/lift (see the order route).
   const isStore = source === "store";
   const productNames = names(fields.productNames);
+  const comment = text(fields.comment).trim();
   return {
     source,
     placeName: text(fields.placeName),
@@ -132,6 +137,7 @@ function stop(fields: {
     ...(Array.isArray(fields.cardIds)
       ? { cardIds: fields.cardIds.filter((id): id is number => Number.isInteger(id)) }
       : {}),
+    ...(comment ? { comment } : {}),
   };
 }
 
@@ -218,7 +224,7 @@ function liveOr(live: string | null | undefined, booked: string): string {
 
 // The stored details with whatever the order's own columns say now laid on
 // top, so the admin view never shows an address or date that was since
-// changed. Floors, lifts, contacts and product splits only exist in the
+// changed. Floors, lifts, contacts, comments and product splits only exist in the
 // details and stay as booked. Extra-stop addresses are only overlaid while the
 // stop count still matches — otherwise there's no telling which is which.
 export function withLiveOrderFields(details: WhiteGoodsBookingDetails, live: LiveOrderFields): WhiteGoodsBookingDetails {

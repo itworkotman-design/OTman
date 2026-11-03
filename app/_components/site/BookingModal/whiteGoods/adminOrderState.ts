@@ -54,6 +54,7 @@ export function pickupStateFromStops(params: {
     liftAvailable: stop.liftAvailable,
     contactName: stop.contactName,
     contactPhone: stop.contactPhone,
+    comment: stop.comment ?? "",
     allRemainingHere: i === extras.length - 1,
     selectedCardIds: claims[i + 1] ?? [],
   }));
@@ -70,6 +71,7 @@ type FlowStop = {
   contactPhone: string;
   cardIds: number[];
   productNames: string[];
+  comment?: string;
 };
 
 function toAdminStop(stop: FlowStop): AdminPickupStop {
@@ -83,6 +85,7 @@ function toAdminStop(stop: FlowStop): AdminPickupStop {
     contactPhone: stop.contactPhone,
     productNames: stop.productNames,
     cardIds: stop.cardIds,
+    ...(stop.comment?.trim() ? { comment: stop.comment.trim() } : {}),
   };
 }
 

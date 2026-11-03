@@ -12,7 +12,7 @@ The regular order columns can't hold this data: `Order.floorNo` / `lift` are one
 
 What it stores:
 - customer type, and a business customer's org number (`orgNumber`, digits only; the company name is `Order.customerName`);
-- every pickup stop (source, place, address, floor and lift, contact, products collected);
+- every pickup stop (source, place, address, floor and lift, contact, products collected, optional comment);
 - the delivery (address, floor and lift);
 - date, time window and driving distance;
 - the order-extra lines as priced at booking (floor surcharge, extra pickups, distance). The pricing snapshot only keeps product lines.
@@ -28,6 +28,7 @@ What it stores:
 | `floorPricingInputs` | Each stop's floor and lift for re-pricing an existing order (the customer's edit link). Uses the per-stop floors from the details, with a store stop as ground floor with a lift. Orders without details fall back to the one combined `floorNo`/`lift` applied to both ends, as before. |
 | `orgNumber` (field) | A business customer's organisation number. Only kept when the customer type is `business` and it isn't blank; absent on older orders and private customers. |
 | `cardIds` (stop field) | Which product cards a stop collects, as sent by the booking flow (`pickupCardIds`, and `cardIds` per extra location). The admin editor uses them to put every product back on its stop; older orders only have `productNames`. |
+| `comment` (stop field) | The customer's optional comment for that stop (`pickupComment` for the first stop, `comment` per extra location). Trimmed; absent when blank. Shown on the review page / admin modal and written into the description as a `*comment:` line. In the customer "My order" editor a comment change counts as `notes` (always allowed). |
 | `shownTotal` (field) | The total the customer was shown when booking. The order route only accepts the order when it equals the calculated price. It is dropped when the order is re-priced (`websiteOrderPricingWrites`); from then on the order is compared with its payments. Absent on older orders. |
 | `parseWhiteGoodsBookingDetails` | Tolerant reader for the stored JSON. Returns `null` for anything that isn't version-1 details, and coerces malformed fields inside a stop or order-extra line to safe defaults. |
 

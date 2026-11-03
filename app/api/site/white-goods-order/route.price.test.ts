@@ -212,6 +212,46 @@ describe("POST /api/site/white-goods-order — the price the customer saw", () =
     );
   });
 
+  it("keeps each pickup stop's comment in the description and the booking details", async () => {
+    const total = serverTotal("171.12");
+    const res = await post(
+      body({
+        shownTotal: total,
+        pickupPlaceName: "power",
+        pickupComment: "Hentes i varemottaket",
+        pickupProductNames: ["Vaskemaskin"],
+        extraPickupLocations: [
+          {
+            source: "private",
+            address: "Eivind Olsens vei, 3016 Drammen, Norge",
+            floor: 10,
+            liftAvailable: false,
+            contactName: "troll",
+            contactPhone: "00000000",
+            productNames: ["Kommode"],
+            comment: "Kodelås 1234",
+          },
+        ],
+      }),
+    );
+    expect(res.status).toBe(200);
+    const data = mocks.orderCreate.mock.calls[0]![0].data;
+    expect(data.description).toBe(
+      [
+        "Pickup 1 - Store: Power (Smalvollveien 65, Oslo) - picking up: Vaskemaskin",
+        "    *comment: Hentes i varemottaket",
+        "",
+        "Pickup 2 - Private: Troll / 00000000 (Eivind Olsens vei, 3016 Drammen, Norge) - picking up: Kommode",
+        "    *floor 10, no lift",
+        "    *comment: Kodelås 1234",
+      ].join("\n"),
+    );
+    expect(data.websiteBookingDetails.pickups.map((p: { comment?: string }) => p.comment)).toEqual([
+      "Hentes i varemottaket",
+      "Kodelås 1234",
+    ]);
+  });
+
   it("refuses an order that doesn't say what total the customer saw", async () => {
     const res = await post(body());
     expect(res.status).toBe(400);

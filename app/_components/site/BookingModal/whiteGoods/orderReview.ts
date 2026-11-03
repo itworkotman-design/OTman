@@ -72,6 +72,7 @@ export function buildOrderReviewBlocks(locale: Locale, input: ReviewInput): Revi
       [t("Floor", "Etasje"), floorValue(pickup.floor, pickup.liftAvailable)],
       [t("Contact person", "Kontaktperson"), [pickup.contactName, pickup.contactPhone].filter((s) => s.trim()).join(", ")],
       [t("Products", "Varer"), pickup.productNames?.join(", ")],
+      [t("Comment", "Kommentar"), pickup.comment],
     ]),
   }));
 

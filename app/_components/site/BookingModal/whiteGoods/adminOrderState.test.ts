@@ -62,6 +62,15 @@ describe("pickupStateFromStops", () => {
     ]);
   });
 
+  it("puts each extra stop's comment back on its location", () => {
+    const result = pickupStateFromStops({
+      cards,
+      stops: [stop({ cardIds: [0] }), stop({ cardIds: [1, 2], comment: "Varemottak" })],
+      nameOf,
+    });
+    expect(result.extraLocations[0]?.comment).toBe("Varemottak");
+  });
+
   it("falls back to the product names stored on older orders", () => {
     const result = pickupStateFromStops({
       cards,
@@ -134,6 +143,36 @@ describe("adminDetailsFromFlow", () => {
       // Saved at exactly the distance the editor priced with.
       drivingDistanceOverride: "171.12",
     });
+  });
+
+  it("sends each stop's comment, leaving it out when blank", () => {
+    const flowStop = {
+      source: "private" as const,
+      placeName: "",
+      address: "Bjerke 9",
+      floor: 2,
+      liftAvailable: false,
+      contactName: "Ola",
+      contactPhone: "12345678",
+      cardIds: [],
+      productNames: [],
+    };
+    const details = adminDetailsFromFlow({
+      customerType: "private",
+      name: "Kari",
+      orgNumber: "",
+      phone: "",
+      email: "",
+      notes: "",
+      firstPickup: { ...flowStop, comment: "Kodelås 1234" },
+      extraPickups: [{ ...flowStop, comment: "  " }],
+      delivery: { address: "Kirkegata 5", floor: 1, liftAvailable: false },
+      preferredDate: "",
+      timeWindow: "",
+      drivingDistance: "",
+    });
+    expect(details.pickups[0].comment).toBe("Kodelås 1234");
+    expect(details.pickups[1]).not.toHaveProperty("comment");
   });
 
   it("lets the server work the distance out when the editor has none", () => {

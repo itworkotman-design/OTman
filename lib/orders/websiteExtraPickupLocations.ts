@@ -26,6 +26,9 @@ export type ParsedExtraPickupLocation = {
   productNames: string[];
   // The product card ids this stop collects (newer clients send them).
   cardIds?: number[];
+  // The customer's free-text comment for this stop (gate code, loading dock…);
+  // absent when blank.
+  comment?: string;
 };
 
 function str(v: unknown): string | null {
@@ -63,6 +66,7 @@ export function parseExtraPickupLocations(value: unknown): ParsedExtraPickupLoca
         contactName: str(v.contactName),
         contactPhone: str(v.contactPhone),
         productNames: productNames(v.productNames),
+        ...(str(v.comment) ? { comment: str(v.comment) as string } : {}),
         ...(Array.isArray(v.cardIds)
           ? { cardIds: v.cardIds.filter((id): id is number => Number.isInteger(id)) }
           : {}),

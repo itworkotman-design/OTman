@@ -24,6 +24,13 @@ const rows = (block: { rows: { label: string; value: string }[] }) =>
   Object.fromEntries(block.rows.map((row) => [row.label, row.value]));
 
 describe("buildOrderReviewBlocks", () => {
+  it("shows a pickup's comment when there is one", () => {
+    const [pickupBlock] = buildOrderReviewBlocks("no", { ...base, pickups: [{ ...pickup, comment: "Varemottak bak" }] });
+    expect(rows(pickupBlock).Kommentar).toBe("Varemottak bak");
+    const [plain] = buildOrderReviewBlocks("no", base);
+    expect(rows(plain)).not.toHaveProperty("Kommentar");
+  });
+
   it("lists one pickup, the delivery and the contact details, in that order", () => {
     const blocks = buildOrderReviewBlocks("no", base);
     expect(blocks.map((block) => block.title)).toEqual(["Henting", "Levering", "Dine opplysninger"]);

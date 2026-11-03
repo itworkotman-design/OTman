@@ -304,6 +304,8 @@ async function createWhiteGoodsOrder(
   const pickupPlaceNameStr = str(body.pickupPlaceName);
   const pickupContactNameStr = str(body.pickupContactName);
   const pickupContactPhoneStr = str(body.pickupContactPhone);
+  // Optional, any pickup source — the customer's note for the driver.
+  const pickupCommentStr = str(body.pickupComment);
 
   const orderFloorNo = String(costliestFloor(pickupFloor, deliveryFloor));
   // Legacy single field (read when the order is re-priced) — "yes" only when
@@ -327,6 +329,7 @@ async function createWhiteGoodsOrder(
         contactName: pickupContactNameStr,
         contactPhone: pickupContactPhoneStr,
         productNames: firstLocationProductNames,
+        comment: pickupCommentStr,
       },
       ...extraPickupLocations,
     ],
@@ -350,6 +353,7 @@ async function createWhiteGoodsOrder(
       contactName: pickupContactNameStr,
       contactPhone: pickupContactPhoneStr,
       productNames: firstLocationProductNames,
+      comment: pickupCommentStr,
       // Which product cards are collected here (for the admin editor).
       ...(Array.isArray(body.pickupCardIds)
         ? { cardIds: (body.pickupCardIds as unknown[]).filter((id): id is number => Number.isInteger(id)) }
@@ -517,7 +521,7 @@ export async function POST(req: Request) {
     if (emailErr) errors.email = emailErr;
   }
 
-  const textFields = ["pickupAddress", "deliveryAddress", "name", "timeWindow", "notes", "pickupPlaceName", "pickupContactName"];
+  const textFields = ["pickupAddress", "deliveryAddress", "name", "timeWindow", "notes", "pickupPlaceName", "pickupContactName", "pickupComment"];
   for (const field of textFields) {
     if (field in body && !(field in errors)) {
       const err = validateTextField(s(body[field]));
@@ -560,6 +564,9 @@ export async function POST(req: Request) {
   }
   // Split across several pickups: every product must be on exactly one stop.
   const extraStops = parseExtraPickupLocations(body.extraPickupLocations);
+  extraStops.forEach((stop, i) => {
+    if (stop.comment && validateTextField(stop.comment)) errors[`extraPickupLocations.${i}.comment`] = "Contains disallowed characters";
+  });
   if (extraStops.length > 0 && Array.isArray(body.productCards)) {
     const firstStopCardIds = Array.isArray(body.pickupCardIds)
       ? (body.pickupCardIds as unknown[]).filter((id): id is number => Number.isInteger(id))

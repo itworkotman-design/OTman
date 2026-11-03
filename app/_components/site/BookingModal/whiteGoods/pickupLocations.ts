@@ -17,6 +17,8 @@ export type PickupLocationState = {
   liftAvailable: boolean;
   contactName: string;
   contactPhone: string;
+  // Optional free-text note for the driver about this stop (any source).
+  comment: string;
   // Claims every card still unassigned by an earlier location, skipping the
   // checklist below. Irrelevant (and never asked) once the pool offered to
   // this location is down to one card — there's nothing left to choose
@@ -44,6 +46,7 @@ export function createPickupLocation(id: number): PickupLocationState {
     liftAvailable: false,
     contactName: "",
     contactPhone: "",
+    comment: "",
     // Defaults to "everything else is here", the same assumption the first
     // location's own checkbox starts with — most orders only ever need a
     // second pickup point, so this is usually the last question asked.

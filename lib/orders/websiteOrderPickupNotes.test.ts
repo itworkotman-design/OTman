@@ -16,6 +16,24 @@ const stop = (overrides: Partial<PickupNoteStop>): PickupNoteStop => ({
 const delivery = { deliveryFloor: 5, deliveryLiftAvailable: false, orderFloorNo: "5", orderLift: "no" as const };
 
 describe("buildPickupNoteLines", () => {
+  it("adds the customer's comment for a stop under it, whatever the stop type", () => {
+    const lines = buildPickupNoteLines({
+      ...delivery,
+      stops: [
+        stop({ placeName: "power", address: "Storgata 1", comment: "Hentes i varemottaket" }),
+        stop({ source: "private", address: "Bjerke 9", floor: 3, liftAvailable: true, comment: "Kodelås 1234" }),
+      ],
+    });
+    expect(lines).toEqual([
+      "Pickup 1 - Store: Power (Storgata 1)",
+      "    *comment: Hentes i varemottaket",
+      "",
+      "Pickup 2 - Private (Bjerke 9)",
+      "    *floor 3, lift",
+      "    *comment: Kodelås 1234",
+    ]);
+  });
+
   it("writes one line per pickup stop, with its type, name, address and products", () => {
     const lines = buildPickupNoteLines({
       ...delivery,

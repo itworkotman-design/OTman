@@ -228,6 +228,11 @@ export function classifyCustomerOrderEdit(before: CustomerEditState, after: Cust
     if (beforePickups.length === after.pickups.length && !same(contacts(beforePickups), contacts(after.pickups))) {
       kinds.add("contact");
     }
+    // A stop's comment is a note for the driver, like the order's own notes.
+    const comments = (stops: AdminPickupStop[]) => stops.map((s) => s.comment ?? "");
+    if (beforePickups.length === after.pickups.length && !same(comments(beforePickups), comments(after.pickups))) {
+      kinds.add("notes");
+    }
   }
   if (after.delivery !== undefined && !same(before.delivery, after.delivery)) kinds.add("addresses");
 

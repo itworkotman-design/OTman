@@ -78,14 +78,21 @@ export function buildCustomerEditPayload(
 
 type Stop = Record<string, unknown>;
 
-// The stops as the server sent them, with only each one's contact person
-// taken from the form — what's compared and sent within 24h of the job, so a
-// stop the page rebuilt slightly differently (e.g. card ids worked out from
-// an older order's product names) never reads as an address change.
+// The stops as the server sent them, with only each one's contact person and
+// comment taken from the form — what's compared and sent within 24h of the
+// job, so a stop the page rebuilt slightly differently (e.g. card ids worked
+// out from an older order's product names) never reads as an address change.
 export function withPickupContacts(loaded: unknown[], form: unknown[]): Stop[] {
   return loaded.map((stop, i) => {
     const now = (form[i] ?? {}) as Stop;
-    return { ...(stop as Stop), contactName: now.contactName ?? "", contactPhone: now.contactPhone ?? "" };
+    const rest = { ...(stop as Stop) };
+    delete rest.comment;
+    return {
+      ...rest,
+      contactName: now.contactName ?? "",
+      contactPhone: now.contactPhone ?? "",
+      ...(typeof now.comment === "string" && now.comment.trim() ? { comment: now.comment } : {}),
+    };
   });
 }
 

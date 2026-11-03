@@ -234,4 +234,17 @@ describe("POST /api/site/white-goods-order", () => {
     const json = await res.json();
     expect(json.errors.notes).toBeDefined();
   });
+
+  it("returns 422 for a pickup comment containing disallowed characters, on any stop", async () => {
+    const res = await post({
+      ...validBody,
+      pickupComment: "<b>",
+      extraPickupLocations: [{ source: "store", address: "Storgata 3, Oslo", comment: "{x}" }],
+    });
+
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.errors.pickupComment).toBeDefined();
+    expect(json.errors["extraPickupLocations.0.comment"]).toBeDefined();
+  });
 });

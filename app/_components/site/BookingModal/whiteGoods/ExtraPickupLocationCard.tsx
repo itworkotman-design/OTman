@@ -63,6 +63,8 @@ export function ExtraPickupLocationCard({
               setPickupContactName={(value) => onChange({ contactName: value })}
               pickupContactPhone={location.contactPhone}
               setPickupContactPhone={(value) => onChange({ contactPhone: value })}
+              pickupComment={location.comment}
+              setPickupComment={(value) => onChange({ comment: value })}
               productPoolSections={productPoolSections}
               allRemainingHere={location.allRemainingHere}
               setAllRemainingHere={(value) => onChange({ allRemainingHere: value })}
