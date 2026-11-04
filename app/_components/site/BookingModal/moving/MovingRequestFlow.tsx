@@ -41,6 +41,8 @@ import { movingSummary } from "./movingSummary";
 import CustomerOrderEditFooter from "@/app/_components/site/pageComponents/myOrder/CustomerOrderEditFooter";
 import type { CustomerEditDraft } from "@/app/_components/site/pageComponents/myOrder/customerEditPayload";
 import { buildMovingReviewBlocks } from "./movingReview";
+import { movingOrderIncludesService, needsWithdrawalConsent } from "@/lib/orders/withdrawalConsent";
+import { BookingTermsNotice } from "../BookingTermsNotice";
 import { OrderReviewBlocks, ReviewTotalFooter } from "../whiteGoods/OrderReviewParts";
 import {
   isValidEmail,
@@ -177,6 +179,8 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
 
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // The summary checkbox for packing/cleaning (BookingTermsNotice).
+  const [withdrawalConsent, setWithdrawalConsent] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ orderNumber: string } | null>(null);
 
   // "My order": the customer's own move, loaded into the flow's state.
@@ -347,6 +351,13 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
   };
 
   const canContinueTiming = !!preferredDate && isTimeWindowComplete(timeWindow);
+  // Packing and cleaning are services: a private customer asks for them
+  // within the 14-day withdrawal period (lib/orders/withdrawalConsent.ts).
+  const withdrawalConsentRequired = needsWithdrawalConsent({
+    customerType,
+    includesService: movingOrderIncludesService(serviceCodes),
+  });
+
   const canSubmit =
     !!name.trim() &&
     validatePhoneField(phone) === null &&
@@ -379,6 +390,7 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
           // The total shown above, incl. VAT — the server only books the
           // move at this price (see app/api/site/moving-request).
           shownTotal: totals.totalIncVat,
+          ...(withdrawalConsentRequired ? { withdrawalConsent } : {}),
         }),
       });
       const data = await res.json();
@@ -388,6 +400,15 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
           t(
             `The price has changed to ${total.toLocaleString("nb-NO")} kr since you started. Please reload the page to see the updated price before ordering.`,
             `Prisen er endret til ${total.toLocaleString("nb-NO")} kr siden du startet. Last inn siden på nytt for å se oppdatert pris før du bestiller.`,
+          ),
+        );
+        return;
+      }
+      if (!data.ok && data.errors?.withdrawalConsent) {
+        setSubmitError(
+          t(
+            "Tick the box above to ask for the services within the withdrawal period.",
+            "Kryss av i boksen over for å be om at tjenestene utføres innen angrefristen.",
           ),
         );
         return;
@@ -730,10 +751,19 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
 
               <p className="text-xs leading-relaxed text-black/50">
                 {t(
-                  "This price is based on the approximate size you selected — the final price is confirmed when we review your booking. The faktura is sent to your email; if the price changes, we'll send a new one for the difference.",
-                  "Denne prisen er basert på den omtrentlige størrelsen du valgte — endelig pris bekreftes når vi har gått gjennom bestillingen. Fakturaen sendes til e-posten din; endres prisen, sender vi en ny for differansen.",
+                  "This price is based on the approximate size you selected — the final price is confirmed when we review your booking. If it changes, we'll email you about the difference.",
+                  "Denne prisen er basert på den omtrentlige størrelsen du valgte — endelig pris bekreftes når vi har gått gjennom bestillingen. Endres prisen, sender vi deg en e-post om differansen.",
                 )}
               </p>
+
+              {!customer && (
+                <BookingTermsNotice
+                  locale={locale}
+                  consentRequired={withdrawalConsentRequired}
+                  consent={withdrawalConsent}
+                  onConsentChange={setWithdrawalConsent}
+                />
+              )}
 
               {/* "My order" saves from its edit bar (CustomerOrderEditFooter). */}
               {!customer && submitError && <p className="text-sm text-red-600">{submitError}</p>}
@@ -741,7 +771,7 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
               {!customer && (
               <button
                 type="button"
-                disabled={!canSubmit}
+                disabled={!canSubmit || (withdrawalConsentRequired && !withdrawalConsent)}
                 onClick={handleSubmit}
                 className="inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:pointer-events-none disabled:opacity-40"
               >

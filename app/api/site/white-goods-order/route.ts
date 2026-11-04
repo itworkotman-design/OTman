@@ -48,6 +48,7 @@ import { isManualPaymentMode } from "@/lib/orders/paymentMode";
 import { createOrderActionToken } from "@/lib/orders/orderActionToken";
 import { startBookingCheckout } from "@/lib/orders/bookingCheckout";
 import { lookUpWebsiteDrivingDistance } from "@/lib/orders/websiteDrivingDistance";
+import { needsWithdrawalConsent, whiteGoodsOrderIncludesService } from "@/lib/orders/withdrawalConsent";
 
 // Independent from transport-request's rate limiter by design — a separate
 // public order-creation flow gets its own budget rather than sharing state
@@ -116,6 +117,8 @@ class InstallAddOnNotAllowedError extends Error {
     super("An install add-on was chosen without the install type it belongs to");
   }
 }
+
+class WithdrawalConsentRequiredError extends Error {}
 
 class TvSetupConfirmationError extends Error {
   constructor() {
@@ -191,6 +194,16 @@ async function createWhiteGoodsOrder(
     throw new ItemNameError();
   }
   const productCards = cardsCheck.cards;
+
+  // A private customer booking a service (installation, disconnecting…) asks
+  // for it to be done within the withdrawal period — the summary checkbox
+  // (lib/orders/withdrawalConsent.ts). Only stored when it applies.
+  const consentNeeded = needsWithdrawalConsent({
+    customerType: body.customerType === "business" ? "business" : "private",
+    includesService: whiteGoodsOrderIncludesService(productCards, catalog.products),
+  });
+  if (consentNeeded && body.withdrawalConsent !== true) throw new WithdrawalConsentRequiredError();
+  const withdrawalConsentAt = consentNeeded ? new Date() : undefined;
 
   const pricingSource = applyOrderPricingSnapshot({
     catalogProducts: catalog.products,
@@ -413,6 +426,7 @@ async function createWhiteGoodsOrder(
       extraPickupAddress: extraPickupsForPricing.map((p) => p.address),
       floorNo: orderFloorNo,
       lift: orderLift,
+      ...(withdrawalConsentAt ? { withdrawalConsentAt } : {}),
       ...buildWebsiteOrderTextFields({
         customerComment: str(body.notes),
         noteLines: pickupNoteLines,
@@ -685,6 +699,16 @@ export async function POST(req: Request) {
     if (err instanceof InstallAddOnNotAllowedError) {
       return NextResponse.json(
         { ok: false, reason: "VALIDATION_FAILED", errors: { productCards: "That add-on can only be combined with a different installation — please review the installation choices" } },
+        { status: 422 },
+      );
+    }
+    if (err instanceof WithdrawalConsentRequiredError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          reason: "VALIDATION_FAILED",
+          errors: { withdrawalConsent: "Confirm that you want the services carried out within the withdrawal period" },
+        },
         { status: 422 },
       );
     }

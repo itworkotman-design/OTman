@@ -179,6 +179,18 @@ describe("buildOrderReceivedEmail", () => {
     totalIncVatNok: 44170,
   };
 
+  it("confirms the customer asked for the services within the withdrawal period (angrerettloven § 19)", () => {
+    const { html } = buildOrderReceivedEmail({
+      ...order,
+      orderDetails: { ...details, withdrawalConsentAt: new Date("2026-11-04T10:00:00Z") },
+    });
+
+    expect(html).toContain("innen angrefristen");
+    expect(html).toContain("angreretten faller bort");
+    expect(html).toContain("4. november 2026");
+    expect(buildOrderReceivedEmail({ ...order, orderDetails: details }).html).not.toContain("angrefristen");
+  });
+
   it("ends with the order details: date, every address, products, services and total", () => {
     const { html } = buildOrderReceivedEmail({ ...order, orderNumber: "K7MQ4XZ2", orderDetails: details });
 

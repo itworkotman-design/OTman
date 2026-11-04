@@ -83,6 +83,8 @@ function body(overrides: Record<string, unknown> = {}) {
     preferredDate: "2026-10-22",
     timeWindow: "10:00-16:00",
     customerType: "private",
+    // Cleaning is a service: asked for within the withdrawal period.
+    withdrawalConsent: true,
     origin,
     destination,
     serviceCodes: ["SERVICE_FLYTTEVASK"],

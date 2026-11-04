@@ -30,3 +30,7 @@ With `HOMEPAGE_PAYMENT_MODE=stripe` the customer pays as they book (`docs/docume
 ## Pickup assignment
 
 When the order is split across pickups (`extraPickupLocations`), every product card must be on exactly one stop (`pickupCardIds` for the first, `cardIds` for the rest), checked with `findCardsWithoutPickup`. Otherwise the route returns `422 VALIDATION_FAILED` with `errors.pickups`.
+
+## Withdrawal consent
+
+A private customer booking a service must send `withdrawalConsent: true` (see `lib/orders/withdrawalConsent.ts`); otherwise 422 `VALIDATION_FAILED` with `errors.withdrawalConsent`, before anything is saved. When it applies, the order stores `withdrawalConsentAt`.

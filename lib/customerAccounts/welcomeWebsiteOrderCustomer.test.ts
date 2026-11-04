@@ -144,6 +144,17 @@ describe("welcomeWebsiteOrderCustomer", () => {
     expect(details.delivery).toBeUndefined();
   });
 
+  it("passes when the customer asked for the services within the withdrawal period, so the email confirms it", async () => {
+    mocks.ensureCustomerAccountForOrder.mockResolvedValue(null);
+    const at = new Date("2026-11-04T10:00:00Z");
+
+    await welcomeWebsiteOrderCustomer({ ...order, withdrawalConsentAt: at });
+    await welcomeWebsiteOrderCustomer({ ...order, withdrawalConsentAt: null });
+
+    expect(mocks.sendOrderReceivedEmail.mock.calls[0][0].orderDetails.withdrawalConsentAt).toEqual(at);
+    expect(mocks.sendOrderReceivedEmail.mock.calls[1][0].orderDetails).not.toHaveProperty("withdrawalConsentAt");
+  });
+
   it("gives an unpriced quote no total", async () => {
     mocks.ensureCustomerAccountForOrder.mockResolvedValue(null);
 

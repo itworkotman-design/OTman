@@ -33,3 +33,5 @@ own request from `/api/customer/orders/[orderNumber]`, shows every section but
 the customer type, and saves through `CustomerOrderEditFooter`. It is only
 opened before the 24h cutoff — after that a service request can't be changed
 at all, and "My order" hides "Change order".
+
+The summary shows `BookingTermsNotice` above the submit button (terms/privacy links; fees and the withdrawal-period checkbox on bookings).

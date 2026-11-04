@@ -68,10 +68,33 @@ describe("POST /api/site/moving-request — what's stored", () => {
     });
   });
 
-  async function post() {
+  async function post(extra: Record<string, unknown> = {}) {
     const { POST } = await import("./route");
-    return POST(new Request("http://localhost/api/site/moving-request", { method: "POST", body: JSON.stringify(body) }));
+    return POST(new Request("http://localhost/api/site/moving-request", { method: "POST", body: JSON.stringify({ ...body, ...extra }) }));
   }
+
+  it("refuses a private move with a service (cleaning) unless the customer asks for it within the withdrawal period", async () => {
+    const res = await post({ customerType: "private" });
+
+    expect(res.status).toBe(422);
+    expect(await res.json()).toMatchObject({ reason: "VALIDATION_FAILED", errors: { withdrawalConsent: expect.any(String) } });
+    expect(mocks.orderCreate).not.toHaveBeenCalled();
+  });
+
+  it("stores when a private customer gave the consent", async () => {
+    expect((await post({ customerType: "private", withdrawalConsent: true })).status).toBe(200);
+    expect(mocks.orderCreate.mock.calls[0][0].data.withdrawalConsentAt).toBeInstanceOf(Date);
+  });
+
+  it("doesn't ask a business", async () => {
+    expect((await post()).status).toBe(200);
+    expect(mocks.orderCreate.mock.calls[0][0].data.withdrawalConsentAt).toBeUndefined();
+  });
+
+  it("doesn't ask for a move with no services", async () => {
+    expect((await post({ customerType: "private", serviceCodes: [] })).status).toBe(200);
+    expect(mocks.orderCreate.mock.calls[0][0].data.withdrawalConsentAt).toBeUndefined();
+  });
 
   it("saves a MOVING website order with the customer's answers, so the admin modal can show and edit them", async () => {
     const res = await post();

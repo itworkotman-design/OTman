@@ -82,3 +82,7 @@ too, and one order line per priced line (`movingOrderItemRows`, `createMany`). `
 The flow sends `shownTotal`, the total incl. VAT it showed. If it is sent and differs from the server's quote (`pricingSnapshot.customer.totalIncVat`) by 0.5 kr or more, the route answers `409 PRICE_CHANGED` with the real `total`, and nothing is saved.
 
 With `HOMEPAGE_PAYMENT_MODE=stripe`, `shownTotal` is required (`400 SHOWN_TOTAL_REQUIRED`) and the customer pays as they book, the same as white goods (`docs/documentation/lib/booking-payment.md`). The order is saved `processing` with `paymentStatus: "pending"` and an `actionToken`, and the response carries `checkoutUrl`. The staff alert and the welcome wait for the Stripe webhook. If the payment can't be started, the order is cancelled and the route answers `502 PAYMENT_START_FAILED`.
+
+## Withdrawal consent
+
+A private customer booking a service must send `withdrawalConsent: true` (see `lib/orders/withdrawalConsent.ts`); otherwise 422 `VALIDATION_FAILED` with `errors.withdrawalConsent`, before anything is saved. When it applies, the order stores `withdrawalConsentAt`.

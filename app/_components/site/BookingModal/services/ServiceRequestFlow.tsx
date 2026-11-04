@@ -31,6 +31,7 @@ import {
 import type { ServiceSwitchTarget } from "@/app/_components/site/TransportService/serviceModalRouting";
 import { AssemblyIcon, MovingIcon, ServiceIcon } from "./serviceIcons";
 import { buildServiceReviewBlocks } from "./serviceReview";
+import { BookingTermsNotice } from "../BookingTermsNotice";
 
 // The homepage "Services" card's modal — the same stepped flow as delivery
 // (WhiteGoodsBookingFlow) and moving (MovingRequestFlow): private or business
@@ -520,6 +521,8 @@ export function ServiceRequestFlow({ locale, onClose, customer, onSwitchFlow }: 
                   )}
                 </p>
               </div>
+
+              <BookingTermsNotice locale={locale} isRequest showFees={false} />
 
               {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 

@@ -8,6 +8,7 @@ import { movingOrderDescription } from "@/lib/orders/movingOrderDescription";
 import { parseMovingProperty } from "@/lib/orders/movingProperty";
 import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
 import { createOrderCreatedEvent, buildOrderEventSnapshot } from "@/lib/orders/orderEvents";
+import { movingOrderIncludesService, needsWithdrawalConsent } from "@/lib/orders/withdrawalConsent";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import { welcomeWebsiteOrderCustomer } from "@/lib/customerAccounts/welcomeWebsiteOrderCustomer";
 import { getMovingCatalog } from "@/lib/content/getMovingCatalog";
@@ -77,6 +78,7 @@ async function createMovingRequest(
     drivingDistance,
     bookingDetails,
     payAtBooking,
+    withdrawalConsentAt,
   }: {
     // The move priced from the catalog (priceMovingOrder).
     quote: MovingQuote;
@@ -85,6 +87,9 @@ async function createMovingRequest(
     // The customer's answers, kept for the admin modal (movingBookingDetails).
     bookingDetails: MovingBookingDetails;
     payAtBooking: boolean;
+    // Set when a private customer asked for the services within the
+    // withdrawal period (lib/orders/withdrawalConsent.ts).
+    withdrawalConsentAt?: Date;
   },
 ): Promise<{ orderId: string; displayId: number; orderNumber: string | null; checkoutUrl?: string }> {
   const membershipId = process.env.WEBSITE_MEMBERSHIP_ID;
@@ -133,6 +138,7 @@ async function createMovingRequest(
       deliveryDate: str(body.preferredDate),
       timeWindow: str(body.timeWindow),
       description,
+      ...(withdrawalConsentAt ? { withdrawalConsentAt } : {}),
       // Ex. VAT, with what the customer pays (incl. VAT, whole kroner) in the snapshot.
       ...movingPricing,
       pricingSnapshot: movingPricing.pricingSnapshot as unknown as Prisma.InputJsonValue,
@@ -287,7 +293,29 @@ export async function POST(req: Request) {
       destination: input.destination,
       serviceCodes: quote.services.map((service) => service.code),
     });
-    const result = await createMovingRequest(body, { quote, drivingDistance, bookingDetails, payAtBooking });
+    // Packing or cleaning is a service: a private customer asks for it to be
+    // done within the withdrawal period (the summary checkbox).
+    const consentNeeded = needsWithdrawalConsent({
+      customerType,
+      includesService: movingOrderIncludesService(bookingDetails.serviceCodes),
+    });
+    if (consentNeeded && body.withdrawalConsent !== true) {
+      return NextResponse.json(
+        {
+          ok: false,
+          reason: "VALIDATION_FAILED",
+          errors: { withdrawalConsent: "Confirm that you want the services carried out within the withdrawal period" },
+        },
+        { status: 422 },
+      );
+    }
+    const result = await createMovingRequest(body, {
+      quote,
+      drivingDistance,
+      bookingDetails,
+      payAtBooking,
+      ...(consentNeeded ? { withdrawalConsentAt: new Date() } : {}),
+    });
     return NextResponse.json({ ok: true, ...result }, { status: 200 });
   } catch (err) {
     if (err instanceof PaymentStartError) {

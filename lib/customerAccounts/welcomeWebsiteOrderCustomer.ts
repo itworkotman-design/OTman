@@ -32,6 +32,7 @@ export type WelcomeOrder = LifecycleEmailOrderInput & {
   websiteOrderKind?: string | null;
   drivingDistance?: string | null;
   websiteBookingDetails?: unknown;
+  withdrawalConsentAt?: Date | null;
 };
 
 // Every pickup stop and the delivery as booked (homepage white-goods orders
@@ -68,6 +69,7 @@ function orderReceivedDetails(order: WelcomeOrder): OrderReceivedDetails {
     deliveryTypeSummary: order.deliveryTypeSummary ?? null,
     servicesSummary: order.servicesSummary ?? null,
     customerComments: order.customerComments ?? null,
+    ...(order.withdrawalConsentAt ? { withdrawalConsentAt: order.withdrawalConsentAt } : {}),
     // A quote not priced yet has no total to show.
     totalIncVatNok:
       order.priceExVat && order.priceExVat > 0

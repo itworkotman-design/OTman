@@ -657,6 +657,10 @@ model Order {
   // "pending" | "paid"; null before the first faktura. Only the Mark paid
   // button sets "paid"; any price change recomputes it (nextPaymentStatus).
   paymentStatus              String?
+  // Homepage orders with a service (installation, packing…): when a private
+  // customer asked for it to be done within the 14-day withdrawal period
+  // (lib/orders/withdrawalConsent.ts). Null = not asked.
+  withdrawalConsentAt        DateTime?
 
   @@unique([companyId, displayId])
   @@unique([recurringOrderTemplateId, recurringOrderOccurrenceDate])

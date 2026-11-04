@@ -117,6 +117,8 @@ import {
   type PriceListSettings,
 } from "@/lib/products/priceListSettings";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
+import { needsWithdrawalConsent, whiteGoodsOrderIncludesService } from "@/lib/orders/withdrawalConsent";
+import { BookingTermsNotice } from "../BookingTermsNotice";
 
 // The same flow, opened by the customer on their own order in "My order"
 // (app/(site)/[locale]/min-bestilling): prefilled from GET
@@ -279,6 +281,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   const [pickupCardIds, setPickupCardIds] = useState<number[]>([]);
   const [extraPickupLocations, setExtraPickupLocations] = useState<PickupLocationState[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // The summary checkbox for a service (BookingTermsNotice).
+  const [withdrawalConsent, setWithdrawalConsent] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ orderNumber: string } | null>(null);
 
   // Admin editing: the order loaded into the fields above, and what it was
@@ -917,6 +921,14 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   // customer went back and split the pickup across more locations.
   const orgNumberReady = customerType !== "business" || isValidOrgNumber(orgNumber);
   const canContinueContact = !!name.trim() && orgNumberReady && !!phone.trim() && emailValid && allPickupLocationsReady;
+  // A private customer booking installation etc. asks for it within the
+  // 14-day withdrawal period (lib/orders/withdrawalConsent.ts) — the server
+  // refuses the order without it.
+  const withdrawalConsentRequired = needsWithdrawalConsent({
+    customerType: customerType === "business" ? "business" : "private",
+    includesService: whiteGoodsOrderIncludesService(productCards, catalogProducts),
+  });
+
   const canSubmit =
     name.trim() &&
     phone.trim() &&
@@ -1036,6 +1048,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
           // this price (see app/api/site/white-goods-order).
           // What the customer saw and pays: incl. VAT, summed per line.
           shownTotal: customerTotals.totalIncVat,
+          ...(withdrawalConsentRequired ? { withdrawalConsent } : {}),
           // Only present once the order was actually split across more than
           // one pickup address — omitted for the common single-location
           // case so that payload stays exactly as it always has been.
@@ -1081,6 +1094,15 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
           t(
             "The receipt or order confirmation for a store pickup is missing. Please upload it and try again.",
             "Kvittering eller ordrebekreftelse for en butikkhenting mangler. Last den opp og prøv igjen.",
+          ),
+        );
+        return;
+      }
+      if (!json.ok && json.errors?.withdrawalConsent) {
+        setSubmitError(
+          t(
+            "Tick the box above to ask for the services within the withdrawal period.",
+            "Kryss av i boksen over for å be om at tjenestene utføres innen angrefristen.",
           ),
         );
         return;
@@ -1638,13 +1660,22 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
                 }
               />
 
+              {!customer && (
+                <BookingTermsNotice
+                  locale={locale}
+                  consentRequired={withdrawalConsentRequired}
+                  consent={withdrawalConsent}
+                  onConsentChange={setWithdrawalConsent}
+                />
+              )}
+
               {/* "My order" saves from its edit bar (CustomerOrderEditFooter). */}
               {!customer && submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
               {!customer && (
               <button
                 type="button"
-                disabled={!canSubmit}
+                disabled={!canSubmit || (withdrawalConsentRequired && !withdrawalConsent)}
                 onClick={handleSubmit}
                 aria-busy={submitLoading}
                 // While sending it stays at full colour with a spinner, so it

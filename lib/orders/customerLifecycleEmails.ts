@@ -69,6 +69,9 @@ export type OrderReceivedDetails = {
   // present they replace the plain pickup / extra pickup / floor rows.
   pickups?: BookingPickupStop[];
   delivery?: { address: string; floor: number | null; liftAvailable: boolean };
+  // When the customer asked for the services to be done within the 14-day
+  // withdrawal period (Order.withdrawalConsentAt) — the email confirms it.
+  withdrawalConsentAt?: Date | null;
 };
 
 export function escapeHtml(value: string) {
@@ -356,6 +359,19 @@ function editRulesBlock(details: OrderReceivedDetails | undefined) {
     </p>`;
 }
 
+// The confirmation of the request ticked on the booking summary
+// (lib/orders/withdrawalConsent.ts), on a durable medium (angrerettloven § 19).
+function withdrawalConsentBlock(details: OrderReceivedDetails | undefined) {
+  if (!details?.withdrawalConsentAt) return "";
+  const date = details.withdrawalConsentAt.toLocaleDateString("nb-NO", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Oslo" });
+  return `
+    <p style="margin:0 0 16px 0;">
+      Da du bestilte (${escapeHtml(date)}), ba du om at tjenestene utføres innen angrefristen på 14 dager.
+      Det betyr at angreretten faller bort når tjenesten er fullført. Angrer du før det, betaler du for det som er utført.
+      Les mer i vilkårene våre på otman.no.
+    </p>`;
+}
+
 function detailsRow(label: string, value: string | null | undefined) {
   const text = value?.trim();
   if (!text) return "";
@@ -499,7 +515,7 @@ export function buildOrderReceivedEmail(order: LifecycleEmailOrder) {
     <p style="margin:0 0 16px 0;">Hei ${escapeHtml(customerGreetingName(order))},</p>
     <p style="margin:0 0 16px 0;">
       Takk for bestillingen! Vi har mottatt ${reference ? `bestilling ${escapeHtml(reference)}` : "bestillingen din"} og behandler den nå.
-    </p>${loginBlock}
+    </p>${loginBlock}${withdrawalConsentBlock(order.orderDetails)}
     <p style="margin:0 0 16px 0;">Har du spørsmål eller er du usikker på hvordan du endrer noe? Svar på denne e-posten, så tar vi kontakt med deg så snart som mulig.</p>
     ${order.orderDetails ? orderDetailsTable(order.orderDetails) : ""}
   `);
