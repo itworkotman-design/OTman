@@ -2332,6 +2332,7 @@ describe("routes in /api/orders/[orderId]", () => {
     });
     mocks.membershipFindFirstMock.mockResolvedValue({ role: "OWNER" });
     mocks.orderDeleteManyMock.mockResolvedValue({ count: 0 });
+    mocks.orderFindFirstMock.mockResolvedValue(null);
 
     const res = await DELETE(
       new Request("http://localhost/api/orders/order-1"),
@@ -2344,6 +2345,21 @@ describe("routes in /api/orders/[orderId]", () => {
     await expect(res.json()).resolves.toEqual({
       ok: false,
       reason: "ORDER_NOT_FOUND",
+    });
+  });
+
+  it("DELETE never deletes a homepage order — it's an accounting record; cancel or decline it instead", async () => {
+    mocks.getAuthenticatedSessionMock.mockResolvedValue({ userId: "user-1", activeCompanyId: "company-1" });
+    mocks.membershipFindFirstMock.mockResolvedValue({ role: "OWNER" });
+    mocks.orderDeleteManyMock.mockResolvedValue({ count: 0 });
+    mocks.orderFindFirstMock.mockResolvedValue({ isWebsiteOrder: true });
+
+    const res = await DELETE(new Request("http://localhost/api/orders/order-1"), { params: Promise.resolve({ orderId: "order-1" }) });
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({ ok: false, reason: "WEBSITE_ORDER_NOT_DELETABLE" });
+    expect(mocks.orderDeleteManyMock).toHaveBeenCalledWith({
+      where: { id: "order-1", companyId: "company-1", isWebsiteOrder: false },
     });
   });
 

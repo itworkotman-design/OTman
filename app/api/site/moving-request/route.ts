@@ -9,7 +9,6 @@ import { parseMovingProperty } from "@/lib/orders/movingProperty";
 import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
 import { createOrderCreatedEvent, buildOrderEventSnapshot } from "@/lib/orders/orderEvents";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
-import { reservePublicOrderNumber } from "@/lib/orders/publicOrderNumber";
 import { welcomeWebsiteOrderCustomer } from "@/lib/customerAccounts/welcomeWebsiteOrderCustomer";
 import { getMovingCatalog } from "@/lib/content/getMovingCatalog";
 import { isManualPaymentMode } from "@/lib/orders/paymentMode";
@@ -101,8 +100,8 @@ async function createMovingRequest(
   }
 
   const displayId = await reserveNextManualOrderNumber(membership.companyId);
-  // The random number customers see; displayId stays internal/sequential.
-  const orderNumber = await reservePublicOrderNumber(prisma, membership.companyId);
+  // The number customers see (emails, "My order", Stripe) is the order id.
+  const orderNumber = String(displayId);
 
   const description = movingOrderDescription({
     originLine: quote.originLine,

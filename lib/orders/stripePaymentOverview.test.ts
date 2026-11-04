@@ -36,6 +36,7 @@ describe("buildStripePaymentOverview", () => {
     expect(overview.comparison).toEqual({
       outcome: "settled",
       totalPaidIncVatNok: 5110,
+      totalRefundedIncVatNok: 0,
       currentTotalIncVatNok: 5110,
       differenceIncVatNok: 0,
     });
@@ -53,6 +54,23 @@ describe("buildStripePaymentOverview", () => {
       { id: "r1", amountCents: 20000, reason: "Removed an item", createdAt: "2026-11-03T16:00:00.000Z" },
     ]);
     expect(overview.comparison).toMatchObject({ totalPaidIncVatNok: 4910, differenceIncVatNok: 200, outcome: "due" });
+  });
+
+  it("a declined order whose payments all went back is closed — nothing due, and how much was refunded", () => {
+    const refundAll = (payment: typeof booking) => ({
+      ...payment,
+      refunds: [{ id: `r-${payment.id}`, amountRefundedCents: payment.amountChargedCents, reason: "Declined", createdAt: new Date("2026-11-04T10:00:00Z"), orderSnapshot: null }],
+    });
+
+    const overview = buildStripePaymentOverview([refundAll(booking), refundAll(change)], current, true);
+
+    expect(overview.comparison).toEqual({
+      outcome: "closed",
+      totalPaidIncVatNok: 0,
+      totalRefundedIncVatNok: 5110,
+      currentTotalIncVatNok: 0,
+      differenceIncVatNok: 0,
+    });
   });
 
   it("an order with no Stripe payment yet is unpaid", () => {
@@ -75,5 +93,11 @@ describe("nextStripePaymentStatus — the order's payment status from its Stripe
 
   it("has no say over an order nothing was paid on yet (a booking still in checkout keeps its own status)", () => {
     expect(nextStripePaymentStatus("unpaid")).toBeNull();
+  });
+});
+
+describe("nextStripePaymentStatus — a cancelled or declined order", () => {
+  it("leaves the payment status alone (the order status says it)", () => {
+    expect(nextStripePaymentStatus("closed")).toBeNull();
   });
 });

@@ -22,7 +22,7 @@ import {
   editableDetailsFromOrder,
   parseAdminOrderDetails,
 } from "@/lib/orders/websiteOrderDetailsEdit";
-import { isWebsiteOrderLocked } from "@/lib/orders/statusPresentation";
+import { isClosedOrderStatus, isWebsiteOrderLocked } from "@/lib/orders/statusPresentation";
 import {
   applyNulledLinesToCards,
   parseNulledLines,
@@ -202,7 +202,11 @@ export async function GET(req: Request, { params }: Params) {
       // Which km rule the editor's live price must use (orders made before
       // FULL_DISTANCE_KM_PRICING_FROM keep the old one).
       useFullDistanceKmPricing: usesFullDistanceKmPricing(order.createdAt),
-      comparison: compareOrderWithPayments({ payments: order.payments, current: buildOrderStateSnapshot(order) }),
+      comparison: compareOrderWithPayments({
+        payments: order.payments,
+        current: buildOrderStateSnapshot(order),
+        closed: isClosedOrderStatus(order.status),
+      }),
       catalogProducts: catalog.products,
       categories: seeded.map(({ catalog: list }) => ({
         code: list.priceListCode,

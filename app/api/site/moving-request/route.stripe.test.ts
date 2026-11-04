@@ -23,7 +23,6 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("@/lib/orders/orderNumber", () => ({ reserveNextManualOrderNumber: vi.fn(async () => 1001) }));
-vi.mock("@/lib/orders/publicOrderNumber", () => ({ reservePublicOrderNumber: vi.fn(async () => "123456") }));
 vi.mock("@/lib/orders/orderEvents", () => ({ createOrderCreatedEvent: vi.fn(), buildOrderEventSnapshot: vi.fn(() => ({})) }));
 vi.mock("@/lib/orders/orderNotifications", () => ({ createOrderNotification: mocks.createOrderNotification }));
 vi.mock("@/lib/customerAccounts/welcomeWebsiteOrderCustomer", () => ({
@@ -114,7 +113,7 @@ describe("POST /api/site/moving-request — paying at booking (Stripe)", () => {
     const res = await post(body());
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ ok: true, orderNumber: "123456", checkoutUrl: "https://checkout.stripe.com/cs_1" });
+    expect(await res.json()).toMatchObject({ ok: true, orderNumber: "1001", checkoutUrl: "https://checkout.stripe.com/cs_1" });
     const data = mocks.orderCreate.mock.calls[0]![0].data;
     expect(data.status).toBe("processing");
     expect(data.paymentStatus).toBe("pending");

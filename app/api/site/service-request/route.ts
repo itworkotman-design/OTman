@@ -4,7 +4,6 @@ import { prisma } from "@/lib/db";
 import { reserveNextManualOrderNumber } from "@/lib/orders/orderNumber";
 import { createOrderCreatedEvent, buildOrderEventSnapshot } from "@/lib/orders/orderEvents";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
-import { reservePublicOrderNumber } from "@/lib/orders/publicOrderNumber";
 import { welcomeWebsiteOrderCustomer } from "@/lib/customerAccounts/welcomeWebsiteOrderCustomer";
 import {
   buildServiceBookingDetails,
@@ -71,8 +70,8 @@ async function createServiceRequest(
   }
 
   const displayId = await reserveNextManualOrderNumber(membership.companyId);
-  // The random number customers see; displayId stays internal/sequential.
-  const orderNumber = await reservePublicOrderNumber(prisma, membership.companyId);
+  // The number customers see (emails, "My order", Stripe) is the order id.
+  const orderNumber = String(displayId);
 
   const customerType = body.customerType === "business" || body.customerType === "private" ? body.customerType : null;
   const description = serviceOrderDescription({ customerType, services });

@@ -391,6 +391,8 @@ export default function WebsiteOrderEditTab({
                 onChange={updateCard}
                 onRemove={() => removeCard(card.cardId)}
                 defaultOpen={!collapsedCardIds.has(card.cardId)}
+                // Paler than the customer's flow, so the admin editor reads calmer.
+                tone="light"
                 variantNumber={siblings.length > 1 ? siblings.indexOf(card) + 1 : undefined}
                 // Last section of the card: a size-priced item's name / size /
                 // weight (one card per item, so no quantity), else the quantity.
@@ -461,7 +463,11 @@ export default function WebsiteOrderEditTab({
               ))}
             </select>
           ) : (
-            <button type="button" className="customButtonEnabled h-12 w-full" onClick={() => setAddingProduct(true)}>
+            <button
+              type="button"
+              className="h-12 w-full rounded-full bg-logoblue/10 text-base font-semibold text-logoblue transition hover:bg-logoblue/15"
+              onClick={() => setAddingProduct(true)}
+            >
               {t("Add extra products", "Legg til flere produkter")}
             </button>
           )}

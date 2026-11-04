@@ -23,7 +23,8 @@ type Props = {
 // (see orderModalMode) — a failed lookup shows an error with a retry, never
 // the regular modal: a website order must not be edited there.
 export default function DashboardOrderModal(props: Props) {
-  const { orderId, open, onClose, onSaved, canDelete, onDeleted, locale = "en" } = props;
+  // canDelete/onDeleted only reach OrderModal (props): homepage orders are never deleted.
+  const { orderId, open, onClose, onSaved, locale = "en" } = props;
   const requestedId = open && orderId ? orderId : null;
   const { current, reload, retry } = useResolvedOrder(requestedId);
 
@@ -59,8 +60,6 @@ export default function DashboardOrderModal(props: Props) {
           reload();
           onSaved?.();
         }}
-        canDelete={canDelete}
-        onDeleted={onDeleted}
         locale={locale}
       />
     );

@@ -1,27 +1,7 @@
-# `lib/orders/publicOrderNumber.ts`
+# Homepage order numbers
 
-## Responsibility
-The order number website customers see — in every lifecycle email, the Stripe
-charge label, the pay / change / cancel pages and the confirmation screens.
-Stored in `Order.orderNumber` (the existing customer-reference field: already
-shown and searchable in the dashboard, sent to GSM, and put in the
-`X-Otman-Order-Number` email header). The internal sequential `displayId`
-(shared per-company counter, `orderNumber.ts`) is unchanged and staff-facing:
-it would leak order volume and is guessable.
+The order number website customers see (lifecycle emails, the Stripe charge label, the pay / "My order" pages and the confirmation screens) is stored in `Order.orderNumber`.
 
-## Format
-8 characters, random (`crypto.randomInt`), alphabet
-`BCDFGHJKMNPQRSTVWXZ23456789` (27 chars, ~2.8e11 values). No vowels, so a
-random string can't spell a word; no `0/O/1/I/L`, so it survives being read
-over the phone.
+Since 2026-11-04 a new homepage order's number is its order id: `String(displayId)`, set as the order is created in `app/api/site/white-goods-order`, `moving-request`, `service-request` and `special-goods-quote`. The random 8-character generator (`lib/orders/publicOrderNumber.ts`) is removed.
 
-## Functions
-- `generatePublicOrderNumber()` — one random number.
-- `reservePublicOrderNumber(client, companyId)` — draws until no order in the
-  company uses it (there is no DB unique constraint — `orderNumber` also holds
-  free-text references from imported/manual orders); throws after 10 attempts.
-
-## Notes
-- Assigned at creation in the three homepage routes; older orders have none and
-  the emails/pages fall back to `#displayId` (`orderReference` in
-  `customerLifecycleEmails.ts`).
+Older orders keep the random code they were given (e.g. `83KCDR6Z`): customers have it in their emails and "My order" links, so it is never rewritten.

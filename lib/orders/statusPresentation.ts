@@ -46,6 +46,13 @@ export function isAllowedWebsiteOrderStatus(status: string | null | undefined): 
   return WEBSITE_ORDER_STATUS_SET.has(normalizeOrderStatus(status));
 }
 
+// Cancelled, or declined and refunded: the order costs nothing any more —
+// nothing is due on it (compareOrderWithPayments' `closed`).
+export function isClosedOrderStatus(status: string | null | undefined): boolean {
+  const normalized = normalizeOrderStatus(status);
+  return normalized === "cancelled" || normalized === "refunded";
+}
+
 export function normalizeOrderStatus(status: string | null | undefined) {
   const key = (status ?? "").toString().trim().toLowerCase();
 

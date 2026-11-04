@@ -869,6 +869,9 @@ nothing to attach to.
     stored `source: GMAIL` with Gmail ids so Gmail sync dedupes them, and the
     `ORDER_CONVERSATION_BACKUP_EMAIL` BCC now applies to them too. Sends are
     sequential (one Gmail profile/send-as lookup per send).
+  - *(Superseded 2026-11-04: new homepage orders now use their displayId as the
+    order number — see docs/documentation/lib/public-order-number.md. Older
+    orders keep their random code.)*
   - **Customer-facing order number is random**, not the sequential id: 8 chars,
     vowel-free, no look-alikes (`lib/orders/publicOrderNumber.ts`), stored in the
     existing `Order.orderNumber` (no migration; uniqueness checked in code).

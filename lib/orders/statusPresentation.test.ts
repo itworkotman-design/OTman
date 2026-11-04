@@ -7,6 +7,7 @@ import {
   WEBSITE_ORDER_STATUS_OPTIONS,
   getOrderStatusStyle,
   getPaymentStatusPresentation,
+  isClosedOrderStatus,
   isAllowedWebsiteOrderStatus,
   isWebsiteOrderLocked,
   normalizeOrderStatus,
@@ -99,5 +100,15 @@ describe("getPaymentStatusPresentation (the badge under a homepage order's statu
   it("shows nothing for an order without a payment status", () => {
     expect(getPaymentStatusPresentation(null, "en")).toBeNull();
     expect(getPaymentStatusPresentation("weird", "en")).toBeNull();
+  });
+});
+
+describe("isClosedOrderStatus", () => {
+  it("is a cancelled or declined (refunded) order — it costs nothing any more", () => {
+    expect(isClosedOrderStatus("cancelled")).toBe(true);
+    expect(isClosedOrderStatus("refunded")).toBe(true);
+    expect(isClosedOrderStatus("processing")).toBe(false);
+    expect(isClosedOrderStatus("completed")).toBe(false);
+    expect(isClosedOrderStatus(null)).toBe(false);
   });
 });

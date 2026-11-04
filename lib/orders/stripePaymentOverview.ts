@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { buildOrderStateSnapshot, compareOrderWithPayments, type OrderStateSnapshot } from "./paidOrderSnapshot";
+import { buildOrderStateSnapshot, compareOrderWithPayments, type OrderPaymentComparison, type OrderStateSnapshot } from "./paidOrderSnapshot";
+import { isClosedOrderStatus } from "./statusPresentation";
 import type { PaymentStatus } from "./manualPayments";
 
 // A homepage order's Stripe payment history for the Alert Center's Payment
@@ -22,7 +23,8 @@ export type StripePaymentOverview = {
   // Newest first.
   payments: StripePaymentEntry[];
   comparison: {
-    outcome: "unpaid" | "due" | "refund" | "settled";
+    outcome: OrderPaymentComparison["outcome"];
+    totalRefundedIncVatNok: number;
     totalPaidIncVatNok: number;
     currentTotalIncVatNok: number;
     differenceIncVatNok: number;
@@ -38,9 +40,14 @@ type LedgerPayment = {
   refunds: { id: string; amountRefundedCents: number; reason: string | null; createdAt: Date; orderSnapshot: unknown }[];
 };
 
-export function buildStripePaymentOverview(payments: LedgerPayment[], current: OrderStateSnapshot): StripePaymentOverview {
+// `closed`: a cancelled or declined order (isClosedOrderStatus).
+export function buildStripePaymentOverview(payments: LedgerPayment[], current: OrderStateSnapshot, closed = false): StripePaymentOverview {
   const oldestFirst = [...payments].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-  const { outcome, totalPaidIncVatNok, currentTotalIncVatNok, differenceIncVatNok } = compareOrderWithPayments({ payments, current });
+  const { outcome, totalPaidIncVatNok, totalRefundedIncVatNok, currentTotalIncVatNok, differenceIncVatNok } = compareOrderWithPayments({
+    payments,
+    current,
+    closed,
+  });
 
   return {
     payments: oldestFirst
@@ -58,7 +65,7 @@ export function buildStripePaymentOverview(payments: LedgerPayment[], current: O
         })),
       }))
       .reverse(),
-    comparison: { outcome, totalPaidIncVatNok, currentTotalIncVatNok, differenceIncVatNok },
+    comparison: { outcome, totalPaidIncVatNok, totalRefundedIncVatNok, currentTotalIncVatNok, differenceIncVatNok },
   };
 }
 
@@ -68,7 +75,8 @@ export function buildStripePaymentOverview(payments: LedgerPayment[], current: O
 // paid. Null when nothing was paid yet: a booking still in checkout keeps the
 // status it was booked with.
 export function nextStripePaymentStatus(outcome: StripePaymentOverview["comparison"]["outcome"]): PaymentStatus | null {
-  if (outcome === "unpaid") return null;
+  // Cancelled or declined: the order status says it.
+  if (outcome === "unpaid" || outcome === "closed") return null;
   if (outcome === "due") return "pending";
   return outcome === "refund" ? "refund_pending" : "paid";
 }
@@ -78,6 +86,7 @@ export async function getOrderStripePaymentOverview(orderId: string, companyId: 
   const order = await prisma.order.findFirst({
     where: { id: orderId, companyId },
     select: {
+      status: true,
       priceExVat: true,
       rabatt: true,
       leggTil: true,
@@ -107,5 +116,9 @@ export async function getOrderStripePaymentOverview(orderId: string, companyId: 
     },
   });
   if (!order) return null;
-  return buildStripePaymentOverview(order.payments, buildOrderStateSnapshot({ ...order, extraPickupAddress: order.extraPickupAddress ?? [] }));
+  return buildStripePaymentOverview(
+    order.payments,
+    buildOrderStateSnapshot({ ...order, extraPickupAddress: order.extraPickupAddress ?? [] }),
+    isClosedOrderStatus(order.status),
+  );
 }

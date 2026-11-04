@@ -18,6 +18,7 @@ import {
   getOrderStatusLabel,
   getOrderStatusStyle,
   getPaymentStatusPresentation,
+  isClosedOrderStatus,
 } from "@/lib/orders/statusPresentation";
 import { formatDisplayDate, formatDisplayDateTime } from "@/lib/dateDisplay";
 import { getDriverDisplayLabel } from "@/lib/orders/driverNormalization";
@@ -103,7 +104,8 @@ function formatStatusCell(
   if (cell === "-") return cell;
   const normalizedStatus = getOrderStatusLabel(value);
   const label = bookingStatusText(locale, normalizedStatus);
-  const payment = getPaymentStatusPresentation(paymentStatus, locale);
+  // Cancelled or declined: the status says what happened to the money.
+  const payment = isClosedOrderStatus(value) ? null : getPaymentStatusPresentation(paymentStatus, locale);
 
   const status = (
     <span

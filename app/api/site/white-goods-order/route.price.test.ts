@@ -22,7 +22,6 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/content/websiteOrderCatalog", () => ({ getWebsiteOrderCatalog: mocks.getWebsiteOrderCatalog }));
 vi.mock("@/lib/orders/orderNumber", () => ({ reserveNextManualOrderNumber: vi.fn().mockResolvedValue(20012) }));
-vi.mock("@/lib/orders/publicOrderNumber", () => ({ reservePublicOrderNumber: vi.fn().mockResolvedValue("G8SMMP58") }));
 vi.mock("@/lib/orders/orderEvents", () => ({ createOrderCreatedEvent: vi.fn(), buildOrderEventSnapshot: vi.fn() }));
 vi.mock("@/lib/orders/orderNotifications", () => ({ createOrderNotification: vi.fn() }));
 // The km charge comes from the server's own Mapbox lookup, never from the request.

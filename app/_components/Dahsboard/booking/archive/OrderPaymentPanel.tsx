@@ -78,15 +78,23 @@ const STRIPE_OUTCOME_TEXT: Record<StripePaymentOverview["comparison"]["outcome"]
   settled: "The customer has paid for the order as it is now.",
   due: "The order now costs more than the customer has paid.",
   refund: "The customer has paid more than the order now costs.",
+  closed: "The order is cancelled — nothing is due.",
 };
 
 // Every Stripe charge and refund, newest first, and paid so far vs. the order
 // now (lib/orders/stripePaymentOverview.ts).
 function StripePaymentPanel({ overview }: { overview: StripePaymentOverview }) {
   const { comparison, payments } = overview;
-  // What's paid now covers the order (or more): paid; otherwise still due.
+  // What's paid now covers the order: paid; more than covers it: refund
+  // pending; otherwise still due. A cancelled order has no badge.
   const badge = getPaymentStatusPresentation(
-    comparison.outcome === "unpaid" || comparison.outcome === "due" ? "pending" : "paid",
+    comparison.outcome === "unpaid" || comparison.outcome === "due"
+      ? "pending"
+      : comparison.outcome === "refund"
+        ? "refund_pending"
+        : comparison.outcome === "settled"
+          ? "paid"
+          : null,
     "en",
   );
 

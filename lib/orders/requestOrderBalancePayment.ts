@@ -3,6 +3,7 @@ import { ORDER_PAYMENT_LEDGER_SELECT } from "@/lib/orders/orderPayments";
 import { ORDER_STATE_SOURCE_SELECT, buildOrderStateSnapshot, compareOrderWithPayments } from "@/lib/orders/paidOrderSnapshot";
 import { describeDetailChange, describeLineChange, formatKr } from "@/lib/orders/orderChangeText";
 import { createOrderActionEvent, type OrderEventActor } from "@/lib/orders/orderEvents";
+import { isClosedOrderStatus } from "@/lib/orders/statusPresentation";
 import { createOrderActionToken } from "@/lib/orders/orderActionToken";
 import { sendLifecycleEmailsForOrders } from "@/lib/orders/sendCustomerLifecycleEmail";
 
@@ -55,7 +56,8 @@ export async function requestOrderBalancePayment(input: {
   }
 
   const current = buildOrderStateSnapshot({ ...order, extraPickupAddress: order.extraPickupAddress ?? [] });
-  const comparison = compareOrderWithPayments({ payments: order.payments, current });
+  // A cancelled or declined order owes nothing (only what wasn't refunded yet goes back).
+  const comparison = compareOrderWithPayments({ payments: order.payments, current, closed: isClosedOrderStatus(order.status) });
   if (comparison.outcome !== "due") {
     return { ok: false, reason: "NOTHING_DUE", status: 409 };
   }

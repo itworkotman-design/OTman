@@ -24,7 +24,18 @@ export default function WebsiteOrderPaymentSummary({ comparison, locale, totalLa
   ];
 
   const outcome =
-    c.outcome === "unpaid"
+    c.outcome === "closed"
+      ? {
+          className: "bg-black/5 text-black/75",
+          text:
+            c.totalRefundedIncVatNok > 0
+              ? t(
+                  `Order cancelled — ${formatKr(c.totalRefundedIncVatNok)} refunded to the customer`,
+                  `Bestillingen er kansellert — ${formatKr(c.totalRefundedIncVatNok)} tilbakebetalt til kunden`,
+                )
+              : t("Order cancelled — nothing to collect", "Bestillingen er kansellert — ingenting å kreve inn"),
+        }
+      : c.outcome === "unpaid"
       ? {
           className: "bg-black/5 text-black/75",
           text: t(`Not paid yet — the customer pays ${formatKr(c.currentTotalIncVatNok)}`, `Ikke betalt ennå — kunden betaler ${formatKr(c.currentTotalIncVatNok)}`),
@@ -46,7 +57,19 @@ export default function WebsiteOrderPaymentSummary({ comparison, locale, totalLa
 
   return (
     <div className="flex flex-col gap-3 text-sm">
-      {c.outcome !== "unpaid" && (
+      {c.outcome === "closed" && c.totalRefundedIncVatNok > 0 && (
+        <dl className="flex flex-col gap-1.5 text-black/70">
+          <div className="flex justify-between gap-3">
+            <dt>{t("Paid", "Betalt")}</dt>
+            <dd className="font-medium tabular-nums">{formatKr(c.totalPaidIncVatNok + c.totalRefundedIncVatNok)}</dd>
+          </div>
+          <div className="flex justify-between gap-3 border-t border-black/10 pt-1.5 font-semibold text-black/85">
+            <dt>{t("Refunded", "Tilbakebetalt")}</dt>
+            <dd className="tabular-nums">{formatKr(-c.totalRefundedIncVatNok, { signed: true })}</dd>
+          </div>
+        </dl>
+      )}
+      {c.outcome !== "unpaid" && c.outcome !== "closed" && (
         <dl className="flex flex-col gap-1.5 text-black/70">
           <div className="flex justify-between gap-3">
             <dt>
@@ -68,7 +91,7 @@ export default function WebsiteOrderPaymentSummary({ comparison, locale, totalLa
 
       <p className={`rounded-xl px-4 py-3 text-base font-semibold ${outcome.className}`}>{outcome.text}</p>
 
-      {c.outcome !== "unpaid" && !c.hasPaidSnapshot && (
+      {c.outcome !== "unpaid" && c.outcome !== "closed" && !c.hasPaidSnapshot && (
         <p className="text-xs text-black/50">
           {t(
             "Paid before itemized payment records existed — only the totals can be compared.",

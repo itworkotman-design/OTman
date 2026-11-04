@@ -20,3 +20,4 @@ Provides the shared order-status normalization and presentation helpers used by 
 | `getOrderStatusStyle` | Returns the badge colors used for a normalized order status. |
 | `getOrderStatusLabel` | Returns the normalized status label used in archive cells and other status displays. |
 | `getPaymentStatusPresentation` | The payment badge under a homepage order's status (manual payments): "Payment pending" (amber) / "Paid" (green) / "Refund pending" (red — paid by Stripe, but the order now costs less than was paid), in English or Norwegian; null without a payment status. Used by the order lists, the Payment card and the Payment tab. |
+| `isClosedOrderStatus` | Cancelled or refunded (declined): the order costs nothing any more. Passed as `closed` to `compareOrderWithPayments` everywhere an order is compared with its payments, and hides the payment badge in the booking list. |

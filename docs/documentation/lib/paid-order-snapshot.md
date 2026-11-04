@@ -25,3 +25,5 @@ Amounts are what the customer is charged (`getOrderChargeAmountIncVatNok`), incl
   - Payments made before snapshots existed (`hasPaidSnapshot: false`) still get the money outcome, but no itemized changes.
 
 A `MOVING` order's amounts are ex. VAT like a `WHITE_GOODS` one: its lines are compared incl. VAT (each line + 25 %, rounded).
+
+**`closed`** (optional): a cancelled or declined order (`isClosedOrderStatus`). Its current total counts as 0 kr, so nothing is ever `due` on it: the outcome is `closed` once everything paid has been refunded (`totalRefundedIncVatNok` says how much), or `refund` while some of it hasn't gone back yet. No line or detail changes are listed for it.

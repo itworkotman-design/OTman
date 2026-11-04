@@ -1381,14 +1381,24 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ order
 
   const { orderId } = await params;
 
+  // A homepage order is never deleted: paid, refunded or invoiced, it's part
+  // of the accounting trail (bokføringsloven). Cancel or decline it instead.
   const result = await prisma.order.deleteMany({
     where: {
       id: orderId,
       companyId: session.activeCompanyId,
+      isWebsiteOrder: false,
     },
   });
 
   if (result.count === 0) {
+    const websiteOrder = await prisma.order.findFirst({
+      where: { id: orderId, companyId: session.activeCompanyId, isWebsiteOrder: true },
+      select: { isWebsiteOrder: true },
+    });
+    if (websiteOrder) {
+      return NextResponse.json({ ok: false, reason: "WEBSITE_ORDER_NOT_DELETABLE" }, { status: 409 });
+    }
     return NextResponse.json({ ok: false, reason: "ORDER_NOT_FOUND" }, { status: 404 });
   }
 

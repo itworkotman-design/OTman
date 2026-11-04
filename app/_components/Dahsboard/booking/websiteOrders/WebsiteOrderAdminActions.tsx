@@ -48,6 +48,9 @@ type Props = {
   // The calculator's unsaved changes, stored by this Save too.
   pricingDraft?: WebsiteOrderPricingDraft | null;
   // An empty spot right above Save the calculator renders its price preview into.
+  // The Payment card shows the unsaved price instead of a box above Save
+  // (null without an unsaved price change).
+  onPreviewChange?: (comparison: OrderPaymentComparison | null) => void;
   priceChangeSlotRef?: (el: HTMLDivElement | null) => void;
   // Picked/removed attachments (WebsiteOrderAttachments), applied by this Save too.
   attachmentDraft?: AttachmentDraft;
@@ -79,6 +82,7 @@ export default function WebsiteOrderAdminActions({
   besideSave,
   pricingDraft = null,
   priceChangeSlotRef,
+  onPreviewChange,
   attachmentDraft = EMPTY_ATTACHMENT_DRAFT,
   onAttachmentsApplied,
   handlingEndpoint,
@@ -173,6 +177,11 @@ export default function WebsiteOrderAdminActions({
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewKey]);
+
+  useEffect(() => {
+    onPreviewChange?.(previewKey ? preview : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewKey, preview]);
 
   const reasonText: Record<string, string> = {
     NOTES_NEED_STATUS_CHANGE: t(
@@ -568,7 +577,7 @@ export default function WebsiteOrderAdminActions({
       </div>
 
       <div className="flex flex-col gap-2">
-        {change.affectsPrice && (
+        {change.affectsPrice && (!onPreviewChange || (!preview && !previewing)) && (
           <div className="rounded-xl border border-logoblue/20 bg-logoblue/5 p-3">
             <div className="mb-2 flex items-center justify-between gap-3">
               <p className="text-sm font-semibold text-logoblue">{t("Price after this change", "Pris etter endringen")}</p>

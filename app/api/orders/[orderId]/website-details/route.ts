@@ -1,6 +1,7 @@
 import { ORDER_PAYMENT_LEDGER_SELECT } from "@/lib/orders/orderPayments";
 import { isCustomerAccountExpired, LIFETIME_ORDER_SELECT } from "@/lib/customerAccounts/accountLifetime";
 import { normalizeCustomerEmail } from "@/lib/customerAccounts/ensureCustomerAccount";
+import { isClosedOrderStatus } from "@/lib/orders/statusPresentation";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedSession } from "@/lib/auth/session";
@@ -176,6 +177,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ orderId:
     payment: compareOrderWithPayments({
       payments: order.payments ?? [],
       current: buildOrderStateSnapshot({ ...order, extraPickupAddress: order.extraPickupAddress ?? [] }),
+      // Cancelled or declined: nothing is due any more.
+      closed: isClosedOrderStatus(order.status),
     }),
   };
 

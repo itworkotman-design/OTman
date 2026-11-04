@@ -60,6 +60,7 @@ Norwegian, in this order:
   of a change they made in My order. Only the customer edit route sends it, so
   it is left out of `LIFECYCLE_EMAIL_KINDS`.
 - The customer-facing number is `Order.orderNumber` (see
-  `public-order-number.md`), not the internal `displayId`.
+  `public-order-number.md`): the order id (`displayId`) for new orders, a
+  random code for older ones.
 - `customerCredentialsEmail.ts` is still used on its own for a password reset
   and staff's "Send new login".

@@ -19,7 +19,6 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("@/lib/orders/orderNumber", () => ({ reserveNextManualOrderNumber: vi.fn(async () => 1001) }));
-vi.mock("@/lib/orders/publicOrderNumber", () => ({ reservePublicOrderNumber: vi.fn(async () => "123456") }));
 vi.mock("@/lib/orders/orderEvents", () => ({ createOrderCreatedEvent: vi.fn(), buildOrderEventSnapshot: vi.fn(() => ({})) }));
 vi.mock("@/lib/orders/orderNotifications", () => ({ createOrderNotification: vi.fn() }));
 vi.mock("@/lib/customerAccounts/welcomeWebsiteOrderCustomer", () => ({ welcomeWebsiteOrderCustomer: vi.fn() }));

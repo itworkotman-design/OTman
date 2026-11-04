@@ -13,7 +13,6 @@ import {
   buildOrderEventSnapshot,
 } from "@/lib/orders/orderEvents";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
-import { reservePublicOrderNumber } from "@/lib/orders/publicOrderNumber";
 import { welcomeWebsiteOrderCustomer } from "@/lib/customerAccounts/welcomeWebsiteOrderCustomer";
 import { getWebsiteOrderCatalog } from "@/lib/content/websiteOrderCatalog";
 import { findMissingSnapshotPrices } from "@/lib/orders/websitePriceChanges";
@@ -318,8 +317,8 @@ async function createWhiteGoodsOrder(
   }
 
   const displayId = await reserveNextManualOrderNumber(membership.companyId);
-  // The random number customers see; displayId stays internal/sequential.
-  const orderNumber = await reservePublicOrderNumber(prisma, membership.companyId);
+  // The number customers see (emails, "My order", Stripe) is the order id.
+  const orderNumber = String(displayId);
 
   const pickupPlaceNameStr = str(body.pickupPlaceName);
   const pickupContactNameStr = str(body.pickupContactName);

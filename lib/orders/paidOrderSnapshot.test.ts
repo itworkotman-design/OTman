@@ -130,6 +130,34 @@ describe("compareOrderWithPayments", () => {
     });
   });
 
+  describe("a cancelled or declined order (closed) costs nothing any more", () => {
+    const refund = (cents: number): Refund => ({ amountRefundedCents: cents, createdAt: new Date("2026-10-04T10:00:00Z"), orderSnapshot: null });
+
+    it("is 'closed' once everything paid went back — nothing to collect", () => {
+      const result = compareOrderWithPayments({
+        payments: [payment(110000, paidSnapshot, undefined, [refund(110000)])],
+        current: paidSnapshot,
+        closed: true,
+      });
+      expect(result).toMatchObject({ outcome: "closed", totalPaidIncVatNok: 0, currentTotalIncVatNok: 0, differenceIncVatNok: 0, totalRefundedIncVatNok: 1100 });
+      expect(result.lineChanges).toEqual([]);
+    });
+
+    it("is 'closed' when it was never paid", () => {
+      expect(compareOrderWithPayments({ payments: [], current: paidSnapshot, closed: true })).toMatchObject({
+        outcome: "closed",
+        currentTotalIncVatNok: 0,
+        differenceIncVatNok: 0,
+      });
+    });
+
+    it("still owes back what wasn't refunded yet", () => {
+      expect(
+        compareOrderWithPayments({ payments: [payment(110000, paidSnapshot, undefined, [refund(10000)])], current: paidSnapshot, closed: true }),
+      ).toMatchObject({ outcome: "refund", totalPaidIncVatNok: 1000, currentTotalIncVatNok: 0, differenceIncVatNok: -1000 });
+    });
+  });
+
   it("is 'settled' when the current order is what was paid", () => {
     const result = compareOrderWithPayments({ payments: [payment(110000, paidSnapshot)], current: paidSnapshot });
     expect(result).toMatchObject({ outcome: "settled", differenceIncVatNok: 0, hasPaidSnapshot: true });

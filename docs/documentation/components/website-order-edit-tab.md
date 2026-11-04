@@ -35,3 +35,5 @@ The left column runs Products → Pickup addresses → Delivery → Customer. It
 | `stopsWithoutProducts` | Indexes of stops that collect no products. Always empty with a single stop (it collects everything). |
 | `stopsForSave` | Editor stops → `AdminPickupStop[]` with `productNames`. Blanks the contact on store stops. |
 | `editorBlockers` | What keeps Save disabled: `findCardsWithoutPickup`, size-bracket problems, missing item names, install-only without an installation. |
+
+**Look:** the product cards use `WhiteGoodsProductCard`'s `tone="light"` (pale blue title band, blue text) and "Add extra products" is a pale blue button, so the admin editor is lighter than the customer's booking flow, which keeps the solid blue band.

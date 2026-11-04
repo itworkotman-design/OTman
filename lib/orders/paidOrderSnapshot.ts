@@ -192,9 +192,13 @@ export type OrderLineChange = {
 export type OrderDetailChange = { key: string; before: string; after: string };
 
 export type OrderPaymentComparison = {
-  // No payment yet / owes more / overpaid (refund the difference) / exactly paid.
-  outcome: "unpaid" | "due" | "refund" | "settled";
+  // No payment yet / owes more / overpaid (refund the difference) / exactly
+  // paid / cancelled or declined with nothing left to settle.
+  outcome: "unpaid" | "due" | "refund" | "settled" | "closed";
+  // Net of refunds.
   totalPaidIncVatNok: number;
+  // Everything refunded so far (a decline refunds it all).
+  totalRefundedIncVatNok: number;
   currentTotalIncVatNok: number;
   // current − paid: positive = the customer must pay this, negative = refund.
   differenceIncVatNok: number;
@@ -216,16 +220,21 @@ export type PaymentForComparison = {
   refunds: RefundForComparison[];
 };
 
+// `closed`: the order is cancelled or declined (isClosedOrderStatus) — it
+// costs nothing any more, so nothing is due; only what was paid and not yet
+// refunded is still owed back.
 export function compareOrderWithPayments(params: {
   payments: PaymentForComparison[];
   current: OrderStateSnapshot;
+  closed?: boolean;
 }): OrderPaymentComparison {
-  const { payments, current } = params;
+  const { payments, current, closed = false } = params;
   const refunds = payments.flatMap((p) => p.refunds);
-  const netPaidCents =
-    payments.reduce((sum, p) => sum + p.amountChargedCents, 0) - refunds.reduce((sum, r) => sum + r.amountRefundedCents, 0);
+  const refundedCents = refunds.reduce((sum, r) => sum + r.amountRefundedCents, 0);
+  const netPaidCents = payments.reduce((sum, p) => sum + p.amountChargedCents, 0) - refundedCents;
   const totalPaidIncVatNok = roundNok(netPaidCents / 100);
-  const differenceIncVatNok = roundNok(current.totalIncVatNok - totalPaidIncVatNok);
+  const currentTotalIncVatNok = closed ? 0 : current.totalIncVatNok;
+  const differenceIncVatNok = roundNok(currentTotalIncVatNok - totalPaidIncVatNok);
 
   // The latest payment brought the order up to date with its snapshot, and
   // so does a later refund of the difference — whichever is newest is the
@@ -244,7 +253,11 @@ export function compareOrderWithPayments(params: {
       : (latest?.snapshot ?? null);
 
   const outcome: OrderPaymentComparison["outcome"] =
-    payments.length === 0
+    closed
+      ? differenceIncVatNok < 0
+        ? "refund"
+        : "closed"
+      : payments.length === 0
       ? "unpaid"
       : differenceIncVatNok > 0
         ? "due"
@@ -255,13 +268,15 @@ export function compareOrderWithPayments(params: {
   return {
     outcome,
     totalPaidIncVatNok,
-    currentTotalIncVatNok: current.totalIncVatNok,
+    totalRefundedIncVatNok: roundNok(refundedCents / 100),
+    currentTotalIncVatNok,
     differenceIncVatNok,
     hasPaidSnapshot: paid !== null,
     paidSnapshotTotalIncVatNok: paid?.totalIncVatNok ?? null,
     paidAt: latest ? latest.payment.createdAt.toISOString() : null,
-    lineChanges: paid ? diffLines(paid.lines, current.lines) : [],
-    detailChanges: paid ? diffDetails(paid.details, current.details) : [],
+    // A closed order isn't being changed — there's nothing to list.
+    lineChanges: paid && !closed ? diffLines(paid.lines, current.lines) : [],
+    detailChanges: paid && !closed ? diffDetails(paid.details, current.details) : [],
   };
 }
 

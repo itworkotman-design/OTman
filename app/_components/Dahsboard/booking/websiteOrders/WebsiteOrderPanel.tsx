@@ -3,7 +3,7 @@
 import type { PriceChangeRow } from "@/lib/booking/pricing/priceChanges";
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { buildOrderReviewBlocks, markCopyableRows } from "@/app/_components/site/BookingModal/whiteGoods/orderReview";
-import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
+import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import type { BookingCustomerType, OrderExtraLine, WhiteGoodsBookingDetails } from "@/lib/orders/websiteBookingDetails";
 import type { MovingCatalogOption } from "@/lib/content/getMovingCatalog";
 import type { MovingEdit } from "@/lib/orders/movingOrderEdit";
@@ -124,10 +124,6 @@ type Props = {
   order: WebsiteOrderView;
   // After a status/partner save or GSM send — reload the order (and list).
   onChanged: () => void;
-  canDelete?: boolean;
-  onDeleted?: () => void;
-  // After a delete — the parent closes its modal.
-  onDone: () => void;
   // Whether anything is unsaved (edit tab, calculator, attachments), so the
   // parent can confirm before closing.
   onUnsavedChange?: (unsaved: boolean) => void;
@@ -165,17 +161,12 @@ function unquotedServices(services: ServiceEdit["services"], locale: "en" | "no"
 export default function WebsiteOrderPanel({
   order,
   onChanged,
-  canDelete = false,
-  onDeleted,
-  onDone,
   onUnsavedChange,
   locale = "en",
   tabBarClassName = "px-6",
   bodyClassName = "p-4 lg:p-6",
 }: Props) {
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
   // "Overview" (the order, its handling and the calculator) or "Edit order"
   // (products, pickups, delivery and customer — WebsiteOrderEditTab).
   const [tab, setTab] = useState<"overview" | "edit">("overview");
@@ -186,6 +177,11 @@ export default function WebsiteOrderPanel({
   const [pricingDraft, setPricingDraft] = useState<WebsiteOrderPricingDraft | null>(null);
   // The calculator's unsaved total incl. VAT, for the Payment card (manual payments).
   const [previewTotalIncVat, setPreviewTotalIncVat] = useState<number | null>(null);
+  // Unsaved price changes against what was paid (Stripe), from the Overview
+  // panel (express, deviation…) or the calculator — shown in the Payment card.
+  const [handlingPreview, setHandlingPreview] = useState<OrderPaymentComparison | null>(null);
+  const [calculatorPreview, setCalculatorPreview] = useState<OrderPaymentComparison | null>(null);
+  const paymentPreview = handlingPreview ?? calculatorPreview;
   const manualPayments = order.paymentMode !== "stripe";
   // Picked/removed attachments — stored by the Overview's Save, never before.
   const [attachmentDraft, setAttachmentDraft] = useState<AttachmentDraft>(EMPTY_ATTACHMENT_DRAFT);
@@ -303,38 +299,8 @@ export default function WebsiteOrderPanel({
     setTab(next);
   }
 
-  async function handleDelete() {
-    if (deleteLoading) return;
-    if (!confirm(bookingText(locale, "Delete this order?"))) return;
-    try {
-      setDeleteLoading(true);
-      setDeleteError("");
-      const res = await fetch(`/api/orders/${order.id}`, { method: "DELETE", credentials: "include" });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.ok) {
-        setDeleteError(bookingText(locale, data?.reason || "Failed to delete order"));
-        return;
-      }
-      onDeleted?.();
-      onDone();
-    } catch {
-      setDeleteError(bookingText(locale, "Failed to delete order"));
-    } finally {
-      setDeleteLoading(false);
-    }
-  }
-
-  // Left of Save on both tabs (Overview and Edit order).
-  const deleteButton = canDelete ? (
-    <button
-      type="button"
-      onClick={handleDelete}
-      disabled={deleteLoading}
-      className="inline-flex h-12 shrink-0 items-center justify-center rounded-full bg-red-600 px-5 text-base font-semibold text-white disabled:opacity-50"
-    >
-      {deleteLoading ? bookingText(locale, "Deleting...") : bookingText(locale, "Delete order")}
-    </button>
-  ) : null;
+  // No "Delete order": a homepage order is an accounting record — it's
+  // cancelled or declined, never deleted (DELETE /api/orders/[orderId] refuses).
 
   return (
     <div className="flex flex-col">
@@ -390,9 +356,6 @@ export default function WebsiteOrderPanel({
         {editNotice && (
           <p className="mb-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-800">{editNotice}</p>
         )}
-        {tab === "edit" && deleteError && (
-          <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{deleteError}</p>
-        )}
         {tab === "edit" && order.kind === "moving" ? (
           <MovingOrderEditTab
             orderId={order.id}
@@ -411,7 +374,6 @@ export default function WebsiteOrderPanel({
             priceChanges={order.priceChanges ?? []}
             onDirtyChange={handleEditDirtyChange}
             onCancel={() => switchTab("overview")}
-            besideSave={deleteButton}
             onSaved={(message) => {
               setEditDirty(false);
               setTab("overview");
@@ -435,7 +397,6 @@ export default function WebsiteOrderPanel({
             storedTotal={order.priceExVat}
             onDirtyChange={handleEditDirtyChange}
             onCancel={() => switchTab("overview")}
-            besideSave={deleteButton}
             onSaved={(message) => {
               setEditDirty(false);
               setTab("overview");
@@ -450,7 +411,6 @@ export default function WebsiteOrderPanel({
             locale={locale}
             onDirtyChange={handleEditDirtyChange}
             onCancel={() => switchTab("overview")}
-            besideSave={deleteButton}
             storedTotal={order.priceExVat}
             currentPricesTotal={order.currentPricesTotal ?? null}
             priceChanges={order.priceChanges ?? []}
@@ -490,8 +450,8 @@ export default function WebsiteOrderPanel({
                 setAttachmentsVersion((version) => version + 1);
               }}
               priceChangeSlotRef={setPriceChangeSlot}
+              onPreviewChange={manualPayments ? undefined : setHandlingPreview}
               onPricedHandlingChange={setPricedHandling}
-              besideSave={deleteButton}
               // A move or service request saves its handling (express and the deviation too) through its own route.
               {...(detailsEndpoint ? { handlingEndpoint: detailsEndpoint } : {})}
             >
@@ -503,13 +463,19 @@ export default function WebsiteOrderPanel({
                 onDraftChange={setAttachmentDraft}
               />
             </WebsiteOrderAdminActions>
-            {deleteError ? <p className="text-center text-sm font-medium text-red-600">{deleteError}</p> : null}
           </div>
 
           {/* Right column: only what the order costs — payment and products. */}
           <div className="flex flex-col gap-4 lg:self-start">
             <div className="rounded-2xl border border-black/10 bg-white p-6">
-              <h3 className="mb-3 text-lg font-semibold text-logoblue">{t("Payment", "Betaling")}</h3>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-semibold text-logoblue">{t("Payment", "Betaling")}</h3>
+                {!manualPayments && paymentPreview && (
+                  <span className="rounded-full bg-logoblue/10 px-2.5 py-1 text-xs font-semibold text-logoblue">
+                    {t("After Save — not stored yet", "Etter lagring — ikke lagret ennå")}
+                  </span>
+                )}
+              </div>
               {manualPayments ? (
                 <WebsiteOrderInvoiceSummary
                   orderId={order.id}
@@ -519,9 +485,13 @@ export default function WebsiteOrderPanel({
                   onChanged={onChanged}
                 />
               ) : (
-                <WebsiteOrderPaymentSummary comparison={order.payment} locale={locale} />
+                <WebsiteOrderPaymentSummary
+                  comparison={paymentPreview ?? order.payment}
+                  locale={locale}
+                  {...(paymentPreview ? { totalLabel: t("New total (incl. VAT)", "Ny total (inkl. MVA)") } : {})}
+                />
               )}
-              {!manualPayments && order.payment.outcome === "refund" && (
+              {!manualPayments && !paymentPreview && order.payment.outcome === "refund" && (
                 <WebsiteOrderRefundButton
                   orderId={order.id}
                   overpaidIncVatNok={-order.payment.differenceIncVatNok}
@@ -529,7 +499,7 @@ export default function WebsiteOrderPanel({
                   onRefunded={onChanged}
                 />
               )}
-              {!manualPayments && order.payment.outcome === "due" && (
+              {!manualPayments && !paymentPreview && order.payment.outcome === "due" && (
                 <WebsitePaymentRequestButton
                   orderId={order.id}
                   dueIncVatNok={order.payment.differenceIncVatNok}
@@ -559,6 +529,7 @@ export default function WebsiteOrderPanel({
                 onDraftChange={setPricingDraft}
                 manualPayments={manualPayments}
                 onPreviewTotalChange={setPreviewTotalIncVat}
+                onPreviewChange={manualPayments ? undefined : setCalculatorPreview}
                 priceChangeTarget={priceChangeSlot}
                 pricedHandling={pricedHandling}
               />

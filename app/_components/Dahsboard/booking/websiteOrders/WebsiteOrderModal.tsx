@@ -12,15 +12,14 @@ type Props = {
   onClose: () => void;
   // After a status/partner save or GSM send — reload the order (and list).
   onChanged: () => void;
-  canDelete?: boolean;
-  onDeleted?: () => void;
   locale?: BookingUiLocale;
 };
 
 // The modal frame around WebsiteOrderPanel (title and close). Opened by
 // DashboardOrderModal; admin row clicks open the Alert Center instead, which
 // shows the same panel in its "Edit order" tab.
-export default function WebsiteOrderModal({ order, onClose, onChanged, canDelete = false, onDeleted, locale = "en" }: Props) {
+// Homepage orders have no "Delete order" (accounting records — see WebsiteOrderPanel).
+export default function WebsiteOrderModal({ order, onClose, onChanged, locale = "en" }: Props) {
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
   const [unsaved, setUnsaved] = useState(false);
 
@@ -53,9 +52,6 @@ export default function WebsiteOrderModal({ order, onClose, onChanged, canDelete
             <WebsiteOrderPanel
               order={order}
               onChanged={onChanged}
-              canDelete={canDelete}
-              onDeleted={onDeleted}
-              onDone={onClose}
               onUnsavedChange={setUnsaved}
               locale={locale}
             />

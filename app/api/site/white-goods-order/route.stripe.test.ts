@@ -27,7 +27,6 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/content/websiteOrderCatalog", () => ({ getWebsiteOrderCatalog: mocks.getWebsiteOrderCatalog }));
 vi.mock("@/lib/orders/orderNumber", () => ({ reserveNextManualOrderNumber: vi.fn().mockResolvedValue(20012) }));
-vi.mock("@/lib/orders/publicOrderNumber", () => ({ reservePublicOrderNumber: vi.fn().mockResolvedValue("G8SMMP58") }));
 vi.mock("@/lib/orders/orderEvents", () => ({ createOrderCreatedEvent: vi.fn(), buildOrderEventSnapshot: vi.fn() }));
 vi.mock("@/lib/orders/orderNotifications", () => ({ createOrderNotification: mocks.createOrderNotification }));
 // The km charge comes from the server's own Mapbox lookup, never from the request.
@@ -136,7 +135,7 @@ describe("POST /api/site/white-goods-order — paying at booking (Stripe)", () =
 
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json).toMatchObject({ ok: true, orderNumber: "G8SMMP58", checkoutUrl: "https://checkout.stripe.com/cs_1" });
+    expect(json).toMatchObject({ ok: true, orderNumber: "20012", checkoutUrl: "https://checkout.stripe.com/cs_1" });
 
     const data = mocks.orderCreate.mock.calls[0]![0].data;
     expect(data.status).toBe("processing");

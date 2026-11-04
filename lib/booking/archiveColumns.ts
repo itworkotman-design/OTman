@@ -633,8 +633,8 @@ export function getDefaultVisibleBookingArchiveColumns(
 
 // Website orders have no associated store/cashier and never use the DNB
 // discount, so those admin-default columns are just noise on that page.
-// orderNumber stays: it holds the public order number the customer was given
-// (see lib/orders/publicOrderNumber.ts) and quotes when they get in touch.
+// orderNumber stays: it holds the order number the customer was given (the
+// order id, displayId; older orders a random code) and quotes when they get in touch.
 const WEBSITE_ORDERS_HIDDEN_COLUMN_IDS = new Set<BookingArchiveColumnId>([
   "createdBy",
   "cashierName",

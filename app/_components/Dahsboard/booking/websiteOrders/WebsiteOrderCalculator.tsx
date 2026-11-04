@@ -78,6 +78,10 @@ type Props = {
   // (onPreviewTotalChange: incl. VAT, null without an unsaved change).
   manualPayments?: boolean;
   onPreviewTotalChange?: (totalIncVat: number | null) => void;
+  // The Overview's Payment card shows the unsaved price against what was
+  // paid (Stripe): this reports it (null without an unsaved change), and no
+  // box is drawn above Save unless the price can't be calculated.
+  onPreviewChange?: (comparison: OrderPaymentComparison | null) => void;
   // The "Edit order" tab prices products, stops and these choices together
   // and saves them in one go: then this calculator doesn't fetch or save — it
   // shows the parent's latest pricing and only reports its draft. `calculator`
@@ -149,6 +153,7 @@ export default function WebsiteOrderCalculator({
   pricedHandling = null,
   manualPayments = false,
   onPreviewTotalChange,
+  onPreviewChange,
   externalPricing,
 }: Props) {
   const external = !!externalPricing;
@@ -253,6 +258,12 @@ export default function WebsiteOrderCalculator({
     onPreviewTotalChange?.(previewTotal);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewTotal]);
+
+  const reportedPreview = previewKey && !previewFailed ? preview : null;
+  useEffect(() => {
+    onPreviewChange?.(reportedPreview);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportedPreview]);
 
   const withPriceChangeTarget = (node: ReactNode) => (priceChangeTarget ? createPortal(node, priceChangeTarget) : node);
 
@@ -519,7 +530,9 @@ export default function WebsiteOrderCalculator({
         </div>
       )}
 
-      {isAdmin && changed && !external && withPriceChangeTarget(
+      {/* With the Payment card showing the new price (onPreviewChange), only a
+          price that can't be calculated is said here. */}
+      {isAdmin && changed && !external && (!onPreviewChange || previewFailed) && withPriceChangeTarget(
         <div className="rounded-2xl border border-logoblue/20 bg-logoblue/5 p-4">
           <p className="mb-2 text-sm font-semibold text-logoblue">{t("Price after this change", "Pris etter endringen")}</p>
           {manualPayments && !previewFailed ? (

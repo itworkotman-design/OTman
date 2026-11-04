@@ -7,6 +7,7 @@ import { buildReplyToAddress, createOrderEmailThreadToken } from "@/lib/orders/o
 import { isS3AttachmentStorageConfigured, uploadAttachmentBufferToS3 } from "@/lib/orders/orderAttachmentStorage";
 import { buildOrderStateSnapshot, compareOrderWithPayments, ORDER_STATE_SOURCE_SELECT } from "@/lib/orders/paidOrderSnapshot";
 import { nextStripePaymentStatus } from "@/lib/orders/stripePaymentOverview";
+import { isClosedOrderStatus } from "@/lib/orders/statusPresentation";
 import { invoiceLedger, invoiceNumber, nextPaymentStatus, type InvoiceEntry, type InvoiceKind, type PaymentStatus } from "@/lib/orders/manualPayments";
 import { formatKr } from "@/lib/orders/orderChangeText";
 import {
@@ -367,6 +368,7 @@ export async function refreshOrderPaymentStatus(orderId: string): Promise<Paymen
     where: { id: orderId },
     select: {
       ...INVOICE_ORDER_SELECT,
+      status: true,
       payments: {
         select: {
           amountChargedCents: true,
@@ -383,7 +385,7 @@ export async function refreshOrderPaymentStatus(orderId: string): Promise<Paymen
     order.invoices.length > 0
       ? nextPaymentStatus(asEntries(order.invoices), current.totalIncVatNok)
       : order.payments.length > 0
-        ? nextStripePaymentStatus(compareOrderWithPayments({ payments: order.payments, current }).outcome)
+        ? nextStripePaymentStatus(compareOrderWithPayments({ payments: order.payments, current, closed: isClosedOrderStatus(order.status) }).outcome)
         : null;
   if (!paymentStatus) return null;
   if (paymentStatus !== order.paymentStatus) {

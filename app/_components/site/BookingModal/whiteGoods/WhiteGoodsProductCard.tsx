@@ -82,7 +82,32 @@ type Props = {
   // just the product icon and the services that can still be added; booked
   // ones stay on the card (keepBookedServices) without being listed.
   booked?: SavedProductCard;
+  // "light": a pale blue title band instead of the solid one — the admin
+  // "Edit order" tab (WebsiteOrderEditTab); the customer's flow keeps "solid".
+  tone?: "solid" | "light";
 };
+
+// The title band's colours per tone.
+const TITLE_BAND = {
+  solid: {
+    band: "bg-logoblue",
+    iconBox: "bg-white/15",
+    icon: "text-white",
+    title: "text-white",
+    pill: "bg-white/20 text-white",
+    remove: "text-white/80 hover:bg-white/15 hover:text-white",
+    toggle: "text-white/70 hover:text-white",
+  },
+  light: {
+    band: "bg-logoblue/10",
+    iconBox: "bg-white",
+    icon: "text-logoblue",
+    title: "text-logoblue",
+    pill: "bg-logoblue/15 text-logoblue",
+    remove: "text-logoblue/80 hover:bg-logoblue/10 hover:text-logoblue",
+    toggle: "text-logoblue/70 hover:text-logoblue",
+  },
+} as const;
 
 function seedLabel(locale: Locale, seed: { labelEn: string; labelNo: string }) {
   return locale === "no" ? seed.labelNo : seed.labelEn;
@@ -215,7 +240,9 @@ export function WhiteGoodsProductCard({
   belowOptions,
   defaultOpen = true,
   booked,
+  tone = "solid",
 }: Props) {
+  const band = TITLE_BAND[tone];
   const [open, setOpen] = useState(defaultOpen);
   const emit = (next: SavedProductCard) => onChange(booked ? keepBookedServices(booked, next) : next);
   const lockedService = (optionId: string) => !!booked && isBookedService(booked, optionId);
@@ -783,26 +810,26 @@ export function WhiteGoodsProductCard({
   return (
     <div className="overflow-hidden rounded-2xl border border-black/10 bg-white">
       {/* Solid blue title band, so a stack of cards is easy to count. */}
-      <div className="flex items-center gap-3 bg-logoblue px-4 py-3">
-        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/15">
+      <div className={`flex items-center gap-3 px-4 py-3 ${band.band}`}>
+        <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${band.iconBox}`}>
           <ProductIcon
             code={product.code}
             iconKey={product.iconKey}
-            className="h-6 w-6 text-white"
+            className={`h-6 w-6 ${band.icon}`}
           />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="flex items-center gap-2 text-base font-semibold text-white">
+          <h3 className={`flex items-center gap-2 text-base font-semibold ${band.title}`}>
             {productName}
             {variantNumber !== undefined && (
-              <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold text-white">
+              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${band.pill}`}>
                 #{variantNumber}
               </span>
             )}
             {/* Quantity is changed in "Choose products" only; shown here
                 read-only so the card still says how many it is for. */}
             {value.amount > 1 && (
-              <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold text-white">
+              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${band.pill}`}>
                 {value.amount}×
               </span>
             )}
@@ -813,7 +840,7 @@ export function WhiteGoodsProductCard({
             <button
               type="button"
               onClick={onRemove}
-              className="rounded-full px-2.5 py-1 text-xs font-semibold text-white/80 transition hover:bg-white/15 hover:text-white"
+              className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${band.remove}`}
             >
               {t("Remove", "Fjern")}
             </button>
@@ -823,7 +850,7 @@ export function WhiteGoodsProductCard({
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             aria-label={open ? t("Collapse", "Skjul") : t("Expand", "Vis")}
-            className="grid h-8 w-8 place-items-center text-white/70 hover:text-white"
+            className={`grid h-8 w-8 place-items-center ${band.toggle}`}
           >
             <svg
               viewBox="0 0 24 24"

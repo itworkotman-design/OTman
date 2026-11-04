@@ -5,7 +5,6 @@ const mocks = vi.hoisted(() => ({
   orderCreate: vi.fn(),
   reserveNextManualOrderNumberMock: vi.fn(),
   welcomeWebsiteOrderCustomerMock: vi.fn(),
-  reservePublicOrderNumberMock: vi.fn(),
   createOrderCreatedEventMock: vi.fn(),
   createOrderNotificationMock: vi.fn(),
 }));
@@ -30,9 +29,6 @@ vi.mock("@/lib/orders/orderNotifications", () => ({
   createOrderNotification: mocks.createOrderNotificationMock,
 }));
 
-vi.mock("@/lib/orders/publicOrderNumber", () => ({
-  reservePublicOrderNumber: mocks.reservePublicOrderNumberMock,
-}));
 
 vi.mock("@/lib/orders/orderNumber", () => ({
   reserveNextManualOrderNumber: mocks.reserveNextManualOrderNumberMock,
@@ -72,7 +68,6 @@ function mockOrderCreation() {
   process.env.WEBSITE_MEMBERSHIP_ID = "m1";
   mocks.membershipFindUnique.mockResolvedValue({ id: "m1", companyId: "c1", status: "ACTIVE" });
   mocks.reserveNextManualOrderNumberMock.mockResolvedValue(7);
-  mocks.reservePublicOrderNumberMock.mockResolvedValue("K7MQ4XZ2");
   mocks.orderCreate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: "order1", ...data }));
 }
 
@@ -126,11 +121,12 @@ describe("POST /api/site/service-request", () => {
     const res = await post({ ...validBody, customerType: "business" });
 
     expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toMatchObject({ ok: true, orderNumber: "K7MQ4XZ2", displayId: 7 });
+    // The number the customer sees is the order id (displayId).
+    await expect(res.json()).resolves.toMatchObject({ ok: true, orderNumber: "7", displayId: 7 });
     const data = mocks.orderCreate.mock.calls[0][0].data;
     expect(data).toMatchObject({
       displayId: 7,
-      orderNumber: "K7MQ4XZ2",
+      orderNumber: "7",
       status: "processing",
       isWebsiteOrder: true,
       deliveryAddress: "Storgata 1, Oslo",

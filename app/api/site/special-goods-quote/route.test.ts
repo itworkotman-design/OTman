@@ -7,7 +7,6 @@ const mocks = vi.hoisted(() => ({
   orderCreate: vi.fn(),
   reserveNextManualOrderNumberMock: vi.fn(),
   welcomeWebsiteOrderCustomerMock: vi.fn(),
-  reservePublicOrderNumberMock: vi.fn(),
   createOrderCreatedEventMock: vi.fn(),
   createOrderNotificationMock: vi.fn(),
 }));
@@ -32,9 +31,6 @@ vi.mock("@/lib/orders/orderNotifications", () => ({
   createOrderNotification: mocks.createOrderNotificationMock,
 }));
 
-vi.mock("@/lib/orders/publicOrderNumber", () => ({
-  reservePublicOrderNumber: mocks.reservePublicOrderNumberMock,
-}));
 
 vi.mock("@/lib/orders/orderNumber", () => ({
   reserveNextManualOrderNumber: mocks.reserveNextManualOrderNumberMock,
@@ -158,18 +154,18 @@ describe("POST /api/site/special-goods-quote", () => {
     process.env.WEBSITE_MEMBERSHIP_ID = "m1";
     mocks.membershipFindUnique.mockResolvedValue({ id: "m1", companyId: "c1", status: "ACTIVE" });
     mocks.reserveNextManualOrderNumberMock.mockResolvedValue(7);
-    mocks.reservePublicOrderNumberMock.mockResolvedValue("K7MQ4XZ2");
     mocks.promotePendingQuoteAttachmentsMock.mockResolvedValue(1);
     mocks.linkPendingQuoteAttachmentsMock.mockResolvedValue(1);
-    mocks.orderCreate.mockResolvedValue({ id: "order1", companyId: "c1", displayId: 7, orderNumber: "K7MQ4XZ2", status: "processing", email: "customer@example.com" });
+    mocks.orderCreate.mockResolvedValue({ id: "order1", companyId: "c1", displayId: 7, orderNumber: "7", status: "processing", email: "customer@example.com" });
 
     const res = await post(validBody);
     delete process.env.WEBSITE_MEMBERSHIP_ID;
 
     expect(res.status).toBe(200);
     // Customers see the random public number, not the sequential displayId.
-    await expect(res.json()).resolves.toMatchObject({ ok: true, orderNumber: "K7MQ4XZ2" });
-    expect(mocks.orderCreate.mock.calls[0][0].data).toMatchObject({ displayId: 7, orderNumber: "K7MQ4XZ2" });
+    await expect(res.json()).resolves.toMatchObject({ ok: true, orderNumber: "7" });
+    // The number the customer sees is the order id (displayId).
+    expect(mocks.orderCreate.mock.calls[0][0].data).toMatchObject({ displayId: 7, orderNumber: "7" });
     expect(mocks.welcomeWebsiteOrderCustomerMock).toHaveBeenCalledWith(expect.objectContaining({ id: "order1", email: "customer@example.com" }));
   });
 

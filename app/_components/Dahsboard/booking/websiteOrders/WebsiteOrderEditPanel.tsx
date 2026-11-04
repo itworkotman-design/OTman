@@ -34,9 +34,6 @@ export default function WebsiteOrderEditPanel({ orderId, locale = "en", canDelet
           reload();
           onSaved?.();
         }}
-        canDelete={canDelete}
-        onDeleted={onDeleted}
-        onDone={onDone}
         onUnsavedChange={onUnsavedChange}
         locale={locale}
         tabBarClassName=""
