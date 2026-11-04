@@ -79,3 +79,14 @@ This is infrastructure configuration, not something checked into the repo:
 ## SMS log
 
 Anonymizing an order also overwrites its `OrderSmsMessage` rows (`toPhone` and `body` → GDPR placeholders), and the audit event's `relatedCleared.smsMessages` holds the count.
+
+## Homepage (website) orders
+
+Homepage orders never become Paid, so the two sweeps above skip them. `runGdprCleanup` therefore also runs `runWebsiteOrderGdprCleanup` (`lib/gdpr/websiteOrderGdpr.ts`, same `companyId`/`limit`, counted in the same `anonymized`/`failed` summary):
+
+- **When:** 90 days (`WEBSITE_ANONYMIZE_AFTER_DAYS`) after the order is finished — completed, cancelled, declined/refunded or rejected (`isFinishedWebsiteOrderStatus`), counted from `statusChangedAt` (or `updatedAt` for older orders without one). `gdprHold` pauses it.
+- **Removed:** the order's customer name/label, phones, email, delivery, pickup and extra pickup addresses and contacts, comments, description, status notes, floor/lift, custom-time note; the stored booking details' addresses, place names, contacts, comment, org number and job descriptions (`scrubBookingDetails` — blanked, so the details still parse); email/SMS/GSM-task contents; notification texts; personal before/after values, status notes and action detail lines in the order history (`scrubEventPayload`); stop addresses/places/contacts in the order snapshot on every Stripe payment and refund (`scrubStateSnapshot`); and every attachment (pickup documents, photos, proof of delivery — files deleted from S3).
+- **Kept:** amounts, products and lines, dates, statuses, Stripe ids, payments/refunds and fakturas — the accounting trail.
+- Logs a `GDPR_ANONYMIZED` event with `trigger: "website_finished_90d"` and the counts of what was cleared.
+
+"My order" logins are deleted separately by the customer-account cleanup cron. Data held by Stripe itself (the customer's email on the Checkout session) is not touched by this sweep.

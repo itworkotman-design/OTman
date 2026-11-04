@@ -11,7 +11,10 @@ const mocks = vi.hoisted(() => ({
   orderAttachmentDeleteManyMock: vi.fn(),
   orderEventCreateMock: vi.fn(),
   deleteAttachmentFileMock: vi.fn(),
+  runWebsiteOrderGdprCleanupMock: vi.fn(),
 }));
+
+vi.mock("./websiteOrderGdpr", () => ({ runWebsiteOrderGdprCleanup: mocks.runWebsiteOrderGdprCleanupMock }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -58,6 +61,7 @@ describe("runGdprCleanup", () => {
     mocks.orderAttachmentDeleteManyMock.mockResolvedValue({ count: 0 });
     mocks.orderEventCreateMock.mockResolvedValue({});
     mocks.deleteAttachmentFileMock.mockResolvedValue(undefined);
+    mocks.runWebsiteOrderGdprCleanupMock.mockResolvedValue({ anonymized: 0, failed: 0 });
   });
 
   afterEach(() => {
@@ -299,5 +303,14 @@ describe("runGdprCleanup", () => {
       select: expect.any(Object),
       orderBy: { paidAt: "asc" },
     });
+  });
+
+  it("also runs the homepage-order sweep (90 days after finished), with the same company and limit, counted in the summary", async () => {
+    mocks.runWebsiteOrderGdprCleanupMock.mockResolvedValue({ anonymized: 2, failed: 1 });
+
+    const summary = await runGdprCleanup({ companyId: "company-1", limit: 5 });
+
+    expect(mocks.runWebsiteOrderGdprCleanupMock).toHaveBeenCalledWith({ companyId: "company-1", limit: 5 });
+    expect(summary).toEqual({ anonymized: 2, podCleaned: 0, failed: 1 });
   });
 });

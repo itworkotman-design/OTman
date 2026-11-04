@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { deleteAttachmentFile } from "@/lib/orders/orderAttachmentStorage";
+import { runWebsiteOrderGdprCleanup } from "./websiteOrderGdpr";
 
 const ANONYMIZE_AFTER_DAYS = 30;
 const POD_RETENTION_MONTHS = 6;
@@ -161,7 +162,8 @@ async function cleanupOrderPod(order: OrderCandidate): Promise<void> {
   });
 }
 
-// Runs the two GDPR retention sweeps described in the Norway retention spec:
+// Runs the two GDPR retention sweeps described in the Norway retention spec
+// (plus the homepage-order sweep, see below):
 // anonymize the private client's PII 30 days after an order is marked Paid,
 // and delete GSM proof-of-delivery files 6 months after Paid. `gdprHold`
 // pauses both for a given order. Called both by the daily cron
@@ -234,6 +236,15 @@ export async function runGdprCleanup(
       );
     }
   }
+
+  // Homepage orders are never Paid, so they have their own sweep: 90 days
+  // after they're finished (./websiteOrderGdpr.ts). Counted in the same summary.
+  const website = await runWebsiteOrderGdprCleanup({
+    ...(options.companyId ? { companyId: options.companyId } : {}),
+    ...(options.limit ? { limit: options.limit } : {}),
+  });
+  summary.anonymized += website.anonymized;
+  summary.failed += website.failed;
 
   if (summary.failed > 0) {
     console.error("[gdpr-cleanup] run completed with failures", summary);
