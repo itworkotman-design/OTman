@@ -1,4 +1,5 @@
 import type { OrderProgress, OrderProgressStepKey } from "@/lib/customerAccounts/orderProgress";
+import type { CustomerPaymentState } from "@/lib/customerAccounts/customerPaymentState";
 
 type Locale = "no" | "en";
 
@@ -56,4 +57,16 @@ export function formatStepTime(at: Date, locale: Locale): string {
   const date = at.toLocaleDateString(tag, { day: "numeric", month: "short", timeZone: "Europe/Oslo" });
   const time = at.toLocaleTimeString(tag, { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Europe/Oslo" }).replace(".", ":");
   return `${date} ${time}`;
+}
+
+const PAYMENT_BADGES: Record<CustomerPaymentState["kind"], { no: string; en: string; className: string }> = {
+  paid: { no: "Betalt", en: "Paid", className: "bg-emerald-50 text-emerald-700" },
+  due: { no: "Venter på betaling", en: "Awaiting payment", className: "bg-amber-50 text-amber-700" },
+  refund: { no: "Refusjon på vei", en: "Refund on its way", className: "bg-blue-50 text-blue-700" },
+};
+
+// The payment badge beside the status badge (customerPaymentState).
+export function paymentBadge(kind: CustomerPaymentState["kind"], locale: Locale): { label: string; className: string } {
+  const badge = PAYMENT_BADGES[kind];
+  return { label: badge[locale], className: badge.className };
 }

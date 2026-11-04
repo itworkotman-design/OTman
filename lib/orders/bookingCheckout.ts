@@ -5,6 +5,8 @@ import { createOrderStatusChangedEvent } from "@/lib/orders/orderEvents";
 import { cancelledOrderPartnerData } from "@/lib/orders/cancelledOrderPartner";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import { getOrderChargeAmountIncVatNok, type ChargeableOrder } from "@/lib/orders/orderTotals";
+import { describeOrderLines } from "@/lib/orders/orderChangeText";
+import type { OrderStateSource } from "@/lib/orders/paidOrderSnapshot";
 import { welcomeWebsiteOrderCustomer } from "@/lib/customerAccounts/welcomeWebsiteOrderCustomer";
 
 // The side effects of paying at booking (see ./bookingPayment.ts): opening the
@@ -13,7 +15,7 @@ import { welcomeWebsiteOrderCustomer } from "@/lib/customerAccounts/welcomeWebsi
 
 const STRIPE_ACTOR = { source: "SYSTEM", name: "Stripe" } as const;
 
-type BookingOrder = ChargeableOrder & {
+type BookingOrder = ChargeableOrder & Partial<OrderStateSource> & {
   id: string;
   companyId: string;
   displayId: number;
@@ -33,6 +35,7 @@ export async function startBookingCheckout(order: BookingOrder): Promise<{ ok: t
     if (!order.email || !order.actionToken) throw new Error("Order has no email or action token");
     const session = await createOrderCheckoutSession(getStripeClient(), {
       order: { ...order, email: order.email },
+      itemLines: describeOrderLines(order, "no"),
       token: order.actionToken,
       amountIncVatNok: getOrderChargeAmountIncVatNok(order),
       chargeKind: "booking",

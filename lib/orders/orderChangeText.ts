@@ -1,5 +1,14 @@
 import { localizeWebsiteLineLabel, localizeWebsiteProductName } from "@/lib/content/websiteLineLabels";
-import { ADJUSTMENT_GROUP, EXTRAS_GROUP, type OrderDetailChange, type OrderLineChange } from "./paidOrderSnapshot";
+import {
+  ADJUSTMENT_GROUP,
+  EXTRAS_GROUP,
+  buildOrderStateSnapshot,
+  type OrderDetailChange,
+  type OrderLineChange,
+  type OrderStateLine,
+  type OrderStateSource,
+} from "./paidOrderSnapshot";
+import type { ChargeableOrder } from "./orderTotals";
 
 // Plain-text wording for what changed since the customer paid (see
 // compareOrderWithPayments) — shared by the admin WebsiteOrderModal, the
@@ -76,6 +85,70 @@ function lineName(change: Pick<OrderLineChange, "group" | "label">, locale: Chan
 
 function qtyPrice(qty: number, price: number): string {
   return `${qty}× ${formatKr(price)}`;
+}
+
+// One priced line as the customer pays for it (OrderStateSnapshot lines,
+// incl. VAT): the Stripe Checkout description and the payment page.
+export function describeOrderLine(line: Pick<OrderStateLine, "group" | "label" | "qty" | "price">, locale: ChangeLocale): string {
+  const { name, amount } = orderLineParts(line, locale);
+  return `${name}: ${amount}`;
+}
+
+// The same, as name and amount apart (the payment page's rows).
+export function orderLineParts(
+  line: Pick<OrderStateLine, "group" | "label" | "qty" | "price">,
+  locale: ChangeLocale,
+): { name: string; amount: string } {
+  const qty = line.qty > 1 ? `${line.qty}× ` : "";
+  return { name: `${qty}${lineName(line, locale)}`, amount: formatKr(line.price, { signed: line.price < 0 }) };
+}
+
+export type PaymentPageRow = { name: string; amount: string; mark: "added" | "changed" | "removed" | null };
+
+// The /betaling page's lines: the order now, each marked if it was added or
+// changed since the customer paid (compareOrderWithPayments' lineChanges),
+// then what was removed, at its old amount.
+export function paymentPageRows(
+  lines: Pick<OrderStateLine, "group" | "label" | "qty" | "price">[],
+  lineChanges: OrderLineChange[],
+  locale: ChangeLocale,
+): PaymentPageRow[] {
+  const changeOf = (line: { group: string; label: string }) =>
+    lineChanges.find((change) => change.group === line.group && change.label === line.label);
+  const current = lines.map((line): PaymentPageRow => {
+    const kind = changeOf(line)?.kind;
+    return { ...orderLineParts(line, locale), mark: kind === "added" || kind === "changed" ? kind : null };
+  });
+  const removed = lineChanges
+    .filter((change) => change.kind === "removed")
+    .map((change): PaymentPageRow => ({
+      ...orderLineParts({ group: change.group, label: change.label, qty: change.qtyBefore, price: change.priceBefore }, locale),
+      mark: "removed",
+    }));
+  return [...current, ...removed];
+}
+
+// Every priced line of the order as it is now (describeOrderLine). Fields
+// the order wasn't loaded with count as empty.
+export function describeOrderLines(order: ChargeableOrder & Partial<OrderStateSource>, locale: ChangeLocale): string[] {
+  return currentOrderLines(order).map((line) => describeOrderLine(line, locale));
+}
+
+export function currentOrderLines(order: ChargeableOrder & Partial<OrderStateSource>): OrderStateLine[] {
+  const snapshot = buildOrderStateSnapshot({
+    ...order,
+    rabatt: order.rabatt ?? null,
+    leggTil: order.leggTil ?? null,
+    websiteOrderKind: order.websiteOrderKind ?? null,
+    websiteBookingDetails: order.websiteBookingDetails ?? null,
+    pickupAddress: order.pickupAddress ?? null,
+    deliveryAddress: order.deliveryAddress ?? null,
+    extraPickupAddress: order.extraPickupAddress ?? [],
+    deliveryDate: order.deliveryDate ?? null,
+    timeWindow: order.timeWindow ?? null,
+    drivingDistance: order.drivingDistance ?? null,
+  });
+  return snapshot.lines;
 }
 
 export function describeLineChange(change: OrderLineChange, locale: ChangeLocale): string {

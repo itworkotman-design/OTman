@@ -34,7 +34,7 @@ import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import type { WebsiteOrderCalculatorView, WebsiteOrderPricingDraft } from "@/lib/orders/websiteOrderCalculator";
 import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
 import WebsiteOrderCalculator from "./WebsiteOrderCalculator";
-import { CardHeading, ChoiceButton } from "./EditTabParts";
+import { CardHeading, ChoiceButton, SkipCustomerEmailCheckbox, customerEmailNote } from "./EditTabParts";
 import {
   addProductToOrder,
   addStop,
@@ -132,6 +132,8 @@ export default function WebsiteOrderEditTab({
   const [previewing, setPreviewing] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  // "Don't email the customer about this change" (SkipCustomerEmailCheckbox).
+  const [skipCustomerEmail, setSkipCustomerEmail] = useState(false);
   const [addingProduct, setAddingProduct] = useState(false);
   const previewSeq = useRef(0);
 
@@ -277,7 +279,7 @@ export default function WebsiteOrderEditTab({
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ ...payload, dryRun }),
+      body: JSON.stringify({ ...payload, dryRun, ...(dryRun ? {} : { skipCustomerEmail }) }),
     });
     const json = await res.json().catch(() => null);
     return { ok: res.ok && !!json?.ok, json };
@@ -317,7 +319,7 @@ export default function WebsiteOrderEditTab({
         setError((json?.reason && reasonText[json.reason]) || t("Couldn't save the order.", "Kunne ikke lagre bestillingen."));
         return;
       }
-      onSaved(t("Order saved.", "Bestillingen er lagret."));
+      onSaved(t("Order saved.", "Bestillingen er lagret.") + customerEmailNote(json.customerEmail, locale));
     } catch {
       setError(t("Couldn't save the order.", "Kunne ikke lagre bestillingen."));
     } finally {
@@ -842,6 +844,7 @@ export default function WebsiteOrderEditTab({
               </button>
             </div>
           )}
+          <SkipCustomerEmailCheckbox checked={skipCustomerEmail} onChange={setSkipCustomerEmail} locale={locale} />
           <div className="flex flex-wrap items-center gap-3">
             {besideSave}
             <button
@@ -864,9 +867,19 @@ export default function WebsiteOrderEditTab({
         </div>
       </div>
 
-      {/* The Overview's calculator (set to 0, discount, extra, partner minus/plus),
+      {/* The price against what was paid, then the Overview's calculator (set to 0, discount, extra, partner minus/plus),
           priced together with the edits above and saved with them. */}
       <div className="flex flex-col gap-4 lg:self-start">
+        {preview && (
+          <section className={sectionClass}>
+            <h3 className="text-lg font-semibold text-logoblue">{t("Payment", "Betaling")}</h3>
+            <WebsiteOrderPaymentSummary
+              comparison={preview.comparison}
+              locale={locale}
+              totalLabel={t("New total (incl. VAT)", "Ny total (inkl. MVA)")}
+            />
+          </section>
+        )}
         {firstCalculator ? (
           <WebsiteOrderCalculator
             orderId={orderId}
@@ -892,17 +905,6 @@ export default function WebsiteOrderEditTab({
             <p className="text-sm text-black/50">
               {previewing ? t("Calculating…", "Beregner…") : t("No price yet.", "Ingen pris ennå.")}
             </p>
-          </section>
-        )}
-
-        {preview && (
-          <section className={sectionClass}>
-            <h3 className="text-lg font-semibold text-logoblue">{t("Payment", "Betaling")}</h3>
-            <WebsiteOrderPaymentSummary
-              comparison={preview.comparison}
-              locale={locale}
-              totalLabel={t("New total (incl. VAT)", "Ny total (inkl. MVA)")}
-            />
           </section>
         )}
       </div>

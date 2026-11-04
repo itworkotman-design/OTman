@@ -340,7 +340,8 @@ export async function getOrderInvoiceOverview(orderId: string, companyId: string
   };
 
   return {
-    paymentStatus: order.paymentStatus === "paid" || order.paymentStatus === "pending" ? order.paymentStatus : null,
+    paymentStatus:
+      order.paymentStatus === "paid" || order.paymentStatus === "pending" || order.paymentStatus === "refund_pending" ? order.paymentStatus : null,
     ledger: invoiceLedger(asEntries(order.invoices), buildOrderStateSnapshot(order)),
     invoices: order.invoices.map((row) => ({
       id: row.id,

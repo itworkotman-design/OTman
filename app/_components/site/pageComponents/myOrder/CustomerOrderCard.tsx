@@ -1,11 +1,12 @@
 import Link from "next/link";
 import type { OrderProgress } from "@/lib/customerAccounts/orderProgress";
+import type { CustomerPaymentState } from "@/lib/customerAccounts/customerPaymentState";
 import { formatOrderDate } from "@/lib/orders/formatOrderDate";
 import { getOsloDateKey } from "@/lib/dates/isoDate";
 import { localizeProductsSummary, localizeWebsiteLineLabelList } from "@/lib/content/websiteLineLabels";
 import OrderProgressBar from "./OrderProgressBar";
-import { progressBadge } from "./orderProgressText";
-import { ArrowRightIcon, CalendarIcon, PinIcon, TruckIcon } from "./myOrderIcons";
+import { paymentBadge, progressBadge } from "./orderProgressText";
+import { ArrowRightIcon, CalendarIcon, CoinsIcon, PinIcon, TruckIcon } from "./myOrderIcons";
 
 export type CustomerOrderCardOrder = {
   orderNumber: string;
@@ -18,6 +19,7 @@ export type CustomerOrderCardOrder = {
   productsSummary: string | null;
   deliveryTypeSummary: string | null;
   progress: OrderProgress;
+  payment: CustomerPaymentState | null;
 };
 
 type Props = { order: CustomerOrderCardOrder; locale: "no" | "en" };
@@ -28,6 +30,7 @@ export default function CustomerOrderCard({ order, locale }: Props) {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const href = `/${locale}/min-bestilling/${encodeURIComponent(order.orderNumber)}`;
   const badge = progressBadge(order.progress, locale);
+  const payment = order.payment ? paymentBadge(order.payment.kind, locale) : null;
   const deliveryTypes = localizeWebsiteLineLabelList(order.deliveryTypeSummary, locale);
   const products = localizeProductsSummary(order.productsSummary, locale);
 
@@ -39,6 +42,7 @@ export default function CustomerOrderCard({ order, locale }: Props) {
             {t("Order", "Bestilling")} #{order.orderNumber}
           </h2>
           <span className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${badge.className}`}>{badge.label}</span>
+          {payment && <span className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${payment.className}`}>{payment.label}</span>}
         </div>
         <p className="text-sm text-textColorThird">
           {t("Ordered", "Bestilt")} {formatOrderDate(getOsloDateKey(order.createdAt), locale)}
@@ -92,7 +96,7 @@ export default function CustomerOrderCard({ order, locale }: Props) {
         <OrderProgressBar progress={order.progress} locale={locale} />
       </div>
 
-      <footer className="mt-8">
+      <footer className="mt-8 flex flex-wrap gap-3">
         <Link
           href={href}
           className="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-5 py-3 text-sm font-semibold text-logoblue transition hover:border-logoblue"
@@ -100,6 +104,15 @@ export default function CustomerOrderCard({ order, locale }: Props) {
           <CalendarIcon className="h-5 w-5" />
           {t("See details", "Se detaljer")}
         </Link>
+        {order.payment?.payPath && (
+          <Link
+            href={`/${locale}${order.payment.payPath}`}
+            className="inline-flex items-center gap-2 rounded-xl bg-logoblue px-5 py-3 text-sm font-semibold text-white transition hover:bg-logoblue/90"
+          >
+            <CoinsIcon className="h-5 w-5" />
+            {t("Pay now", "Betal nå")}
+          </Link>
+        )}
       </footer>
     </article>
   );

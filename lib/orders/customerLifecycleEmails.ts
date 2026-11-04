@@ -34,9 +34,10 @@ export type LifecycleEmailOrder = {
   customerLogin?: { email: string; password: string | null };
   // order_received only: the "Bestillingsdetaljer" table at the end.
   orderDetails?: OrderReceivedDetails;
-  // order_updated only: what the customer changed, and the new total (null =
-  // the order has no price, e.g. a quote).
-  orderUpdate?: { changes: string[]; totalIncVatNok: number | null };
+  // order_updated only: what changed, and the new total (null = the order
+  // has no price, e.g. a quote). byStaff: we changed it (a dashboard edit,
+  // lib/orders/staffEditCustomerEmail.ts), not the customer in "My order".
+  orderUpdate?: { changes: string[]; totalIncVatNok: number | null; byStaff?: boolean };
   // order_declined only: what was just refunded to the customer (0 = nothing
   // had been paid, so no refund is mentioned).
   refundedIncVatNok?: number;
@@ -527,9 +528,17 @@ export function buildOrderUpdatedEmail(order: LifecycleEmailOrder) {
     : "";
   const html = buildSimpleEmailShell(`
     <p style="margin:0 0 16px 0;">Hei ${escapeHtml(customerGreetingName(order))},</p>
-    <p style="margin:0 0 16px 0;">Bestillingen din ${escapeHtml(reference)} er endret:</p>
+    <p style="margin:0 0 16px 0;">${
+      update.byStaff
+        ? `Vi har gjort endringer i bestillingen din ${escapeHtml(reference)}:`
+        : `Bestillingen din ${escapeHtml(reference)} er endret:`
+    }</p>
     ${changes}${total}${link}
-    <p style="margin:16px 0 0 0;">Var det ikke du som gjorde endringen? Svar på denne e-posten med en gang.</p>
+    <p style="margin:16px 0 0 0;">${
+      update.byStaff
+        ? "Har du spørsmål om endringene, er det bare å svare på denne e-posten."
+        : "Var det ikke du som gjorde endringen? Svar på denne e-posten med en gang."
+    }</p>
   `);
 
   return { subject, html };

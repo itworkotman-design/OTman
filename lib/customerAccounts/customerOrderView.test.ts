@@ -58,6 +58,22 @@ describe("listCustomerOrders", () => {
     expect(order.progress.steps[3]).toEqual({ key: "onTheWay", state: "current", at: new Date("2026-10-12T08:30:00Z") });
   });
 
+  it("says how each order is paid, with the pay link while payments go through Stripe", async () => {
+    process.env.HOMEPAGE_PAYMENT_MODE = "stripe";
+    mocks.findMany.mockResolvedValue([
+      { ...row, paymentStatus: "paid", actionToken: "tok1" },
+      { ...row, orderNumber: "B", paymentStatus: "pending", actionToken: "tok2" },
+    ]);
+
+    const [paid, due] = await listCustomerOrders("acc1");
+
+    expect(mocks.findMany.mock.calls[0][0].select).toMatchObject({ paymentStatus: true, actionToken: true });
+    expect(paid.payment).toEqual({ kind: "paid", payPath: null });
+    expect(due.payment).toEqual({ kind: "due", payPath: "/betaling/tok2" });
+    // The token itself never reaches the list.
+    expect(due).not.toHaveProperty("actionToken");
+  });
+
   it("ignores events that aren't readable status changes", async () => {
     mocks.findMany.mockResolvedValue([{ ...row, events: [{ payload: null, createdAt }, { payload: { kind: "status_changed" }, createdAt }] }]);
 

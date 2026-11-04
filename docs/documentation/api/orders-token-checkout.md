@@ -5,11 +5,11 @@ Creates a Stripe Checkout Session for a public order, addressed by its
 `actionToken`. Handles two cases:
 - **Normal payment**: order status `"approved"`/`"failed"` (`isOrderPayable`)
   — charges the full order total (`getOrderChargeAmountIncVatNok`).
-- **Top-up payment**: order already `"confirmed"` (paid once) but staff have
+- **Top-up payment**: order already `"confirmed"` (paid once), or `"processing"` with a payment recorded (paid at booking), but staff have
   since added items, so there's a positive remaining balance
   (`isTopUpPayable`, `getOrderRemainingBalanceIncVatNok` — full total minus
   everything recorded in `OrderPayment` so far). Charges only that
-  difference. See `docs/homepage-ordering-roadmap.md` §4.
+  difference — staff send the link with "Send payment request" (`order-request-payment.md`). See `docs/homepage-ordering-roadmap.md` §4.
 
 `session.metadata.chargeKind` (`"initial"` | `"topup"`) is set for
 observability (Stripe dashboard / event logs) only — the webhook's own
@@ -28,3 +28,5 @@ payable for up to 3 days).
 While homepage payments are manual (`HOMEPAGE_PAYMENT_MODE` not `stripe`, see `lib/payment-mode.md`) it answers `409 PAYMENTS_ARE_MANUAL` before looking anything up.
 
 A third case, **booking payment** (`isAwaitingBookingPayment`, see `docs/documentation/lib/booking-payment.md`): a homepage order whose customer left Stripe Checkout before paying. The `/betaling/[token]` page offers a retry, which charges the full total with a short-lived `chargeKind: "booking"` session. That session replaces the order's earlier one, so only it can cancel the order on expiry. The session itself is built by `lib/stripe/orderCheckoutSession.ts`.
+
+The Stripe item is always one line for the amount charged; its description lists every priced line of the order (`describeOrderLines`, e.g. "TV — TV-oppsett — Altibox: 1 000 kr · 27× Per km …: 1 080 kr", cut at 500 characters). It's one line because Stripe has no negative items (a discount) and per-line VAT rounding mustn't move the amount. The `/betaling/[token]` page shows the same lines as rows.

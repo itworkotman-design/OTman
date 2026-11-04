@@ -16,7 +16,7 @@ import {
   movingLiftRequired,
   type MovingPropertyDraft,
 } from "@/lib/orders/movingProperty";
-import { CardHeading, ChoiceButton, TimeWindowChoice } from "./EditTabParts";
+import { CardHeading, ChoiceButton, SkipCustomerEmailCheckbox, TimeWindowChoice, customerEmailNote } from "./EditTabParts";
 import type { WebsiteOrderCalculatorView, WebsiteOrderPricingDraft } from "@/lib/orders/websiteOrderCalculator";
 import WebsiteOrderCalculator from "./WebsiteOrderCalculator";
 import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
@@ -93,6 +93,8 @@ export default function MovingOrderEditTab({
   const [useNewPrices, setUseNewPrices] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [saving, setSaving] = useState(false);
+  // "Don't email the customer about this change" (SkipCustomerEmailCheckbox).
+  const [skipCustomerEmail, setSkipCustomerEmail] = useState(false);
   const [error, setError] = useState("");
   const previewSeq = useRef(0);
 
@@ -178,15 +180,15 @@ export default function MovingOrderEditTab({
     setSaving(true);
     setError("");
     try {
-      const { ok, json } = await put({});
+      const { ok, json } = await put({ skipCustomerEmail });
       if (!ok) {
         setError(reasonText(json?.reason));
         return;
       }
       onSaved(
-        json.priceExVat !== json.previousPriceExVat
+        (json.priceExVat !== json.previousPriceExVat
           ? t(`Order saved. New total: ${formatKr(json.priceExVat)} ex. VAT.`, `Bestillingen er lagret. Ny total: ${formatKr(json.priceExVat)} eks. mva.`)
-          : t("Order saved.", "Bestillingen er lagret."),
+          : t("Order saved.", "Bestillingen er lagret.")) + customerEmailNote(json.customerEmail, locale),
       );
     } catch {
       setError(t("Couldn't save the order.", "Kunne ikke lagre bestillingen."));
@@ -450,6 +452,7 @@ export default function MovingOrderEditTab({
 
         <div className="flex flex-col gap-2">
           {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+          <SkipCustomerEmailCheckbox checked={skipCustomerEmail} onChange={setSkipCustomerEmail} locale={locale} />
           <div className="flex flex-wrap items-center gap-3">
             {besideSave}
             <button
@@ -472,10 +475,16 @@ export default function MovingOrderEditTab({
         </div>
       </div>
 
-      {/* The Overview's calculator, priced together with the edits on the left
-          and saved with them; then the price against what was paid — as on a
+      {/* The price against what was paid, above the Overview's calculator —
+          priced together with the edits on the left and saved with them, as on a
           delivery order (WebsiteOrderEditTab). */}
       <div className="flex flex-col gap-4 lg:self-start">
+        {preview && (
+          <section className={sectionClass}>
+            <h3 className="text-lg font-semibold text-logoblue">{t("Payment", "Betaling")}</h3>
+            <WebsiteOrderPaymentSummary comparison={preview.comparison} locale={locale} totalLabel={t("New total (incl. VAT)", "Ny total (inkl. MVA)")} />
+          </section>
+        )}
         <WebsiteOrderCalculator
           orderId={orderId}
           calculator={calculator}
@@ -494,12 +503,6 @@ export default function MovingOrderEditTab({
             onUseNewPrice: () => setUseNewPrices(true),
           }}
         />
-        {preview && (
-          <section className={sectionClass}>
-            <h3 className="text-lg font-semibold text-logoblue">{t("Payment", "Betaling")}</h3>
-            <WebsiteOrderPaymentSummary comparison={preview.comparison} locale={locale} totalLabel={t("New total (incl. VAT)", "Ny total (inkl. MVA)")} />
-          </section>
-        )}
       </div>
     </div>
   );

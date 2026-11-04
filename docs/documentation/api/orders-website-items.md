@@ -51,3 +51,5 @@ A save never moves the order to today's prices by itself. Like the booking app, 
 After a save (never a dry run) the order's payment status is recomputed (`refreshOrderPaymentStatus`, `lib/invoices/orderInvoices.ts`): a total that moved away from what's been invoiced turns it `pending` (manual payments); with Stripe, a total above what's been paid turns it `pending` and back to `paid` once covered.
 
 While payments are manual (`lib/orders/paymentMode.ts`) `sendPaymentLink` is refused with `409 PAYMENT_LINKS_DISABLED` before anything is saved.
+
+After a real save the customer gets the "order updated" email with what changed (`sendStaffEditCustomerEmail`, `../lib/staff-edit-customer-email.md`) unless the body has `skipCustomerEmail: true`; the result is returned as `customerEmail` (`sent` / `failed` / `no_changes` / `no_email` / `skipped`).

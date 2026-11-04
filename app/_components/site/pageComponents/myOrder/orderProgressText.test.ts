@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildOrderProgress } from "@/lib/customerAccounts/orderProgress";
-import { STEP_LABELS, formatStepTime, progressBadge } from "./orderProgressText";
+import { STEP_LABELS, formatStepTime, paymentBadge, progressBadge } from "./orderProgressText";
 
 const createdAt = new Date("2026-10-10T10:14:00Z");
 const progress = (status: string, statusEvents: { toStatus: string; createdAt: Date }[] = []) =>
@@ -41,5 +41,19 @@ describe("STEP_LABELS", () => {
 describe("formatStepTime", () => {
   it("is the Oslo date and time", () => {
     expect(formatStepTime(createdAt, "no")).toBe("10. okt. 12:14");
+  });
+});
+
+describe("paymentBadge", () => {
+  it("names each payment state in both languages", () => {
+    expect(paymentBadge("paid", "no").label).toBe("Betalt");
+    expect(paymentBadge("due", "no").label).toBe("Venter på betaling");
+    expect(paymentBadge("refund", "no").label).toBe("Refusjon på vei");
+    expect(paymentBadge("due", "en").label).toBe("Awaiting payment");
+  });
+
+  it("is green when paid, amber while waiting for payment", () => {
+    expect(paymentBadge("paid", "en").className).toContain("emerald");
+    expect(paymentBadge("due", "en").className).toContain("amber");
   });
 });

@@ -9,7 +9,7 @@
 Refunds what a website-order customer has overpaid (the price went down after
 they paid) through Stripe, storing the order as it is now on the refund rows so
 the payment summary is settled. Logs an order action event and sends the
-`refund_issued` email (best-effort). The status is left alone.
+`refund_issued` email (best-effort). The order status is left alone; the payment status goes from `refund_pending` back to `paid`.
 
 ## Used by
 

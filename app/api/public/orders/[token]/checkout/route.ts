@@ -7,6 +7,7 @@ import { getStripeClient, getOrderActionBaseUrl } from "@/lib/stripe/stripeClien
 import { createOrderCheckoutSession, type OrderChargeKind } from "@/lib/stripe/orderCheckoutSession";
 import { isManualPaymentMode } from "@/lib/orders/paymentMode";
 import { isAwaitingBookingPayment } from "@/lib/orders/bookingPayment";
+import { describeOrderLines } from "@/lib/orders/orderChangeText";
 
 // Deliberately creates a brand-new Stripe Checkout Session on every call
 // instead of reusing/caching one on the order. Checkout Sessions expire in
@@ -37,7 +38,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
 
   const totalPaidCents = sumOrderPayments(order.payments);
   const remainingBalanceIncVatNok = getOrderRemainingBalanceIncVatNok(order, totalPaidCents);
-  const isTopUp = isTopUpPayable(order.status, remainingBalanceIncVatNok);
+  const isTopUp = isTopUpPayable(order.status, remainingBalanceIncVatNok, totalPaidCents);
   const isBooking = isAwaitingBookingPayment(order);
 
   if (!isOrderPayable(order.status) && !isTopUp && !isBooking) {
@@ -58,6 +59,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   const chargeKind: OrderChargeKind = isBooking ? "booking" : isTopUp ? "topup" : "initial";
   const session = await createOrderCheckoutSession(getStripeClient(), {
     order: { ...order, email: order.email },
+    itemLines: describeOrderLines(order, "no"),
     token,
     amountIncVatNok,
     chargeKind,

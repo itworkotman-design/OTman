@@ -51,9 +51,9 @@ export default function OrderPaymentClient({ token, locale, payable, resultParam
   }
 
   return (
-    <div className="mt-6">
+    <div>
       {resultParam === "cancelled" && (
-        <p className="mb-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">{t.cancelledNotice}</p>
+        <p className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">{t.cancelledNotice}</p>
       )}
 
       {payable && (
@@ -61,13 +61,13 @@ export default function OrderPaymentClient({ token, locale, payable, resultParam
           type="button"
           onClick={handlePay}
           disabled={loading}
-          className="customButtonEnabled h-11 px-6 disabled:opacity-50!"
+          className="inline-flex h-12 w-full items-center justify-center rounded-full bg-logoblue px-6 text-base font-semibold text-white shadow-sm transition hover:bg-logoblue/90 disabled:opacity-50"
         >
           {loading ? t.paying : t.pay}
         </button>
       )}
 
-      {error && <p className="mt-3 text-sm font-medium text-red-600">{error}</p>}
+      {error && <p className="mt-3 text-center text-sm font-medium text-red-600">{error}</p>}
     </div>
   );
 }

@@ -141,6 +141,9 @@ export function getPaymentStatusPresentation(
   if (status === "pending") {
     return { label: locale === "nb" ? "Betaling venter" : "Payment pending", style: { color: "#b45309", backgroundColor: "#fef3c7" } };
   }
+  if (status === "refund_pending") {
+    return { label: locale === "nb" ? "Refusjon venter" : "Refund pending", style: { color: "#b91c1c", backgroundColor: "#fee2e2" } };
+  }
   if (status === "paid") {
     return { label: locale === "nb" ? "Betalt" : "Paid", style: { color: "#15803d", backgroundColor: "#dcfce7" } };
   }

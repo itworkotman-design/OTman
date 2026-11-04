@@ -23,6 +23,7 @@ import {
   type AttachmentDraft,
 } from "@/lib/orders/attachmentDraft";
 import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
+import { SkipCustomerEmailCheckbox, customerEmailNote } from "./EditTabParts";
 
 type Partner = { id: string; name: string };
 
@@ -95,6 +96,8 @@ export default function WebsiteOrderAdminActions({
   const [handling, setHandling] = useState<WebsiteOrderHandling>(order.handling);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [saving, setSaving] = useState(false);
+  // "Don't email the customer about this change" (SkipCustomerEmailCheckbox).
+  const [skipCustomerEmail, setSkipCustomerEmail] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [preview, setPreview] = useState<OrderPaymentComparison | null>(null);
   // Why the preview failed (the server's reason), shown in its place.
@@ -287,16 +290,19 @@ export default function WebsiteOrderAdminActions({
 
     // Setting an overpaid order to confirmed refunds the difference (app/api/orders/bulk).
     let refundNote = "";
+    // Whether the customer was emailed about the change (website-items' customerEmail).
+    let emailNote = "";
     let refundFailed = false;
     try {
       setSaving(true);
       if (change.changed || pricesChanged) {
-        const { ok, data } = await putHandling();
+        const { ok, data } = await putHandling({ skipCustomerEmail });
         if (!ok) {
           const reason = data?.reason as string | undefined;
           setMessage({ tone: "error", text: (reason && reasonText[reason]) || t("Couldn't save the order.", "Kunne ikke lagre bestillingen.") });
           return;
         }
+        emailNote = customerEmailNote(data?.customerEmail, locale);
       }
       if (update.ok) {
         const res = await fetch("/api/orders/bulk", {
@@ -341,7 +347,7 @@ export default function WebsiteOrderAdminActions({
           return;
         }
       }
-      setMessage({ tone: refundFailed ? "error" : "ok", text: t("Saved.", "Lagret.") + refundNote });
+      setMessage({ tone: refundFailed ? "error" : "ok", text: t("Saved.", "Lagret.") + refundNote + emailNote });
       onChanged();
     } catch {
       setMessage({ tone: "error", text: t("Couldn't save the order.", "Kunne ikke lagre bestillingen.") });
@@ -580,6 +586,7 @@ export default function WebsiteOrderAdminActions({
           </div>
         )}
         <div ref={priceChangeSlotRef} className="empty:hidden" />
+        <SkipCustomerEmailCheckbox checked={skipCustomerEmail} onChange={setSkipCustomerEmail} locale={locale} />
         <div className="flex items-center gap-3">
           {besideSave}
           <button

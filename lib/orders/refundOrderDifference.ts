@@ -11,7 +11,8 @@ import { sendLifecycleEmailsForOrders } from "@/lib/orders/sendCustomerLifecycle
 // went down after they paid (a discount after a problem on the day, a
 // cheaper "My order" change) — through Stripe, and records the order as it
 // is now as the new paid state, so the payment summary is settled and later
-// changes compare against it. The status is left alone.
+// changes compare against it. The order status is left alone; the payment
+// status goes back from refund pending to paid.
 //
 // Used by "Refund difference" (app/api/orders/[orderId]/refund-difference,
 // which passes the amount staff saw as `expectedAmountCents`) and when staff
@@ -81,6 +82,8 @@ export async function refundOrderDifference(input: {
     }
     return { ok: false, reason: "REFUND_NOT_POSSIBLE", status: 409 };
   }
+
+  await prisma.order.update({ where: { id: order.id }, data: { paymentStatus: "paid" } });
 
   const changes = [
     ...comparison.lineChanges.map((change) => describeLineChange(change, "no")),

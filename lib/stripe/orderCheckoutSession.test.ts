@@ -40,6 +40,36 @@ describe("createOrderCheckoutSession", () => {
     expect(args.expires_at).toBeUndefined();
   });
 
+  it("lists every priced line the customer pays for in the description, instead of the bare product summary", async () => {
+    const { create, stripe } = fakeStripe();
+    await createOrderCheckoutSession(stripe, {
+      order,
+      itemLines: ["TV — Visit – installation only: 760 kr", "TV — TV setup — Altibox: 1 000 kr"],
+      token: "t".repeat(32),
+      amountIncVatNok: 1760,
+      chargeKind: "booking",
+      baseUrl: "https://otman.no",
+    });
+    expect(create.mock.calls[0]![0].line_items[0].price_data.product_data.description).toBe(
+      "TV — Visit – installation only: 760 kr · TV — TV setup — Altibox: 1 000 kr",
+    );
+  });
+
+  it("keeps the description within what Stripe shows comfortably", async () => {
+    const { create, stripe } = fakeStripe();
+    await createOrderCheckoutSession(stripe, {
+      order,
+      itemLines: Array.from({ length: 100 }, (_, i) => `Line number ${i}: 100 kr`),
+      token: "t".repeat(32),
+      amountIncVatNok: 10000,
+      chargeKind: "initial",
+      baseUrl: "https://otman.no",
+    });
+    const description: string = create.mock.calls[0]![0].line_items[0].price_data.product_data.description;
+    expect(description.length).toBeLessThanOrEqual(500);
+    expect(description.endsWith("…")).toBe(true);
+  });
+
   it("labels a top-up as an additional payment", async () => {
     const { create, stripe } = fakeStripe();
     await createOrderCheckoutSession(stripe, {

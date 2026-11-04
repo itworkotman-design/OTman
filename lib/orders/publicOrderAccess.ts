@@ -79,9 +79,15 @@ export function isOrderPayable(status: string | null | undefined): boolean {
 // caller's own getOrderRemainingBalanceIncVatNok(order, totalPaidCents)
 // result (lib/orders/orderTotals.ts) — kept as a parameter here rather than
 // computed internally so this function stays a plain status/number check.
+// So can a processing order paid at booking (lib/orders/bookingPayment.ts) —
+// `totalPaidCents` tells it from one nothing was paid on yet (its booking
+// payment, or an order not approved yet).
 export function isTopUpPayable(
   status: string | null | undefined,
   remainingBalanceIncVatNok: number,
+  totalPaidCents = 0,
 ): boolean {
-  return normalizeOrderStatus(status) === "confirmed" && remainingBalanceIncVatNok > 0;
+  if (remainingBalanceIncVatNok <= 0) return false;
+  const normalized = normalizeOrderStatus(status);
+  return normalized === "confirmed" || (normalized === "processing" && totalPaidCents > 0);
 }

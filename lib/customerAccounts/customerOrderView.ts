@@ -10,6 +10,8 @@ import { serviceAnswersOf, serviceEditFromOrder, type ServiceAnswers } from "@/l
 import type { BookingCustomerType } from "@/lib/orders/websiteBookingDetails";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { buildOrderProgress } from "./orderProgress";
+import { isManualPaymentMode } from "@/lib/orders/paymentMode";
+import { customerPaymentState } from "./customerPaymentState";
 import { customerOrderProducts } from "./customerOrderProducts";
 
 // A customer's own order as "My order" reads it. Orders are only ever found
@@ -49,6 +51,7 @@ export const CUSTOMER_ORDER_SELECT = {
   description: true,
   deviation: true,
   actionToken: true,
+  paymentStatus: true,
   emailThreadToken: true,
   priceExVat: true,
   // With the lines' prices below: an older order's saved catalog prices are
@@ -206,6 +209,7 @@ export function customerOrderView(order: CustomerOrder, now: Date = new Date()) 
       createdAt: order.createdAt,
       totalIncVatNok: customerOrderTotalIncVatNok(order),
       progress: progressOf(order),
+      payment: customerPaymentState(order, { stripe: !isManualPaymentMode() }),
       // Status notes are staff notes, except on a rejection: there they're the
       // reason, which the customer needs to know what to change.
       rejectionNote: normalizeOrderStatus(order.status) === "rejected" ? order.statusNotes?.trim() || null : null,
@@ -237,8 +241,11 @@ export async function listCustomerOrders(accountId: string) {
       leggTil: true,
       pricingSnapshot: true,
       websiteOrderKind: true,
+      paymentStatus: true,
+      actionToken: true,
     },
   });
+  const stripe = !isManualPaymentMode();
   return orders.map((order) => ({
     orderNumber: order.orderNumber as string,
     status: order.status,
@@ -252,6 +259,7 @@ export async function listCustomerOrders(accountId: string) {
     deliveryTypeSummary: order.deliveryTypeSummary,
     totalIncVatNok: customerOrderTotalIncVatNok(order),
     progress: progressOf(order),
+    payment: customerPaymentState(order, { stripe }),
   }));
 }
 

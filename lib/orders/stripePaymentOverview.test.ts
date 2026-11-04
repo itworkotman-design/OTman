@@ -65,9 +65,12 @@ describe("nextStripePaymentStatus — the order's payment status from its Stripe
     expect(nextStripePaymentStatus("due")).toBe("pending");
   });
 
-  it("is paid once covered — also when the order got cheaper and a refund is owed", () => {
+  it("is paid once covered", () => {
     expect(nextStripePaymentStatus("settled")).toBe("paid");
-    expect(nextStripePaymentStatus("refund")).toBe("paid");
+  });
+
+  it("is refund pending when the order got cheaper than what was paid", () => {
+    expect(nextStripePaymentStatus("refund")).toBe("refund_pending");
   });
 
   it("has no say over an order nothing was paid on yet (a booking still in checkout keeps its own status)", () => {

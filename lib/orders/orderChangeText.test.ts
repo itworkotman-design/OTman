@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeDetailChange, describeLineChange, detailLabel, formatKr } from "./orderChangeText";
+import { describeDetailChange, describeLineChange, describeOrderLine, detailLabel, formatKr, paymentPageRows } from "./orderChangeText";
 import { EXTRAS_GROUP } from "./paidOrderSnapshot";
 
 describe("formatKr", () => {
@@ -19,6 +19,50 @@ describe("detailLabel", () => {
     expect(detailLabel("pickup.1.address", "en")).toBe("Pickup 1: address");
     expect(detailLabel("date", "no")).toBe("Dato");
     expect(detailLabel("unknown.key", "en")).toBe("unknown.key");
+  });
+});
+
+describe("describeOrderLine — one priced line as the customer pays for it", () => {
+  it("names the line with its total incl. VAT, the quantity when more than one", () => {
+    expect(describeOrderLine({ group: "TV", label: "TV setup — Altibox", qty: 1, price: 1000 }, "no")).toBe(`TV — TV-oppsett — Altibox: ${formatKr(1000)}`);
+    expect(describeOrderLine({ group: EXTRAS_GROUP, label: "Per km when distance is over 20 km", qty: 27, price: 1080 }, "en")).toBe(
+      `27× Per km when distance is over 20 km: ${formatKr(1080)}`,
+    );
+  });
+
+  it("shows a discount as negative", () => {
+    expect(describeOrderLine({ group: "adjustment", label: "discount", qty: 1, price: -200 }, "no")).toBe("Rabatt: −200 kr");
+  });
+});
+
+describe("paymentPageRows — the pay page's lines, marked with what changed since the customer paid", () => {
+  const lines = [
+    { key: "TV::Visit", group: "TV", label: "Visit – installation only", qty: 1, price: 760 },
+    { key: "TV::Setup", group: "TV", label: "TV setup — Altibox", qty: 1, price: 1000 },
+    { key: "extras::km", group: EXTRAS_GROUP, label: "Per km when distance is over 20 km", qty: 27, price: 1080 },
+  ];
+
+  it("marks a line added or changed since payment, and lists removed ones last", () => {
+    const rows = paymentPageRows(
+      lines,
+      [
+        { kind: "added", group: "TV", label: "TV setup — Altibox", qtyBefore: 0, qtyAfter: 1, priceBefore: 0, priceAfter: 1000, delta: 1000 },
+        { kind: "changed", group: EXTRAS_GROUP, label: "Per km when distance is over 20 km", qtyBefore: 20, qtyAfter: 27, priceBefore: 800, priceAfter: 1080, delta: 280 },
+        { kind: "removed", group: "TV", label: "Return for recycling", qtyBefore: 1, qtyAfter: 0, priceBefore: 330, priceAfter: 0, delta: -330 },
+      ],
+      "en",
+    );
+
+    expect(rows).toEqual([
+      { name: "TV — Visit – installation only", amount: formatKr(760), mark: null },
+      { name: "TV — TV setup — Altibox", amount: formatKr(1000), mark: "added" },
+      { name: "27× Per km when distance is over 20 km", amount: formatKr(1080), mark: "changed" },
+      { name: "TV — Return for recycling", amount: formatKr(330), mark: "removed" },
+    ]);
+  });
+
+  it("marks nothing when nothing changed (or the customer hasn't paid yet)", () => {
+    expect(paymentPageRows(lines, [], "en").every((row) => row.mark === null)).toBe(true);
   });
 });
 

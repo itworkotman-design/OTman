@@ -32,6 +32,7 @@ import { parseWebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import { validateTextField } from "@/lib/orders/websiteOrderValidation";
 import { readSubmittedAdjustmentLines, withAdjustmentLines } from "@/lib/orders/websiteOrderAdjustmentLines";
 import { refreshOrderPaymentStatus } from "@/lib/invoices/orderInvoices";
+import { sendStaffEditCustomerEmail } from "@/lib/orders/staffEditCustomerEmail";
 
 // The admin's edit of a homepage move (WebsiteOrderModal, websiteOrderKind
 // MOVING): the move itself — addresses, both ends, services (`edit`),
@@ -155,6 +156,8 @@ export async function PUT(req: Request, { params }: Params) {
   const body = record(await req.json().catch(() => null));
   if (!body) return reject("INVALID_BODY", 400);
   const dryRun = body.dryRun === true;
+  // "Don't email the customer": no "order updated" email after the save.
+  const skipCustomerEmail = body.skipCustomerEmail === true;
   // The calculator's adjustment lines: their sums are the handling's four
   // amounts, and the lines themselves go on the stored pricing snapshot.
   const submittedAdjustments = readSubmittedAdjustmentLines(body);
@@ -360,16 +363,28 @@ export async function PUT(req: Request, { params }: Params) {
   if (order.priceExVat !== after.priceExVat) {
     changes.push({ field: "priceExVat", label: "Price (ex VAT)", previousValue: String(order.priceExVat), nextValue: String(after.priceExVat) });
   }
+  const actor = { membershipId: membership.id, name: membership.user?.username ?? null, email: membership.user?.email ?? null, source: "USER" } as const;
   try {
     await createOrderUpdatedEvent(prisma, {
       orderId: order.id,
       companyId,
-      actor: { membershipId: membership.id, name: membership.user?.username ?? null, email: membership.user?.email ?? null, source: "USER" },
+      actor,
       changes: changes.filter((change) => change.previousValue !== change.nextValue),
     });
   } catch (err) {
     console.error("[moving-details] Failed to log the change:", err);
   }
 
-  return NextResponse.json({ ok: true, previousPriceExVat: order.priceExVat, priceExVat: after.priceExVat, comparison });
+  // The customer hears what changed (lib/orders/staffEditCustomerEmail.ts),
+  // unless staff ticked "Don't email the customer".
+  const customerEmail = skipCustomerEmail
+    ? "skipped"
+    : await sendStaffEditCustomerEmail({
+        orderId: order.id,
+        companyId,
+        before: buildOrderStateSnapshot({ ...order, extraPickupAddress: order.extraPickupAddress ?? [] }),
+        actor,
+      });
+
+  return NextResponse.json({ ok: true, customerEmail, previousPriceExVat: order.priceExVat, priceExVat: after.priceExVat, comparison });
 }

@@ -250,6 +250,19 @@ describe("refreshOrderPaymentStatus — after anything that changes the price", 
     expect(mocks.orderUpdate).toHaveBeenCalledWith({ where: { id: "o1" }, data: { paymentStatus: "pending" } });
   });
 
+  it("turns a Stripe-paid order refund pending once its total drops below what was paid", async () => {
+    mocks.orderFindFirst.mockResolvedValue(
+      order({
+        priceExVat: 800,
+        pricingSnapshot: { customer: { totalExVat: 800, totalIncVat: 1000 }, lines: [] },
+        paymentStatus: "paid",
+        payments: [{ amountChargedCents: 125000, createdAt: new Date(), orderSnapshot: null, refunds: [] }],
+      }),
+    );
+    expect(await refreshOrderPaymentStatus("o1")).toBe("refund_pending");
+    expect(mocks.orderUpdate).toHaveBeenCalledWith({ where: { id: "o1" }, data: { paymentStatus: "refund_pending" } });
+  });
+
   it("turns it paid again once the total is back within what was paid", async () => {
     mocks.orderFindFirst.mockResolvedValue(
       order({ paymentStatus: "pending", payments: [{ amountChargedCents: 125000, createdAt: new Date(), orderSnapshot: null, refunds: [] }] }),

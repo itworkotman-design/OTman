@@ -148,6 +148,10 @@ describe("gsmReadiness — homepage orders go to GSM confirmed and paid, otherwi
     expect(gsmReadiness({ websiteOrderKind: "SERVICE", status: "Bekreftet", paymentStatus: null })).toEqual(["NOT_PAID"]);
   });
 
+  it("counts a refund-pending order as paid (the customer paid more than enough)", () => {
+    expect(gsmReadiness({ websiteOrderKind: "WHITE_GOODS", status: "confirmed", paymentStatus: "refund_pending" })).toEqual([]);
+  });
+
   it("never flags a regular order", () => {
     expect(gsmReadiness({ websiteOrderKind: null, status: "pending", paymentStatus: null })).toEqual([]);
   });

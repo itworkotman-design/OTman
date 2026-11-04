@@ -86,9 +86,7 @@ export default function WebsiteOrderPaymentSummary({ comparison, locale, totalLa
             {changes.map((change) => (
               <li
                 key={change.text}
-                className={`rounded-lg px-3 py-1.5 ${
-                  change.delta > 0 ? "bg-amber-50 text-amber-900" : change.delta < 0 ? "bg-green-50 text-green-900" : "bg-black/5 text-black/75"
-                }`}
+                className="rounded-lg bg-black/5 px-3 py-1.5 text-black/75"
               >
                 {change.text}
               </li>

@@ -20,6 +20,7 @@ import WebsiteOrderEditTab from "./WebsiteOrderEditTab";
 import WebsiteOrderPaymentSummary from "./WebsiteOrderPaymentSummary";
 import WebsiteOrderInvoiceSummary from "./WebsiteOrderInvoiceSummary";
 import WebsiteOrderRefundButton from "./WebsiteOrderRefundButton";
+import WebsitePaymentRequestButton from "./WebsitePaymentRequestButton";
 import type { OrderPaymentComparison } from "@/lib/orders/paidOrderSnapshot";
 import type { PricedHandlingFields, WebsiteOrderHandling } from "@/lib/orders/websiteOrderHandling";
 import WebsiteOrderAttachments from "./WebsiteOrderAttachments";
@@ -526,6 +527,14 @@ export default function WebsiteOrderPanel({
                   overpaidIncVatNok={-order.payment.differenceIncVatNok}
                   locale={locale}
                   onRefunded={onChanged}
+                />
+              )}
+              {!manualPayments && order.payment.outcome === "due" && (
+                <WebsitePaymentRequestButton
+                  orderId={order.id}
+                  dueIncVatNok={order.payment.differenceIncVatNok}
+                  locale={locale}
+                  onSent={onChanged}
                 />
               )}
             </div>

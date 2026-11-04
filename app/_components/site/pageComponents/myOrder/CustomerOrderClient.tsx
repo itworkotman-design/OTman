@@ -12,6 +12,7 @@ import { ProductIcon } from "@/app/_components/site/BookingModal/whiteGoods/prod
 import type { CustomerOrderDetails } from "@/lib/customerAccounts/customerOrderView";
 import type { CustomerOrderProduct } from "@/lib/customerAccounts/customerOrderProducts";
 import type { OrderProgress } from "@/lib/customerAccounts/orderProgress";
+import type { CustomerPaymentState } from "@/lib/customerAccounts/customerPaymentState";
 import { formatOrderDate } from "@/lib/orders/formatOrderDate";
 import { localizeWebsiteLineLabel, localizeWebsiteProductName } from "@/lib/content/websiteLineLabels";
 import CustomerOrderDetailsForm from "./CustomerOrderDetailsForm";
@@ -19,7 +20,7 @@ import OrderProgressBar from "./OrderProgressBar";
 import AutoRefresh from "./AutoRefresh";
 import ContactUsCard from "./ContactUsCard";
 import CustomerProfileMenu from "./CustomerProfileMenu";
-import { progressBadge } from "./orderProgressText";
+import { paymentBadge, progressBadge } from "./orderProgressText";
 import { orderRules } from "./orderRules";
 import { OTMAN_PHONE, OTMAN_PHONE_HREF } from "@/lib/content/companyContact";
 import {
@@ -58,6 +59,7 @@ type Props = {
     servicesSummary: string | null;
     totalIncVatNok: number | null;
     progress: OrderProgress;
+    payment: CustomerPaymentState | null;
     rejectionNote: string | null;
   };
   products: CustomerOrderProduct[];
@@ -141,6 +143,7 @@ export default function CustomerOrderClient({ locale, order, products, accountEm
   }
 
   const badge = progressBadge(order.progress, locale);
+  const payment = order.payment ? paymentBadge(order.payment.kind, locale) : null;
   const rules = orderRules({ ...permissions, cutoffText, ...(details.kind === "service" ? { kind: "service" as const } : {}) }, locale);
   // A service request can't be changed at all after the cutoff, so no "Change order".
   const canChange = permissions.open && (permissions.beforeCutoff || permissions.editableAfterCutoff);
@@ -196,6 +199,7 @@ export default function CustomerOrderClient({ locale, order, products, accountEm
               {t("Order", "Bestilling")} #{orderNumber}
             </h1>
             <span className={`rounded-full px-3 py-1 text-sm font-semibold ${badge.className}`}>{badge.label}</span>
+            {payment && <span className={`rounded-full px-3 py-1 text-sm font-semibold ${payment.className}`}>{payment.label}</span>}
           </div>
           <p className="mt-1 text-textColorThird">
             {t("Ordered", "Bestilt")} {orderedAt}
@@ -394,6 +398,14 @@ export default function CustomerOrderClient({ locale, order, products, accountEm
                 <p className="text-4xl font-bold text-gray-900">{order.totalIncVatNok.toLocaleString("nb-NO")} kr</p>
               </div>
             </section>
+          )}
+          {order.payment?.payPath && (
+            <Link
+              href={`/${locale}${order.payment.payPath}`}
+              className="inline-flex h-12 items-center justify-center rounded-full bg-logoblue px-6 text-base font-semibold text-white shadow-sm transition hover:bg-logoblue/90"
+            >
+              {t("Pay now", "Betal nå")}
+            </Link>
           )}
 
           <section className={CARD}>

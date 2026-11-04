@@ -45,9 +45,17 @@ describe("isTopUpPayable", () => {
     expect(isTopUpPayable("confirmed", 0)).toBe(false);
   });
 
-  it("is never payable from a non-confirmed status, even with a positive balance", () => {
+  it("is never payable from another status, even with a positive balance", () => {
     expect(isTopUpPayable("approved", 500)).toBe(false);
-    expect(isTopUpPayable("processing", 500)).toBe(false);
     expect(isTopUpPayable("cancelled", 500)).toBe(false);
+  });
+
+  it("is payable on a processing order paid at booking that now owes more", () => {
+    expect(isTopUpPayable("processing", 500, 378000)).toBe(true);
+  });
+
+  it("is not a top-up on a processing order nothing was paid on yet (that's the booking payment, or not approved)", () => {
+    expect(isTopUpPayable("processing", 500)).toBe(false);
+    expect(isTopUpPayable("processing", 500, 0)).toBe(false);
   });
 });

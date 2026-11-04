@@ -25,3 +25,5 @@ at ADMIN level. Tested.
 Status and partner save through `/api/orders/bulk`. Changes are logged on the order's history.
 
 After a save (never a dry run) the order's payment status is recomputed (`refreshOrderPaymentStatus`, `lib/invoices/orderInvoices.ts`): a total that moved away from what's been invoiced turns it `pending` (manual payments); with Stripe, a total above what's been paid turns it `pending` and back to `paid` once covered.
+
+After a real save the customer gets the "order updated" email with what changed (`sendStaffEditCustomerEmail`, `../lib/staff-edit-customer-email.md`) unless the body has `skipCustomerEmail: true`; the result is returned as `customerEmail` (`sent` / `failed` / `no_changes` / `no_email` / `skipped`).

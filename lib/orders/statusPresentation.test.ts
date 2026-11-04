@@ -91,6 +91,11 @@ describe("getPaymentStatusPresentation (the badge under a homepage order's statu
     expect(getPaymentStatusPresentation("pending", "nb")?.label).toBe("Betaling venter");
   });
 
+  it("is red Refund pending when the customer paid more than the order costs now", () => {
+    expect(getPaymentStatusPresentation("refund_pending", "en")).toEqual({ label: "Refund pending", style: { color: "#b91c1c", backgroundColor: "#fee2e2" } });
+    expect(getPaymentStatusPresentation("refund_pending", "nb")?.label).toBe("Refusjon venter");
+  });
+
   it("shows nothing for an order without a payment status", () => {
     expect(getPaymentStatusPresentation(null, "en")).toBeNull();
     expect(getPaymentStatusPresentation("weird", "en")).toBeNull();

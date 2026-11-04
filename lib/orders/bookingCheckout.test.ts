@@ -77,6 +77,7 @@ describe("startBookingCheckout", () => {
     const args = mocks.createSession.mock.calls[0]![0];
     expect(args.line_items[0].price_data.unit_amount).toBe(125000);
     expect(args.metadata.chargeKind).toBe("booking");
+    expect(args.line_items[0].price_data.product_data.description).toBe("Vaskemaskin");
     expect(args.expires_at).toBeTypeOf("number");
     expect(mocks.orderUpdate).toHaveBeenCalledWith({ where: { id: "order1" }, data: { stripeCheckoutSessionId: "cs_1" } });
     expect(mocks.orderUpdateMany).not.toHaveBeenCalled();
@@ -99,6 +100,18 @@ describe("startBookingCheckout", () => {
       expect.anything(),
       expect.objectContaining({ orderId: "order1", fromStatus: "processing", toStatus: "cancelled" }),
     );
+  });
+});
+
+describe("startBookingCheckout — Stripe description", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.createSession.mockResolvedValue({ id: "cs_1", url: "https://checkout.stripe.com/cs_1" });
+  });
+
+  it("lists what the customer pays for", async () => {
+    await startBookingCheckout({ ...order, leggTil: "200" });
+    expect(mocks.createSession.mock.calls[0]![0].line_items[0].price_data.product_data.description).toContain("Tillegg: 200");
   });
 });
 

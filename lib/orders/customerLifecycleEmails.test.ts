@@ -327,6 +327,23 @@ describe("buildOrderUpdatedEmail", () => {
     expect(html).toContain("https://otman.no/min-bestilling/K7MQ4XZ2");
   });
 
+  it("says we made the change when staff edited the order (not \"was it you?\")", () => {
+    const { html } = buildOrderUpdatedEmail({
+      ...order,
+      orderNumber: "K7MQ4XZ2",
+      orderUpdate: { changes: ["Dato: 2026-11-19 → 2026-11-20"], totalIncVatNok: 1749, byStaff: true },
+    });
+
+    expect(html).toContain("Vi har gjort endringer i bestillingen din");
+    expect(html).toContain("Har du spørsmål om endringene");
+    expect(html).not.toContain("Var det ikke du");
+  });
+
+  it("asks the customer to react if they didn't make the change themselves", () => {
+    const { html } = buildOrderUpdatedEmail({ ...order, orderNumber: "K7MQ4XZ2", orderUpdate: { changes: ["Notat endret"], totalIncVatNok: null } });
+    expect(html).toContain("Var det ikke du som gjorde endringen?");
+  });
+
   it("leaves out the total when the order has no price", () => {
     const { html } = buildOrderUpdatedEmail({
       ...order,

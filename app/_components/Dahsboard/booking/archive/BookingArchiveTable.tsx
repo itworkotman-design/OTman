@@ -93,7 +93,7 @@ function formatDnbDiscount(value: number | null) {
   return typeof value === "number" && value > 0 ? `20% - NOK ${value}` : "-";
 }
 
-// The status pill, and under it a homepage order's payment badge (Pending / Paid).
+// The status pill, and under it a homepage order's payment badge (Pending / Paid / Refund pending).
 function formatStatusCell(
   value: string | null | undefined,
   locale: BookingUiLocale,

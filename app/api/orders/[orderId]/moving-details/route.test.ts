@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   getRouteDistance: vi.fn(),
   createOrderUpdatedEvent: vi.fn(),
   refreshOrderPaymentStatus: vi.fn(),
+  sendStaffEditCustomerEmail: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({ getAuthenticatedSession: mocks.getAuthenticatedSession }));
@@ -26,6 +27,7 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/integrations/mapbox/routeDistance", () => ({ getRouteDistance: mocks.getRouteDistance }));
 vi.mock("@/lib/orders/orderEvents", () => ({ createOrderUpdatedEvent: mocks.createOrderUpdatedEvent }));
 vi.mock("@/lib/invoices/orderInvoices", () => ({ refreshOrderPaymentStatus: mocks.refreshOrderPaymentStatus }));
+vi.mock("@/lib/orders/staffEditCustomerEmail", () => ({ sendStaffEditCustomerEmail: mocks.sendStaffEditCustomerEmail }));
 vi.mock("@/lib/content/getMovingCatalog", async () => {
   const actual = await vi.importActual<typeof import("@/lib/content/getMovingCatalog")>("@/lib/content/getMovingCatalog");
   return { ...actual, getMovingCatalog: mocks.getMovingCatalog };
@@ -385,6 +387,19 @@ describe("PUT /api/orders/[orderId]/moving-details (admin edit of a homepage mov
 
   it("rejects an amount that isn't kroner", async () => {
     expect((await put({ handling: { rabatt: "abc" } })).status).toBe(422);
+  });
+
+  it("emails the customer what changed after a save, comparing with the order before it", async () => {
+    mocks.sendStaffEditCustomerEmail.mockResolvedValue("sent");
+    const res = await put({ edit });
+    expect(mocks.sendStaffEditCustomerEmail).toHaveBeenCalledWith(expect.objectContaining({ before: expect.objectContaining({ version: 1 }) }));
+    expect((await res.json()).customerEmail).toBe("sent");
+  });
+
+  it("sends nothing when staff ticked \"Don't email the customer\", or on a preview", async () => {
+    await put({ edit, skipCustomerEmail: true });
+    await put({ edit, dryRun: true });
+    expect(mocks.sendStaffEditCustomerEmail).not.toHaveBeenCalled();
   });
 
   it("recomputes the payment status after a save, never on a preview (manual payments)", async () => {

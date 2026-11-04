@@ -24,3 +24,5 @@ Builds a customer's own order as "My order" reads it.
 `customerOrderDetails`: a `MOVING` order with stored answers is `{ kind: "moving", customer, preferredDate, timeWindow, customerType, moving: MovingEdit }`; a move without them stays `basic`.
 
 A homepage service request (`SERVICE` with stored answers) is `kind: "service"` with `customerType` and `service` (`serviceAnswersOf(serviceEditFromOrder(order))` — the quote left out).
+
+**Payment:** `customerOrderView` and `listCustomerOrders` both return `payment` (`customerPaymentState`, `lib/customerAccounts/customerPaymentState.ts`): `{ kind: "paid" | "due" | "refund", payPath }` from `Order.paymentStatus`, or null without one / on a cancelled or refunded order. `payPath` (`/betaling/<actionToken>`, without the locale) only while due and payments go through Stripe; the token itself is never returned.

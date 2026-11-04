@@ -17,12 +17,26 @@ type CheckoutOrder = {
   productsSummary?: string | null;
 };
 
+// Stripe shows the description under the item; a long order is cut off.
+const MAX_DESCRIPTION_LENGTH = 500;
+
+function itemDescription(itemLines: string[] | undefined, productsSummary: string | null | undefined): string | undefined {
+  if (!itemLines?.length) return productsSummary ?? undefined;
+  const text = itemLines.join(" · ");
+  return text.length <= MAX_DESCRIPTION_LENGTH ? text : `${text.slice(0, MAX_DESCRIPTION_LENGTH - 1).trimEnd()}…`;
+}
+
 type StripeWithCheckout = { checkout: { sessions: Pick<Stripe["checkout"]["sessions"], "create"> } };
 
 export function createOrderCheckoutSession(
   stripe: StripeWithCheckout,
   params: {
     order: CheckoutOrder;
+    // What the customer pays for, one line each (describeOrderLine) — shown
+    // as the item's description. The charge itself stays one item: Stripe
+    // has no negative lines (a discount) and per-line VAT rounding mustn't
+    // move the amount.
+    itemLines?: string[];
     token: string;
     amountIncVatNok: number;
     chargeKind: OrderChargeKind;
@@ -47,7 +61,7 @@ export function createOrderCheckoutSession(
           unit_amount: Math.round(params.amountIncVatNok * 100),
           product_data: {
             name: chargeKind === "topup" ? `${orderLabel} — tilleggsbetaling` : orderLabel,
-            description: order.productsSummary ?? undefined,
+            description: itemDescription(params.itemLines, order.productsSummary),
           },
         },
       },

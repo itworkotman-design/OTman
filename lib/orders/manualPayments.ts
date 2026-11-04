@@ -14,7 +14,9 @@ import { normalizeOrderStatus } from "./statusPresentation";
 // the latest faktura, and the order's payment status. Amounts are what the
 // customer pays (incl. VAT), the same as paidOrderSnapshot.ts.
 
-export type PaymentStatus = "pending" | "paid";
+// refund_pending: paid by Stripe, but the order has since got cheaper than
+// what was paid — staff owe a refund (lib/orders/stripePaymentOverview.ts).
+export type PaymentStatus = "pending" | "paid" | "refund_pending";
 export type InvoiceKind = "invoice" | "refund";
 
 export type InvoiceEntry = {
@@ -133,7 +135,7 @@ export function gsmReadiness(order: {
   if (!order.websiteOrderKind) return [];
   const reasons: GsmReadinessReason[] = [];
   if (normalizeOrderStatus(order.status) !== "confirmed") reasons.push("NOT_CONFIRMED");
-  if (order.paymentStatus !== "paid") reasons.push("NOT_PAID");
+  if (order.paymentStatus !== "paid" && order.paymentStatus !== "refund_pending") reasons.push("NOT_PAID");
   return reasons;
 }
 

@@ -127,3 +127,31 @@ export function TimeWindowChoice({
     </div>
   );
 }
+
+// Beside Save on a website order: after a save the customer gets an email
+// with what changed (lib/orders/staffEditCustomerEmail.ts) unless this is
+// ticked — for internal fixes the customer doesn't need to hear about.
+export function SkipCustomerEmailCheckbox({
+  checked,
+  onChange,
+  locale,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  locale: "en" | "nb";
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2 text-sm text-black/70">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 accent-logoblue" />
+      {locale === "nb" ? "Ikke send e-post til kunden om endringen" : "Don't email the customer about this change"}
+    </label>
+  );
+}
+
+// After a save: whether the customer was told (the route's `customerEmail`).
+export function customerEmailNote(result: unknown, locale: "en" | "nb"): string {
+  const t = (en: string, no: string) => (locale === "nb" ? no : en);
+  if (result === "sent") return t(" The customer was emailed about the change.", " Kunden har fått e-post om endringen.");
+  if (result === "failed") return t(" The email to the customer failed — let them know.", " E-posten til kunden feilet — gi dem beskjed.");
+  return "";
+}

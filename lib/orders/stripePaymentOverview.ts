@@ -63,11 +63,14 @@ export function buildStripePaymentOverview(payments: LedgerPayment[], current: O
 }
 
 // Order.paymentStatus from how the Stripe payments stand against the order
-// now — the booking list's Paid badge. Null when nothing was paid yet: a
-// booking still in checkout keeps the status it was booked with.
+// now — the booking list's payment badge: pending while more is due, refund
+// pending while the customer paid more than the order costs now, otherwise
+// paid. Null when nothing was paid yet: a booking still in checkout keeps the
+// status it was booked with.
 export function nextStripePaymentStatus(outcome: StripePaymentOverview["comparison"]["outcome"]): PaymentStatus | null {
   if (outcome === "unpaid") return null;
-  return outcome === "due" ? "pending" : "paid";
+  if (outcome === "due") return "pending";
+  return outcome === "refund" ? "refund_pending" : "paid";
 }
 
 // Null for an order that isn't this company's.

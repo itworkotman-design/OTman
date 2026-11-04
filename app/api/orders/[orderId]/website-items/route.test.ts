@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   resolveAllOrderNotificationsMock: vi.fn(),
   getRouteDistanceMock: vi.fn(),
   refreshOrderPaymentStatusMock: vi.fn(),
+  sendStaffEditCustomerEmailMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({
@@ -64,6 +65,10 @@ vi.mock("@/lib/orders/orderNotifications", () => ({
 
 vi.mock("@/lib/integrations/mapbox/routeDistance", () => ({
   getRouteDistance: mocks.getRouteDistanceMock,
+}));
+
+vi.mock("@/lib/orders/staffEditCustomerEmail", () => ({
+  sendStaffEditCustomerEmail: mocks.sendStaffEditCustomerEmailMock,
 }));
 
 vi.mock("@/lib/invoices/orderInvoices", () => ({
@@ -788,6 +793,25 @@ describe("/api/orders/[orderId]/website-items", () => {
         expect(res.status).toBe(200);
         expect(mocks.pricingWritesMock).toHaveBeenCalled();
       });
+    });
+  });
+
+  describe("PUT — emailing the customer about the change", () => {
+    beforeEach(() => mocks.sendStaffEditCustomerEmailMock.mockResolvedValue("sent"));
+
+    it("emails the customer what changed after a save, comparing with the order before it", async () => {
+      const res = await put(twoCards);
+
+      expect(mocks.sendStaffEditCustomerEmailMock).toHaveBeenCalledWith(
+        expect.objectContaining({ orderId: "order-1", before: expect.objectContaining({ version: 1 }) }),
+      );
+      expect((await res.json()).customerEmail).toBe("sent");
+    });
+
+    it("sends nothing when staff ticked \"Don't email the customer\", or on a preview", async () => {
+      await put({ ...twoCards, skipCustomerEmail: true });
+      await put({ ...twoCards, dryRun: true });
+      expect(mocks.sendStaffEditCustomerEmailMock).not.toHaveBeenCalled();
     });
   });
 

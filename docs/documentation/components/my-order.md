@@ -52,3 +52,5 @@ and within 24h only its services, on the move exactly as loaded.
 
 ## Service requests
 `kind: "service"` orders (`websiteOrderKind: "SERVICE"`) show a Service card (each service: icon, name, "What needs doing") and the job address as "Address". "Change order" opens `ServiceRequestFlow` in customer mode (`customer` prop, like `MovingRequestFlow`): every section but the customer type ("What needs doing" under the service, the comment under "Your details"). Within 24h of the job a service request can't be changed at all, so "Change order" is hidden (`permissions.editableAfterCutoff` false). Saved through `CustomerOrderEditFooter` (`service` in the payload). "Good to know" uses the service wording (`orderRules` with `kind: "service"`).
+
+**Payment badge:** beside the status badge, on the order list card and the order page: "Betalt" (green), "Venter på betaling" (amber) or "Refusjon på vei" (blue) — `paymentBadge` in `orderProgressText.ts`, from the view's `payment`. While payment is due (Stripe), a "Betal nå" button to the `/betaling` page: in the card's footer and under the total on the order page.

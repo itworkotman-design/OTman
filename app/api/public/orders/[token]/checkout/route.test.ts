@@ -66,6 +66,15 @@ describe("POST /api/public/orders/[token]/checkout", () => {
     expect(res.status).toBe(404);
   });
 
+  it("lists what the customer pays for in the Stripe description", async () => {
+    mocks.getOrderByActionTokenMock.mockResolvedValue({ ...baseOrder, status: "approved", leggTil: "200" });
+
+    await call();
+
+    const description = mocks.checkoutSessionsCreateMock.mock.calls[0]![0].line_items[0].price_data.product_data.description;
+    expect(description).toContain("Tillegg: 200");
+  });
+
   it("charges the full order total for a normal (approved, never paid) order", async () => {
     mocks.getOrderByActionTokenMock.mockResolvedValue({ ...baseOrder, status: "approved" });
 

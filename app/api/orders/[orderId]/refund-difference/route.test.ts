@@ -15,7 +15,7 @@ vi.mock("@/lib/auth/session", () => ({ getAuthenticatedSession: mocks.getAuthent
 vi.mock("@/lib/db", () => ({
   prisma: {
     membership: { findFirst: mocks.membershipFindFirst },
-    order: { findFirst: mocks.orderFindFirst },
+    order: { findFirst: mocks.orderFindFirst, update: vi.fn() },
   },
 }));
 vi.mock("@/lib/stripe/stripeClient", () => ({ getStripeClient: () => ({ refunds: {} }) }));

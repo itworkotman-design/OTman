@@ -48,6 +48,7 @@ import {
 } from "@/app/_components/Dahsboard/booking/create/_types/productCard";
 import { readSubmittedAdjustmentLines, withAdjustmentLines } from "@/lib/orders/websiteOrderAdjustmentLines";
 import { refreshOrderPaymentStatus } from "@/lib/invoices/orderInvoices";
+import { sendStaffEditCustomerEmail } from "@/lib/orders/staffEditCustomerEmail";
 import { isManualPaymentMode } from "@/lib/orders/paymentMode";
 
 // The admin editor in WebsiteOrderModal (e.g. the customer phones in): GET
@@ -262,6 +263,8 @@ export async function PUT(req: Request, { params }: Params) {
     // The calculator's "Set to 0" choices (like the booking app's checkboxes).
     nulledLines?: unknown;
     sendPaymentLink?: unknown;
+    // "Don't email the customer": no "order updated" email after the save.
+    skipCustomerEmail?: unknown;
     dryRun?: unknown;
     // The calculator's "Use new price": price with today's catalog.
     useCurrentPrices?: unknown;
@@ -272,6 +275,7 @@ export async function PUT(req: Request, { params }: Params) {
   const nulledLines = body?.nulledLines === undefined ? null : parseNulledLines(body.nulledLines);
   if (body?.nulledLines !== undefined && !nulledLines) return reject("INVALID_BODY", 400);
   const sendPaymentLink = body?.sendPaymentLink === true;
+  const skipCustomerEmail = body?.skipCustomerEmail === true;
   const dryRun = body?.dryRun === true;
   const useCurrentPrices = body?.useCurrentPrices === true;
   const submittedAdjustments = readSubmittedAdjustmentLines(body);
@@ -578,8 +582,22 @@ export async function PUT(req: Request, { params }: Params) {
     else emailFailed = true;
   }
 
+  // The customer hears what changed (lib/orders/staffEditCustomerEmail.ts) —
+  // unless staff ticked "Don't email the customer", or the payment email
+  // above already told them.
+  const customerEmail =
+    skipCustomerEmail || plan
+      ? "skipped"
+      : await sendStaffEditCustomerEmail({
+          orderId: order.id,
+          companyId,
+          before: buildOrderStateSnapshot({ ...order, extraPickupAddress: order.extraPickupAddress ?? [] }),
+          actor,
+        });
+
   return NextResponse.json({
     ok: true,
+    customerEmail,
     previousPriceExVat: order.priceExVat,
     priceExVat: saved.priceExVat,
     drivingDistance: pricedOrder.drivingDistance,
