@@ -20,3 +20,5 @@ The tab first asks `GET /api/orders/[orderId]/payments` (`app/api/orders/[orderI
 - every Stripe charge, newest first: "Paid at booking" (the first) or "Additional payment" (a paid "My order" change or a top-up), with its date, payment intent id and any refunds under it.
 
 The data comes from `lib/orders/stripePaymentOverview.ts` (`getOrderStripePaymentOverview` / `buildStripePaymentOverview`, over the `OrderPayment` ledger and `compareOrderWithPayments`).
+
+Each payment shows its receipt row (`PaymentReceiptRow`): number, when it was emailed, View / Download, and Send receipt / Send again (`/api/orders/[orderId]/payments/[paymentId]/receipt`).

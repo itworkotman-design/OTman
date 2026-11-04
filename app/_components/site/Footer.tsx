@@ -39,7 +39,7 @@ export function Footer({ locale, content }: FooterProps) {
             <Link href={`/${locale}`} className="justify-self-start">
               <Image src="/white horizontal.svg" width={116} height={50} alt="Logo" loading="eager" className="h-[34] w-auto" />
             </Link>
-            <p className="text-white py-2 text-sm">Smart transport og monering. Enkelt bestilt.</p>
+            <p className="text-white py-2 text-sm">Smart transport og montering. Enkelt bestilt.</p>
             <div className="flex gap-4">
               <Link
                 href="https://www.facebook.com/people/Otman-Norge/61589708937702/?mibextid=wwXIfr&rdid=c3IeGfeqOTxnXp4L&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2F1FqF3LhnEQ%2F%3Fmibextid%3DwwXIfr"

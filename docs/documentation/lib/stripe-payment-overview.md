@@ -9,3 +9,5 @@ A homepage order's Stripe payment history and status (`HOMEPAGE_PAYMENT_MODE=str
 | `nextStripePaymentStatus(outcome)` | `Order.paymentStatus` from the comparison: `due` → `pending`, `refund` → `refund_pending` (red "Refund pending" badge; back to `paid` once "Refund difference" goes through, `refundOrderDifference.ts`), `settled` → `paid`, `unpaid` → null (a booking still in checkout keeps its status). Used by `refreshOrderPaymentStatus` (`lib/invoices/orderInvoices.ts`) after every price change. |
 
 **Cancelled / declined orders:** `buildStripePaymentOverview(payments, current, closed)` — with `closed` the order costs 0 kr, so nothing is due: outcome `closed` (with `totalRefundedIncVatNok`) once everything paid went back, or `refund` for what is still owed back. `nextStripePaymentStatus("closed")` leaves the payment status alone.
+
+Each payment entry has `receipt: { number, sentAt } | null` (`OrderPayment.receiptNumber` / `receiptSentAt`).

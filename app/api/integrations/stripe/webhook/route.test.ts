@@ -13,7 +13,10 @@ const mocks = vi.hoisted(() => ({
   welcomePaidBookingOrderMock: vi.fn(),
   cancelUnpaidBookingOrderMock: vi.fn(),
   alertStaffMock: vi.fn(),
+  sendPaymentReceiptMock: vi.fn(),
 }));
+
+vi.mock("@/lib/invoices/paymentReceipts", () => ({ sendPaymentReceipt: mocks.sendPaymentReceiptMock }));
 
 vi.mock("@/lib/orders/staffAlerts", () => ({ alertStaff: mocks.alertStaffMock }));
 
@@ -216,6 +219,26 @@ describe("POST /api/integrations/stripe/webhook", () => {
     );
   });
 
+  it("sends the customer a receipt for the payment it recorded, after the other emails", async () => {
+    mocks.orderFindUniqueMock.mockResolvedValue({ id: "order1", companyId: "company1", status: "confirmed" });
+    mocks.recordOrderPaymentMock.mockResolvedValue({ id: "payment2" });
+    mocks.orderPaymentFindManyMock.mockResolvedValue([{ amountChargedCents: 300000 }]);
+
+    await POST(webhookRequest(checkoutSessionCompletedEvent({ amount_total: 300000 })));
+
+    expect(mocks.sendPaymentReceiptMock).toHaveBeenCalledWith({ paymentId: "payment2" });
+  });
+
+  it("still answers 200 when the receipt fails (the payment is recorded)", async () => {
+    mocks.orderFindUniqueMock.mockResolvedValue({ id: "order1", companyId: "company1", status: "confirmed" });
+    mocks.recordOrderPaymentMock.mockResolvedValue({ id: "payment2" });
+    mocks.orderPaymentFindManyMock.mockResolvedValue([{ amountChargedCents: 300000 }]);
+    mocks.sendPaymentReceiptMock.mockRejectedValue(new Error("boom"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    expect((await POST(webhookRequest(checkoutSessionCompletedEvent({ amount_total: 300000 })))).status).toBe(200);
+  });
+
   it("does nothing further when this exact Stripe session was already recorded (redelivered webhook)", async () => {
     mocks.orderFindUniqueMock.mockResolvedValue({ id: "order1", companyId: "company1", status: "confirmed" });
     mocks.recordOrderPaymentMock.mockResolvedValue(null);
@@ -226,6 +249,7 @@ describe("POST /api/integrations/stripe/webhook", () => {
     expect(mocks.orderUpdateMock).not.toHaveBeenCalled();
     expect(mocks.createOrderStatusChangedEventMock).not.toHaveBeenCalled();
     expect(mocks.createOrderActionEventMock).not.toHaveBeenCalled();
+    expect(mocks.sendPaymentReceiptMock).not.toHaveBeenCalled();
   });
 
   it("on a second (top-up) payment for an already-confirmed order: records it, keeps status confirmed, accumulates the total, and logs an action event instead of a status change", async () => {

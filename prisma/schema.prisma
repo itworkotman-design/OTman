@@ -736,6 +736,11 @@ model OrderPayment {
   // What this payment covered — see lib/orders/paidOrderSnapshot.ts.
   orderSnapshot           Json?
   createdAt               DateTime      @default(now())
+  // Its receipt (kvittering, lib/invoices/paymentReceipts.ts): numbered in
+  // one series across all orders, emailed to the customer, PDF kept in S3.
+  receiptNumber           Int?          @unique
+  receiptSentAt           DateTime?
+  receiptPdfKey           String?
   order                   Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
   refunds                 OrderRefund[]
 

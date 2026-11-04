@@ -53,7 +53,7 @@ export default function OrderPaymentPanel({ orderId }: { orderId: string }) {
     );
   }
   if (state.paymentMode === "manual") return <InvoicePaymentPanel orderId={orderId} />;
-  return <StripePaymentPanel overview={state.overview} />;
+  return <StripePaymentPanel orderId={orderId} overview={state.overview} onChanged={() => setAttempt((n) => n + 1)} />;
 }
 
 type StripePaymentsState =
@@ -83,7 +83,15 @@ const STRIPE_OUTCOME_TEXT: Record<StripePaymentOverview["comparison"]["outcome"]
 
 // Every Stripe charge and refund, newest first, and paid so far vs. the order
 // now (lib/orders/stripePaymentOverview.ts).
-function StripePaymentPanel({ overview }: { overview: StripePaymentOverview }) {
+function StripePaymentPanel({
+  orderId,
+  overview,
+  onChanged,
+}: {
+  orderId: string;
+  overview: StripePaymentOverview;
+  onChanged: () => void;
+}) {
   const { comparison, payments } = overview;
   // What's paid now covers the order: paid; more than covers it: refund
   // pending; otherwise still due. A cancelled order has no badge.
@@ -148,6 +156,7 @@ function StripePaymentPanel({ overview }: { overview: StripePaymentOverview }) {
                 </div>
                 <div className="text-sm font-semibold tabular-nums">{formatKr(payment.amountCents / 100)}</div>
               </div>
+              <PaymentReceiptRow orderId={orderId} payment={payment} onSent={onChanged} />
               {payment.refunds.map((refund) => (
                 <div key={refund.id} className="mt-2 flex flex-wrap items-start justify-between gap-3 border-t border-black/5 pt-2 text-sm">
                   <div>
@@ -164,6 +173,79 @@ function StripePaymentPanel({ overview }: { overview: StripePaymentOverview }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// The payment's receipt (lib/invoices/paymentReceipts.ts): open or download
+// it, and email it to the customer (again).
+function PaymentReceiptRow({
+  orderId,
+  payment,
+  onSent,
+}: {
+  orderId: string;
+  payment: StripePaymentOverview["payments"][number];
+  onSent: () => void;
+}) {
+  const [sending, setSending] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const url = (download = false) => `/api/orders/${orderId}/payments/${payment.id}/receipt${download ? "?download=1" : ""}`;
+  const { receipt } = payment;
+
+  async function send() {
+    setSending(true);
+    setMessage(null);
+    try {
+      const res = await fetch(url(), { method: "POST", credentials: "include" });
+      const data = await res.json().catch(() => null);
+      if (data?.ok) {
+        setMessage({ ok: true, text: `Receipt ${data.number} emailed to the customer.` });
+        onSent();
+      } else {
+        const reason = data?.reason;
+        setMessage({
+          ok: false,
+          text:
+            reason === "MISSING_CUSTOMER_EMAIL"
+              ? "The order has no customer email."
+              : reason === "SETTINGS_MISSING"
+                ? "The seller name or org number is not set (INVOICE_SELLER_NAME / INVOICE_ORG_NUMBER)."
+                : "Could not send the receipt.",
+        });
+      }
+    } catch {
+      setMessage({ ok: false, text: "Could not send the receipt." });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const linkClass = "font-semibold text-logoblue underline-offset-2 hover:underline";
+  return (
+    <div className="mt-2 border-t border-black/5 pt-2 text-xs">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {receipt ? (
+          <>
+            <span className="text-textColorThird">
+              Receipt {receipt.number}
+              {receipt.sentAt ? ` · emailed ${formatDateTime(receipt.sentAt)}` : " · not emailed"}
+            </span>
+            <a href={url()} target="_blank" rel="noreferrer" className={linkClass}>
+              View
+            </a>
+            <a href={url(true)} className={linkClass}>
+              Download
+            </a>
+          </>
+        ) : (
+          <span className="text-textColorThird">No receipt yet</span>
+        )}
+        <button type="button" onClick={send} disabled={sending} className={`${linkClass} disabled:opacity-50`}>
+          {sending ? "Sending…" : receipt?.sentAt ? "Send again" : "Send receipt"}
+        </button>
+      </div>
+      {message && <div className={`mt-1 ${message.ok ? "text-green-700" : "text-red-700"}`}>{message.text}</div>}
     </div>
   );
 }

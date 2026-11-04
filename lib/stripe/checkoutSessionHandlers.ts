@@ -14,6 +14,7 @@ import { buildOrderStateSnapshot } from "@/lib/orders/paidOrderSnapshot";
 import { applyPaidChange } from "@/lib/customerAccounts/customerOrderPaidChange";
 import { isAwaitingBookingPayment } from "@/lib/orders/bookingPayment";
 import { cancelUnpaidBookingOrder, welcomePaidBookingOrder } from "@/lib/orders/bookingCheckout";
+import { sendPaymentReceipt } from "@/lib/invoices/paymentReceipts";
 
 const ALREADY_CONFIRMED = new Set(["confirmed", "active", "completed"]);
 
@@ -177,6 +178,14 @@ export async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Se
         console.error("[stripe webhook] Failed to send order-confirmed email", order.id, error);
       }
     }
+  }
+
+  // The receipt for this payment, after the emails above (the order-received
+  // email comes first at booking). It alerts staff itself when it can't go out.
+  try {
+    await sendPaymentReceipt({ paymentId: payment.id });
+  } catch (error) {
+    console.error("[stripe webhook] Failed to send the receipt", order.id, error);
   }
   return true;
 }

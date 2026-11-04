@@ -17,6 +17,8 @@ export type StripePaymentEntry = {
   stripePaymentIntentId: string | null;
   createdAt: string;
   refunds: { id: string; amountCents: number; reason: string | null; createdAt: string }[];
+  // Its receipt (lib/invoices/paymentReceipts.ts); null before one was made.
+  receipt: { number: number; sentAt: string | null } | null;
 };
 
 export type StripePaymentOverview = {
@@ -37,6 +39,8 @@ type LedgerPayment = {
   stripePaymentIntentId: string | null;
   createdAt: Date;
   orderSnapshot: unknown;
+  receiptNumber?: number | null;
+  receiptSentAt?: Date | null;
   refunds: { id: string; amountRefundedCents: number; reason: string | null; createdAt: Date; orderSnapshot: unknown }[];
 };
 
@@ -63,6 +67,9 @@ export function buildStripePaymentOverview(payments: LedgerPayment[], current: O
           reason: refund.reason,
           createdAt: refund.createdAt.toISOString(),
         })),
+        receipt: payment.receiptNumber
+          ? { number: payment.receiptNumber, sentAt: payment.receiptSentAt?.toISOString() ?? null }
+          : null,
       }))
       .reverse(),
     comparison: { outcome, totalPaidIncVatNok, totalRefundedIncVatNok, currentTotalIncVatNok, differenceIncVatNok },
@@ -107,6 +114,8 @@ export async function getOrderStripePaymentOverview(orderId: string, companyId: 
           stripePaymentIntentId: true,
           createdAt: true,
           orderSnapshot: true,
+          receiptNumber: true,
+          receiptSentAt: true,
           refunds: {
             orderBy: { createdAt: "asc" },
             select: { id: true, amountRefundedCents: true, reason: true, createdAt: true, orderSnapshot: true },

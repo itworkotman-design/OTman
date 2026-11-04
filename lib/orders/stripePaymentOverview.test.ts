@@ -42,6 +42,14 @@ describe("buildStripePaymentOverview", () => {
     });
   });
 
+  it("shows each payment's receipt (number, and when it was emailed) — none before one was made", () => {
+    const overview = buildStripePaymentOverview(
+      [{ ...booking, receiptNumber: 7, receiptSentAt: new Date("2026-11-03T14:31:00Z") }, { ...change, receiptNumber: 8, receiptSentAt: null }, { ...change, id: "p3" }],
+      current,
+    );
+    expect(overview.payments.map((p) => p.receipt)).toEqual([null, { number: 8, sentAt: null }, { number: 7, sentAt: "2026-11-03T14:31:00.000Z" }]);
+  });
+
   it("shows refunds under their payment and nets them out of what's paid", () => {
     const refunded = {
       ...change,
