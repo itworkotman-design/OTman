@@ -12,7 +12,10 @@ const mocks = vi.hoisted(() => ({
   applyPaidChangeMock: vi.fn(),
   welcomePaidBookingOrderMock: vi.fn(),
   cancelUnpaidBookingOrderMock: vi.fn(),
+  alertStaffMock: vi.fn(),
 }));
+
+vi.mock("@/lib/orders/staffAlerts", () => ({ alertStaff: mocks.alertStaffMock }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -73,6 +76,19 @@ describe("POST /api/integrations/stripe/webhook", () => {
     mocks.createOrderStatusChangedEventMock.mockResolvedValue(undefined);
     mocks.createOrderActionEventMock.mockResolvedValue(undefined);
     mocks.sendLifecycleEmailsForOrdersMock.mockResolvedValue({ sentCount: 1, failedOrderIds: [] });
+  });
+
+  it("alerts staff on the order when the payment couldn't be recorded, and asks Stripe to retry", async () => {
+    mocks.orderFindUniqueMock.mockRejectedValue(new Error("db down"));
+
+    const res = await POST(webhookRequest(checkoutSessionCompletedEvent({})));
+
+    expect(res.status).toBe(500);
+    expect(mocks.alertStaffMock).toHaveBeenCalledWith({
+      orderId: "order1",
+      title: "Stripe payment not recorded yet",
+      message: expect.stringContaining("cs_test"),
+    });
   });
 
   it("ignores an event with no orderId in metadata", async () => {

@@ -12,6 +12,7 @@ import { resolveAllOrderNotifications } from "@/lib/orders/orderNotifications";
 import { isAllowedWebsiteOrderStatus, normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { findCancelledOrderPartner } from "@/lib/orders/cancelledOrderPartner";
 import { refundOrderDifference } from "@/lib/orders/refundOrderDifference";
+import { refreshOrderPaymentStatus } from "@/lib/invoices/orderInvoices";
 import { hasPartner, isPartnerTrackedOrder } from "@/lib/orders/partnerRequirement";
 import { createOrderActionToken } from "@/lib/orders/orderActionToken";
 
@@ -484,6 +485,17 @@ export async function PATCH(req: Request) {
         console.error("[orders bulk] Refund on confirm failed", order.id, error);
         refundFailures.push({ orderId: order.id, reason: "REFUND_FAILED" });
       }
+    }
+  }
+
+  // A website order whose status changed: its payment badge again — e.g. a
+  // declined (refunded) order set back to processing owes the full price.
+  for (const order of effectiveOrdersBeforeUpdate) {
+    if (!order.isWebsiteOrder || normalizeOrderStatus(order.status) === normalizedStatus) continue;
+    try {
+      await refreshOrderPaymentStatus(order.id);
+    } catch (error) {
+      console.error("[orders bulk] payment status refresh failed", order.id, error);
     }
   }
 

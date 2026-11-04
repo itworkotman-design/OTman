@@ -3,10 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   orderFindFirst: vi.fn(),
   sendLifecycleEmailsForOrders: vi.fn(),
+  requestOrderBalancePayment: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: { order: { findFirst: mocks.orderFindFirst } } }));
 vi.mock("@/lib/orders/sendCustomerLifecycleEmail", () => ({ sendLifecycleEmailsForOrders: mocks.sendLifecycleEmailsForOrders }));
+vi.mock("@/lib/orders/requestOrderBalancePayment", () => ({ requestOrderBalancePayment: mocks.requestOrderBalancePayment }));
 
 import { sendStaffEditCustomerEmail } from "./staffEditCustomerEmail";
 import { buildOrderStateSnapshot } from "./paidOrderSnapshot";
@@ -66,6 +68,42 @@ describe("sendStaffEditCustomerEmail — the customer hears about a staff edit",
           orderUpdate: { changes: [`Lagt til: Tillegg (${formatKr(200, { signed: true })})`], totalIncVatNok: 1500, byStaff: true },
         }),
       ],
+    });
+  });
+
+  describe("a Stripe-paid order that now costs more — one email with the pay link", () => {
+    beforeEach(() => {
+      process.env.HOMEPAGE_PAYMENT_MODE = "stripe";
+    });
+
+    it("sends the payment request (changes, new total, amount due and pay link) instead of a separate update email", async () => {
+      // Paid 1 250 kr; the surcharge makes it 1 500 kr.
+      mocks.orderFindFirst.mockResolvedValue(saved({ payments: [{ amountChargedCents: 125000, createdAt: new Date(), orderSnapshot: null, refunds: [] }] }));
+      mocks.requestOrderBalancePayment.mockResolvedValue({ ok: true, amountCents: 25000 });
+
+      expect(await send()).toBe("sent_payment_request");
+
+      expect(mocks.requestOrderBalancePayment).toHaveBeenCalledWith({ orderId: "o1", companyId: "c1", actor, expectedAmountCents: 25000 });
+      expect(mocks.sendLifecycleEmailsForOrders).not.toHaveBeenCalled();
+    });
+
+    it("reports a failed payment request", async () => {
+      mocks.orderFindFirst.mockResolvedValue(saved({ payments: [{ amountChargedCents: 125000, createdAt: new Date(), orderSnapshot: null, refunds: [] }] }));
+      mocks.requestOrderBalancePayment.mockResolvedValue({ ok: false, reason: "EMAIL_FAILED", status: 502 });
+      expect(await send()).toBe("failed");
+    });
+
+    it("sends the plain update email when nothing more is owed", async () => {
+      mocks.orderFindFirst.mockResolvedValue(saved({ payments: [{ amountChargedCents: 150000, createdAt: new Date(), orderSnapshot: null, refunds: [] }] }));
+      expect(await send()).toBe("sent");
+      expect(mocks.requestOrderBalancePayment).not.toHaveBeenCalled();
+    });
+
+    it("sends the plain update email with fakturas (manual payments)", async () => {
+      process.env.HOMEPAGE_PAYMENT_MODE = "manual";
+      mocks.orderFindFirst.mockResolvedValue(saved({ payments: [{ amountChargedCents: 125000, createdAt: new Date(), orderSnapshot: null, refunds: [] }] }));
+      expect(await send()).toBe("sent");
+      expect(mocks.requestOrderBalancePayment).not.toHaveBeenCalled();
     });
   });
 

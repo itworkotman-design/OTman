@@ -21,8 +21,8 @@ export const privacyPolicyContent: LegalPageContent = {
     no: "Personvernerklaering",
   },
   lastUpdated: {
-    en: "Last updated: 5 June 2026",
-    no: "Sist oppdatert: 5. juni 2026",
+    en: "Last updated: 4 November 2026",
+    no: "Sist oppdatert: 4. november 2026",
   },
   intro: [
     {
@@ -84,6 +84,14 @@ export const privacyPolicyContent: LegalPageContent = {
           no: "Tekniske data og sikkerhetsdata som hashet IP-adresse, hashet brukeragent, autentiseringshendelser, rate-limit-logger, filmetadata og integrasjonslogger.",
         },
         {
+          en: "Payment details for orders paid on the website: amounts, dates, and payment references from Stripe. Card details are entered on Stripe's payment page and are never stored by us.",
+          no: "Betalingsopplysninger for bestillinger betalt paa nettsiden: beloep, datoer og betalingsreferanser fra Stripe. Kortopplysninger legges inn paa Stripes betalingsside og lagres aldri hos oss.",
+        },
+        {
+          en: "Files and photos you upload with an order, such as pickup receipts or pictures of items.",
+          no: "Filer og bilder du laster opp med en bestilling, for eksempel hentekvitteringer eller bilder av varer.",
+        },
+        {
           en: "Messages sent to or from us, including contact form messages, order emails, inbound email replies, and notification history.",
           no: "Meldinger sendt til eller fra oss, inkludert kontaktskjema, ordre-e-poster, innkommende e-postsvar og varslingshistorikk.",
         },
@@ -130,8 +138,28 @@ export const privacyPolicyContent: LegalPageContent = {
           no: "Transportpartnere, underleverandoerer, sjaafoerer, kunder og lager naar det er noedvendig for aa gjennomfoere et oppdrag.",
         },
         {
-          en: "IT, hosting, storage, email, map, and operational integration providers that process data on our behalf.",
-          no: "Leverandoerer av IT, hosting, lagring, e-post, kart og driftsintegrasjoner som behandler opplysninger paa vegne av oss.",
+          en: "Stripe (card payments for website orders).",
+          no: "Stripe (kortbetaling for bestillinger paa nettsiden).",
+        },
+        {
+          en: "Google (Gmail, for order emails), Brevo (password resets and bulk emails), and Cloudflare (routing of email replies).",
+          no: "Google (Gmail, for ordre-e-poster), Brevo (tilbakestilling av passord og masseutsendelser) og Cloudflare (videresending av e-postsvar).",
+        },
+        {
+          en: "GatewayAPI (SMS about your order).",
+          no: "GatewayAPI (SMS om bestillingen din).",
+        },
+        {
+          en: "Mapbox (address search and driving distance).",
+          no: "Mapbox (adressesoek og kjoereavstand).",
+        },
+        {
+          en: "GSM Tasks (planning and documenting deliveries, including proof of delivery).",
+          no: "GSM Tasks (planlegging og dokumentasjon av leveranser, inkludert leveringsbekreftelse).",
+        },
+        {
+          en: "Amazon Web Services, Stockholm region (storage of files and attachments), and our hosting and database providers.",
+          no: "Amazon Web Services, region Stockholm (lagring av filer og vedlegg), og vaare leverandoerer av hosting og database.",
         },
         {
           en: "Public authorities, accountants, advisors, or insurers when required by law or necessary for legitimate business purposes.",
@@ -146,8 +174,8 @@ export const privacyPolicyContent: LegalPageContent = {
       },
       paragraphs: [
         {
-          en: "Some service providers may process data outside Norway or the EEA. Where this happens, we use appropriate safeguards such as EU standard contractual clauses or other approved transfer mechanisms.",
-          no: "Noen leverandoerer kan behandle opplysninger utenfor Norge eller EOE. Naar dette skjer, bruker vi egnede garantier som EUs standard kontraktsbestemmelser eller andre godkjente overfoeringsmekanismer.",
+          en: "Some service providers, such as Stripe, Google, Cloudflare, and Mapbox, may process data outside Norway or the EEA, including in the USA. Where this happens, we rely on the EU-US Data Privacy Framework, EU standard contractual clauses, or other approved transfer mechanisms.",
+          no: "Noen leverandoerer, som Stripe, Google, Cloudflare og Mapbox, kan behandle opplysninger utenfor Norge eller EOE, blant annet i USA. Naar dette skjer, bygger vi paa EU-US Data Privacy Framework, EUs standard kontraktsbestemmelser eller andre godkjente overfoeringsmekanismer.",
         },
       ],
     },
@@ -160,6 +188,28 @@ export const privacyPolicyContent: LegalPageContent = {
         {
           en: "We keep personal data for as long as it is needed for the purpose it was collected, to complete assignments, document transactions, handle claims, secure the platform, and meet legal obligations. Accounting records are normally retained for the period required by Norwegian bookkeeping rules. Order data may be anonymized or deleted when it is no longer needed for operational, legal, or documentation purposes.",
           no: "Vi lagrer personopplysninger saa lenge det er noedvendig for formaalet de ble samlet inn for, for aa gjennomfoere oppdrag, dokumentere transaksjoner, haandtere krav, sikre plattformen og oppfylle rettslige forpliktelser. Regnskapsmateriale oppbevares normalt i perioden som kreves etter norske bokfoeringsregler. Ordredata kan anonymiseres eller slettes naar de ikke lenger er noedvendige for drift, lovkrav eller dokumentasjon.",
+        },
+      ],
+      items: [
+        {
+          en: "Orders placed on the website: your name, contact details, addresses, comments, messages, and uploaded files are anonymized or deleted 90 days after the order is completed, cancelled, declined, or rejected.",
+          no: "Bestillinger paa nettsiden: navn, kontaktopplysninger, adresser, kommentarer, meldinger og opplastede filer anonymiseres eller slettes 90 dager etter at bestillingen er fullfoert, kansellert, avslaatt eller avvist.",
+        },
+        {
+          en: "Business orders: the end customer's personal data is anonymized 30 days after the order is paid, and proof-of-delivery files are deleted after 6 months.",
+          no: "Bedriftsoppdrag: sluttkundens personopplysninger anonymiseres 30 dager etter at oppdraget er betalt, og leveringsbekreftelser slettes etter 6 maaneder.",
+        },
+        {
+          en: "The temporary \"My order\" login is deleted one day after all your orders are finished.",
+          no: "Den midlertidige innloggingen til \"Min bestilling\" slettes en dag etter at alle bestillingene dine er avsluttet.",
+        },
+        {
+          en: "Amounts, products, dates, payments, refunds, and invoices are kept as accounting records for the period required by the Norwegian Bookkeeping Act, normally 5 years.",
+          no: "Beloep, varer, datoer, betalinger, tilbakebetalinger og fakturaer oppbevares som regnskapsmateriale i perioden bokfoeringsloven krever, normalt 5 aar.",
+        },
+        {
+          en: "If an order is part of a complaint, insurance case, or dispute, we may keep the data until the case is closed.",
+          no: "Dersom en bestilling er del av en reklamasjon, forsikringssak eller tvist, kan vi beholde opplysningene til saken er avsluttet.",
         },
       ],
     },
@@ -198,8 +248,12 @@ export const privacyPolicyContent: LegalPageContent = {
       },
       paragraphs: [
         {
-          en: "Our website and platform may use necessary cookies or similar technologies to keep the site working, maintain login sessions, remember preferences, protect forms, and improve reliability. We do not use cookies to sell personal data.",
-          no: "Nettsiden og plattformen vaar kan bruke noedvendige informasjonskapsler eller lignende teknologi for aa holde siden fungerende, opprettholde innloggingssesjoner, huske preferanser, beskytte skjemaer og forbedre stabilitet. Vi bruker ikke informasjonskapsler til aa selge personopplysninger.",
+          en: "Our website and platform only use necessary cookies: to keep you logged in to the dashboard or \"My order\", remember preferences, and protect forms. We do not use cookies for analytics or marketing, and we do not use cookies to sell personal data.",
+          no: "Nettsiden og plattformen vaar bruker bare noedvendige informasjonskapsler: for aa holde deg innlogget i dashbordet eller \"Min bestilling\", huske preferanser og beskytte skjemaer. Vi bruker ikke informasjonskapsler til analyse eller markedsfoering, og vi bruker ikke informasjonskapsler til aa selge personopplysninger.",
+        },
+        {
+          en: "When you pay, you are sent to Stripe's payment page, where Stripe sets its own cookies to process the payment and prevent fraud, under Stripe's privacy policy.",
+          no: "Naar du betaler, sendes du til Stripes betalingsside, der Stripe setter egne informasjonskapsler for aa gjennomfoere betalingen og hindre svindel, etter Stripes personvernerklaering.",
         },
       ],
     },
@@ -224,8 +278,8 @@ export const termsContent: LegalPageContent = {
     no: "Vilkaar og betingelser",
   },
   lastUpdated: {
-    en: "Last updated: 8 June 2026",
-    no: "Sist oppdatert: 8. juni 2026",
+    en: "Last updated: 4 November 2026",
+    no: "Sist oppdatert: 4. november 2026",
   },
   intro: [
     {
@@ -293,12 +347,36 @@ export const termsContent: LegalPageContent = {
       },
       paragraphs: [
         {
-          en: "An invoice is issued when the assignment has been completed. Unless otherwise agreed, the assignment is invoiced with a 14-day payment deadline. The invoice will clearly describe the service delivered and state when and where it was performed. Supporting documentation is provided on request.",
-          no: "Faktura utstedes naar oppdraget er utfoert. Med mindre annet er avtalt, faktureres oppdraget med 14 dagers betalingsfrist. Fakturaen vil ha en tydelig beskrivelse av tjenesten som ble levert, og oppgi naar og hvor den ble utfoert. Underlag oversendes paa forespoersel.",
+          en: "Orders placed and paid by card on the website follow the section on website orders below. For other assignments, an invoice is issued when the assignment has been completed. Unless otherwise agreed, the assignment is invoiced with a 14-day payment deadline. The invoice will clearly describe the service delivered and state when and where it was performed. Supporting documentation is provided on request.",
+          no: "Bestillinger som er bestilt og betalt med kort paa nettsiden foelger punktet om bestillinger paa nettsiden nedenfor. For andre oppdrag utstedes faktura naar oppdraget er utfoert. Med mindre annet er avtalt, faktureres oppdraget med 14 dagers betalingsfrist. Fakturaen vil ha en tydelig beskrivelse av tjenesten som ble levert, og oppgi naar og hvor den ble utfoert. Underlag oversendes paa forespoersel.",
         },
         {
           en: "The deadline for objections to an invoice is the same as the invoice payment deadline. The customer may not set off claims against Otman unless Otman accepts this. In case of late payment, statutory late-payment interest accrues from the due date under section 2 of the Norwegian Late Payment Interest Act.",
           no: "Fristen for aa komme med innsigelser paa fakturaen tilsvarer fakturaens betalingsfrist. Kunden kan ikke motregne i krav paa Otman sin haand med mindre dette aksepteres av Otman. Ved forsinket betaling paaloeper lovens forsinkelsesrente fra forfall i henhold til forsinkelsesrenteloven paragraf 2.",
+        },
+      ],
+    },
+    {
+      title: {
+        en: "Orders placed on the website",
+        no: "Bestillinger paa nettsiden",
+      },
+      paragraphs: [
+        {
+          en: "The price shown before you confirm your order is the price you pay, including VAT. You pay by card through our payment provider Stripe when you place the order. If the payment is not completed within about 30 minutes, the order is cancelled automatically.",
+          no: "Prisen som vises foer du bekrefter bestillingen, er prisen du betaler, inkludert mva. Du betaler med kort gjennom betalingsleverandoeren vaar Stripe naar du bestiller. Blir betalingen ikke fullfoert innen ca. 30 minutter, kanselleres bestillingen automatisk.",
+        },
+        {
+          en: "We review every order and confirm it. If we cannot carry out the order, we decline it and refund the full amount to your card.",
+          no: "Vi gaar gjennom og bekrefter hver bestilling. Dersom vi ikke kan utfoere bestillingen, avslaar vi den og tilbakebetaler hele beloepet til kortet ditt.",
+        },
+        {
+          en: "If the order is changed after you have paid, by you in \"My order\" or by us in agreement with you, and the price goes up, you receive a link by email to pay the difference. If the price goes down, the difference is refunded to your card. Refunds normally reach your account within 5 to 10 business days.",
+          no: "Dersom bestillingen endres etter at du har betalt, av deg i \"Min bestilling\" eller av oss etter avtale med deg, og prisen oeker, faar du en lenke paa e-post for aa betale mellomlegget. Gaar prisen ned, tilbakebetales mellomlegget til kortet ditt. Tilbakebetalinger er normalt paa kontoen din innen 5 til 10 virkedager.",
+        },
+        {
+          en: "After payment you receive an order confirmation by email. Questions about a payment or a refund can be sent to info@otman.no.",
+          no: "Etter betaling faar du en ordrebekreftelse paa e-post. Spoersmaal om en betaling eller tilbakebetaling kan sendes til info@otman.no.",
         },
       ],
     },
@@ -446,6 +524,14 @@ export const termsContent: LegalPageContent = {
           en: "The customer may cancel the assignment in whole or in part by written notice to Otman. Cancellation must take place no later than 48 hours before the assignment is to be carried out. If cancellation is made later than this, the customer will be charged a cancellation fee equal to 40% of the assignment remuneration.",
           no: "Kunden kan avbestille oppdraget helt eller delvis ved skriftlig melding til Otman. Avbestilling maa senest skje 48 timer foer oppdraget skal finne sted. Ved avbestilling senere enn dette vil kunden bli belastet et bruddgebyr tilsvarende 40% av oppdragets vederlag.",
         },
+        {
+          en: "For an order paid on the website, contact us by phone (+47 402 84 977) or email (info@otman.no) to cancel. If you cancel at least 48 hours before the assignment, we refund the full amount. If you cancel later, the cancellation fee above is kept and the rest is refunded to your card.",
+          no: "For en bestilling som er betalt paa nettsiden, kontakter du oss paa telefon (+47 402 84 977) eller e-post (info@otman.no) for aa avbestille. Avbestiller du senest 48 timer foer oppdraget, tilbakebetaler vi hele beloepet. Avbestiller du senere, beholdes bruddgebyret over, og resten tilbakebetales til kortet ditt.",
+        },
+        {
+          en: "If we arrive as agreed but the assignment cannot be carried out for reasons on the customer's side, for example because no one is home, there is no access, or the information given was wrong, we may charge a fee for the wasted trip according to the price list.",
+          no: "Dersom vi kommer som avtalt, men oppdraget ikke kan utfoeres av aarsaker paa kundens side, for eksempel fordi ingen er hjemme, det ikke er adkomst eller opplysningene som ble gitt var feil, kan vi kreve et gebyr for bomtur etter prislisten.",
+        },
       ],
     },
     {
@@ -457,6 +543,18 @@ export const termsContent: LegalPageContent = {
         {
           en: "For consumer purchases, the provisions of the Norwegian Right of Withdrawal Act apply in the ordinary way.",
           no: "I forbrukerkjoep kommer angrerettlovens bestemmelser til anvendelse paa alminnelig maate.",
+        },
+        {
+          en: "Transport of goods, such as delivery, collection, and moving on an agreed date, has no right of withdrawal, cf. section 22 of the Right of Withdrawal Act. The cancellation rules above apply instead.",
+          no: "Godstransport, som levering, henting og flytting paa en avtalt dato, har ikke angrerett, jf. angrerettloven paragraf 22. Avbestillingsreglene over gjelder i stedet.",
+        },
+        {
+          en: "For other services, such as installation, mounting, and assembly, you have a 14-day right of withdrawal from the day the agreement is made. If you ask us to carry out the service within those 14 days and then withdraw, you pay for the part that has been carried out. Once the service has been fully carried out at your request, the right of withdrawal no longer applies.",
+          no: "For andre tjenester, som installasjon, montering og sammenstilling, har du 14 dagers angrerett fra avtalen inngaas. Ber du oss utfoere tjenesten innen de 14 dagene og deretter angrer, betaler du for den delen som er utfoert. Naar tjenesten er fullt utfoert etter ditt oenske, gjelder ikke angreretten lenger.",
+        },
+        {
+          en: "To use the right of withdrawal, tell us clearly by email (info@otman.no) or phone before the deadline. You can use the standard withdrawal form, which we send on request. We refund what you are owed within 14 days, to the card you paid with.",
+          no: "For aa bruke angreretten gir du oss tydelig beskjed paa e-post (info@otman.no) eller telefon innen fristen. Du kan bruke standard angreskjema, som vi sender paa forespoersel. Vi tilbakebetaler det du har krav paa innen 14 dager, til kortet du betalte med.",
         },
       ],
     },

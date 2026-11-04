@@ -330,3 +330,20 @@ describe("buildOrderStateSnapshot — a homepage move", () => {
     ]);
   });
 });
+
+describe("buildOrderStateSnapshot — a homepage service request", () => {
+  it("lists a service's lines incl. VAT too, so they add up to what the customer pays", () => {
+    const service = order({
+      websiteOrderKind: "SERVICE",
+      websiteBookingDetails: { version: 1, customerType: "private", services: [] },
+      priceExVat: 1600,
+      pricingSnapshot: {
+        customer: { totalExVat: 1600, totalIncVat: 2000 },
+        lines: [line(0, "Service", "TV mounting", 1600)],
+      },
+    });
+    const snapshot = buildOrderStateSnapshot(service);
+    expect(snapshot.totalIncVatNok).toBe(2000);
+    expect(snapshot.lines.map((l) => [l.label, l.price])).toEqual([["TV mounting", 2000]]);
+  });
+});

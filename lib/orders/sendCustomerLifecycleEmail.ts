@@ -3,6 +3,7 @@ import { sendGmailEmail } from "@/lib/email/sendGmailEmail";
 import { formatGmailSenderName, getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
 import { htmlToText } from "@/lib/email/htmlToText";
 import { createOrderActionEvent, type OrderEventActor } from "@/lib/orders/orderEvents";
+import { alertStaff } from "@/lib/orders/staffAlerts";
 import { buildReplyToAddress, createOrderEmailThreadToken } from "@/lib/orders/orderEmail";
 import {
   buildPaymentRequestEmail,
@@ -208,6 +209,17 @@ export async function sendLifecycleEmailsForOrders(params: {
         }),
       ),
     );
+  }
+
+  // Staff see it on the order, not just in the server log.
+  for (const { order, result } of failedEntries) {
+    const reason = order.customerLogin?.password ? "" : `: ${String(result.reason ?? "Unknown error").slice(0, 300)}`;
+    await alertStaff({
+      orderId: order.id,
+      companyId: order.companyId,
+      title: "Email to customer failed",
+      message: `The "${kind}" email to ${order.email ?? "the customer (no email on the order)"} could not be sent${reason}. Send it again, or contact the customer another way.`,
+    });
   }
 
   return {

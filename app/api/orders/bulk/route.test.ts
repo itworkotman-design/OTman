@@ -13,7 +13,10 @@ const mocks = vi.hoisted(() => ({
   diffOrderEventSnapshotsMock: vi.fn(),
   findCancelledOrderPartnerMock: vi.fn(),
   refundOrderDifferenceMock: vi.fn(),
+  refreshOrderPaymentStatusMock: vi.fn(),
 }));
+
+vi.mock("@/lib/invoices/orderInvoices", () => ({ refreshOrderPaymentStatus: mocks.refreshOrderPaymentStatusMock }));
 
 vi.mock("@/lib/auth/session", () => ({
   getAuthenticatedSession: mocks.getAuthenticatedSessionMock,
@@ -625,6 +628,15 @@ describe("PATCH /api/orders/bulk — refund on confirm", () => {
     await bulk("active", ["web-1"]);
 
     expect(mocks.refundOrderDifferenceMock).not.toHaveBeenCalled();
+  });
+
+  it("recomputes a website order's payment status after its status changes (a declined order set back to processing owes again)", async () => {
+    await bulk("processing", ["web-1"]);
+    await bulk("completed");
+
+    // processing → processing changes nothing; processing → completed does — the website order only.
+    expect(mocks.refreshOrderPaymentStatusMock).toHaveBeenCalledTimes(1);
+    expect(mocks.refreshOrderPaymentStatusMock).toHaveBeenCalledWith("web-1");
   });
 });
 

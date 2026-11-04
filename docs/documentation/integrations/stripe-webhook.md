@@ -36,3 +36,5 @@ See `docs/documentation/lib/booking-payment.md`. Every recorded payment sets `Or
 `checkout.session.expired` is handled too: a session with `metadata.chargeKind === "booking"` that is still the order's `stripeCheckoutSessionId`, on an order still awaiting payment, cancels the order (`cancelUnpaidBookingOrder`). Other expired sessions are ignored. **The Stripe webhook endpoint must subscribe to both `checkout.session.completed` and `checkout.session.expired`.**
 
 - `handleCheckoutSessionExpired(session)` — the expiry logic above.
+
+The handlers live in `lib/stripe/checkoutSessionHandlers.ts` (shared with the reconciliation cron, `stripe-reconcile-cron.md`). `handleCheckoutSessionCompleted` returns whether it recorded a new payment. If processing a paid session throws, the route alerts staff on the order ("Stripe payment not recorded yet", `staffAlerts.ts`) and answers 500 so Stripe retries.

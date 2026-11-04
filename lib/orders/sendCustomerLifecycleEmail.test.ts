@@ -5,7 +5,10 @@ const mocks = vi.hoisted(() => ({
   orderUpdate: vi.fn(),
   orderEmailMessageCreate: vi.fn(),
   createOrderActionEvent: vi.fn(),
+  alertStaff: vi.fn(),
 }));
+
+vi.mock("@/lib/orders/staffAlerts", () => ({ alertStaff: mocks.alertStaff }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -150,6 +153,24 @@ describe("sendLifecycleEmailsForOrders", () => {
     expect(mocks.orderEmailMessageCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({ status: "FAILED", bodyText: expect.stringContaining("GMAIL_SEND_AS_ALIAS_NOT_ACCEPTED") }),
     });
+  });
+
+  it("alerts staff on the order when an email to the customer fails, so it isn't only in the server log", async () => {
+    mocks.sendGmailEmail.mockRejectedValue(new Error("GMAIL_SEND_AS_ALIAS_NOT_ACCEPTED"));
+
+    await sendLifecycleEmailsForOrders({ orders: [baseOrder], kind: "balance_due", actor });
+
+    expect(mocks.alertStaff).toHaveBeenCalledWith({
+      orderId: "order1",
+      companyId: baseOrder.companyId,
+      title: "Email to customer failed",
+      message: expect.stringContaining("balance_due"),
+    });
+  });
+
+  it("raises no alert when the email went out", async () => {
+    await sendLifecycleEmailsForOrders({ orders: [baseOrder], kind: "order_received", actor });
+    expect(mocks.alertStaff).not.toHaveBeenCalled();
   });
 
   it("keeps going after one order fails, so a bulk send does not lose the rest", async () => {

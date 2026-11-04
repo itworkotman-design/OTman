@@ -152,6 +152,9 @@ export function SkipCustomerEmailCheckbox({
 export function customerEmailNote(result: unknown, locale: "en" | "nb"): string {
   const t = (en: string, no: string) => (locale === "nb" ? no : en);
   if (result === "sent") return t(" The customer was emailed about the change.", " Kunden har fått e-post om endringen.");
+  if (result === "sent_payment_request") {
+    return t(" The customer was emailed the change with a link to pay the difference.", " Kunden har fått e-post om endringen med lenke for å betale mellomlegget.");
+  }
   if (result === "failed") return t(" The email to the customer failed — let them know.", " E-posten til kunden feilet — gi dem beskjed.");
   return "";
 }

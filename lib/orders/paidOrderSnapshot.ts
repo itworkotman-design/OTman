@@ -118,9 +118,10 @@ export function buildOrderStateSnapshot(order: OrderStateSource): OrderStateSnap
       })
     : null;
 
-  // A homepage order's amounts (delivery or move) are stored ex. VAT; the
-  // customer's are incl., each line rounded (websiteVat.ts).
-  const exVatWebsiteOrder = order.websiteOrderKind === "WHITE_GOODS" || order.websiteOrderKind === "MOVING";
+  // A homepage order's amounts (delivery, move or service) are stored ex.
+  // VAT; the customer's are incl., each line rounded (websiteVat.ts).
+  const exVatWebsiteOrder =
+    order.websiteOrderKind === "WHITE_GOODS" || order.websiteOrderKind === "MOVING" || order.websiteOrderKind === "SERVICE";
   const customerAmount = (amount: number) => (exVatWebsiteOrder ? websiteInclVat(amount) : amount);
   const lines: OrderStateLine[] = [];
   for (const group of groupPricingLinesByCard(pricingLinesFromSnapshot(order.pricingSnapshot))) {
