@@ -236,10 +236,14 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   const [submitLoading, setSubmitLoading] = useState(false);
   // What the submit button shows while documents upload / the order is sent.
   const [submitProgress, setSubmitProgress] = useState<SubmitProgress | null>(null);
-  // Leaving mid-upload would lose the order — the browser asks first.
+  // Leaving mid-upload would lose the order — the browser asks first. Not
+  // once the order is saved and we're sending the customer on to Stripe
+  // ourselves (leavingForPaymentRef): that leave is the point.
+  const leavingForPaymentRef = useRef(false);
   useEffect(() => {
     if (!submitLoading) return;
     const warn = (e: BeforeUnloadEvent) => {
+      if (leavingForPaymentRef.current) return;
       e.preventDefault();
       e.returnValue = "";
     };
@@ -1130,6 +1134,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
       // Paying at booking (Stripe): the order is saved; pay to complete it.
       if (typeof json.checkoutUrl === "string") {
         redirectingToPayment = true;
+        leavingForPaymentRef.current = true;
         window.location.href = json.checkoutUrl;
         return;
       }
