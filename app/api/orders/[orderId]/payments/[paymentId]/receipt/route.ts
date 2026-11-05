@@ -5,6 +5,7 @@ import { downloadAttachmentFromS3 } from "@/lib/orders/orderAttachmentStorage";
 import { RECEIPT_PAYMENT_SELECT, receiptForPayment, sendPaymentReceipt } from "@/lib/invoices/paymentReceipts";
 import { receiptFilename, receiptSellerFromEnv } from "@/lib/invoices/receiptDocument";
 import { renderReceiptPdf } from "@/lib/invoices/receiptPdf";
+import { formatReceiptNumber } from "@/lib/invoices/receiptSeries";
 
 // A Stripe payment's receipt (lib/invoices/paymentReceipts.ts) for the Payment
 // tab. GET: the PDF as sent (S3), drawn again when no stored copy can be read;
@@ -39,7 +40,7 @@ export async function GET(req: Request, { params }: Params) {
   return new NextResponse(new Uint8Array(bytes), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${receiptFilename(String(payment.receiptNumber))}"`,
+      "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${receiptFilename(formatReceiptNumber(payment.receiptNumber))}"`,
       "Cache-Control": "private, no-store",
     },
   });

@@ -68,6 +68,31 @@ function formatKr(n: number) {
   return `${n.toLocaleString("nb-NO")} kr`;
 }
 
+// The collapsed bottom-drawer line on small screens (SteppedModal's
+// `aside.bar`): the same lead total as the summary card's last row.
+export function OrderTotalBar({
+  locale,
+  totalExVat,
+  totalIncVat,
+  customerType,
+}: {
+  locale: Locale;
+  totalExVat: number;
+  totalIncVat: number;
+  customerType: CustomerType;
+}) {
+  const t = (en: string, no: string) => (locale === "no" ? no : en);
+  const vatDisplay = websiteCustomerTotalDisplay({ totalExVat, totalIncVat, customerType });
+  return (
+    <span className="flex items-center justify-between gap-3">
+      <span className="text-sm font-semibold text-logoblue">
+        {vatDisplay.primary === "incVat" ? t("Total incl. VAT", "Totalt inkl. mva") : t("Total ex. VAT", "Totalt eks. mva")}
+      </span>
+      <span className="text-base font-semibold tabular-nums text-logoblue">{formatKr(vatDisplay.primaryAmount)}</span>
+    </span>
+  );
+}
+
 export function WhiteGoodsOrderSummary({
   locale,
   products,

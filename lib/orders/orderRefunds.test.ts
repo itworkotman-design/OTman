@@ -114,7 +114,8 @@ describe("refundOrderPayments", () => {
       reason: "Outside our area",
     });
 
-    expect(result).toEqual({ ok: true, refundedCents: 130_00 });
+    // The Stripe refunds made, so the caller can send their credit notes.
+    expect(result).toEqual({ ok: true, refundedCents: 130_00, stripeRefundIds: ["re_1", "re_2"] });
     expect(stripe.refunds.create).toHaveBeenNthCalledWith(
       1,
       { payment_intent: "pi_b", amount: 30_00, metadata: { orderId: "o1", orderPaymentId: "b" } },
@@ -156,7 +157,7 @@ describe("refundOrderPayments", () => {
 
     const result = await refundOrderPayments(client, stripe, { orderId: "o1", companyId: "c1", amountCents: "ALL" });
 
-    expect(result).toEqual({ ok: false, reason: "STRIPE_ERROR", refundedCents: 30_00 });
+    expect(result).toEqual({ ok: false, reason: "STRIPE_ERROR", refundedCents: 30_00, stripeRefundIds: ["re_1"] });
     expect(created).toHaveLength(1);
   });
 });

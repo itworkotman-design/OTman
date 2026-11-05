@@ -4,6 +4,7 @@ import { authorizeWebsiteOrderAdmin } from "@/lib/orders/websiteOrderAdminAccess
 import { getStripeClient } from "@/lib/stripe/stripeClient";
 import { isManualPaymentMode } from "@/lib/orders/paymentMode";
 import { refundOrderPayments } from "@/lib/orders/orderRefunds";
+import { sendCreditNotesForStripeRefunds } from "@/lib/invoices/refundCreditNotes";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
 import { createOrderStatusChangedEvent } from "@/lib/orders/orderEvents";
 import { resolveAllOrderNotifications } from "@/lib/orders/orderNotifications";
@@ -71,6 +72,9 @@ export async function POST(req: Request, { params }: Params) {
         amountCents: "ALL",
         reason,
       });
+
+  // A credit note for whatever went back, even when the rest failed.
+  if (refund.ok || refund.reason === "STRIPE_ERROR") await sendCreditNotesForStripeRefunds(refund.stripeRefundIds);
 
   let refundedCents = 0;
   if (refund.ok) {

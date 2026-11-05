@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   editCustomerOrder: vi.fn(),
   recordOrderPayment: vi.fn(),
   refundOrderPayments: vi.fn(),
+  sendCreditNotes: vi.fn(),
   createOrderNotification: vi.fn(),
   createOrderActionEvent: vi.fn(),
 }));
@@ -35,6 +36,7 @@ vi.mock("@/lib/orders/orderPayments", async () => {
   return { ...actual, recordOrderPayment: mocks.recordOrderPayment };
 });
 vi.mock("@/lib/orders/orderRefunds", () => ({ refundOrderPayments: mocks.refundOrderPayments }));
+vi.mock("@/lib/invoices/refundCreditNotes", () => ({ sendCreditNotesForStripeRefunds: mocks.sendCreditNotes }));
 vi.mock("@/lib/orders/orderNotifications", () => ({ createOrderNotification: mocks.createOrderNotification }));
 vi.mock("@/lib/orders/orderEvents", () => ({ createOrderActionEvent: mocks.createOrderActionEvent }));
 
@@ -89,7 +91,7 @@ beforeEach(() => {
   mocks.checkoutCreate.mockResolvedValue({ id: "cs_1", url: "https://checkout.stripe.test/cs_1" });
   mocks.editCustomerOrder.mockResolvedValue({ status: 200, json: { ok: true, changed: true } });
   mocks.recordOrderPayment.mockResolvedValue({ id: "pay1" });
-  mocks.refundOrderPayments.mockResolvedValue({ ok: true, refundedCents: 25000 });
+  mocks.refundOrderPayments.mockResolvedValue({ ok: true, refundedCents: 25000, stripeRefundIds: ["re_1"] });
 });
 
 describe("startPaidChangeCheckout", () => {
@@ -167,6 +169,7 @@ describe("applyPaidChange", () => {
       amountCents: 25000,
       reason: "Paid change could not be applied: EDIT_NOT_ALLOWED",
     });
+    expect(mocks.sendCreditNotes).toHaveBeenCalledWith(["re_1"]);
     expect(mocks.pendingUpdate).toHaveBeenCalledWith({
       where: { id: "pc1" },
       data: { status: "FAILED", failureReason: "EDIT_NOT_ALLOWED", resolvedAt: expect.any(Date) },
@@ -186,7 +189,7 @@ describe("applyPaidChange", () => {
 
   it("tells staff to refund by hand when the automatic refund fails too", async () => {
     mocks.editCustomerOrder.mockResolvedValue({ status: 403, json: { ok: false, reason: "EDIT_NOT_ALLOWED" } });
-    mocks.refundOrderPayments.mockResolvedValue({ ok: false, reason: "STRIPE_ERROR", refundedCents: 0 });
+    mocks.refundOrderPayments.mockResolvedValue({ ok: false, reason: "STRIPE_ERROR", refundedCents: 0, stripeRefundIds: [] });
 
     await applyPaidChange(session as never);
 

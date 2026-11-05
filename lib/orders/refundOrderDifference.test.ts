@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   orderFindFirst: vi.fn(),
   orderUpdate: vi.fn(),
   refundOrderPayments: vi.fn(),
+  sendCreditNotes: vi.fn(),
   createOrderActionEvent: vi.fn(),
   sendLifecycleEmailsForOrders: vi.fn(),
 }));
@@ -11,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({ prisma: { order: { findFirst: mocks.orderFindFirst, update: mocks.orderUpdate } } }));
 vi.mock("@/lib/stripe/stripeClient", () => ({ getStripeClient: () => ({}) }));
 vi.mock("@/lib/orders/orderRefunds", () => ({ refundOrderPayments: mocks.refundOrderPayments }));
+vi.mock("@/lib/invoices/refundCreditNotes", () => ({ sendCreditNotesForStripeRefunds: mocks.sendCreditNotes }));
 vi.mock("@/lib/orders/orderEvents", () => ({ createOrderActionEvent: mocks.createOrderActionEvent }));
 vi.mock("@/lib/orders/sendCustomerLifecycleEmail", () => ({ sendLifecycleEmailsForOrders: mocks.sendLifecycleEmailsForOrders }));
 
@@ -52,17 +54,18 @@ describe("refundOrderDifference", () => {
 
   it("marks the order paid again once the overpaid difference is refunded", async () => {
     mocks.orderFindFirst.mockResolvedValue(order);
-    mocks.refundOrderPayments.mockResolvedValue({ ok: true, refundedCents: 25000 });
+    mocks.refundOrderPayments.mockResolvedValue({ ok: true, refundedCents: 25000, stripeRefundIds: ["re_1"] });
 
     const result = await refundOrderDifference({ orderId: "o1", companyId: "c1", actor: actor as never });
 
     expect(result).toEqual({ ok: true, refundedCents: 25000, emailFailed: false });
     expect(mocks.orderUpdate).toHaveBeenCalledWith({ where: { id: "o1" }, data: { paymentStatus: "paid" } });
+    expect(mocks.sendCreditNotes).toHaveBeenCalledWith(["re_1"]);
   });
 
   it("leaves the payment status alone when the refund fails", async () => {
     mocks.orderFindFirst.mockResolvedValue(order);
-    mocks.refundOrderPayments.mockResolvedValue({ ok: false, reason: "STRIPE_ERROR", refundedCents: 0 });
+    mocks.refundOrderPayments.mockResolvedValue({ ok: false, reason: "STRIPE_ERROR", refundedCents: 0, stripeRefundIds: [] });
 
     expect(await refundOrderDifference({ orderId: "o1", companyId: "c1", actor: actor as never })).toMatchObject({ ok: false, reason: "REFUND_FAILED" });
     expect(mocks.orderUpdate).not.toHaveBeenCalled();

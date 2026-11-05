@@ -6,6 +6,7 @@ import { CUSTOMER_ORDER_SELECT, type CustomerOrder } from "@/lib/customerAccount
 import { editCustomerOrder } from "@/lib/customerAccounts/customerOrderEdit";
 import { recordOrderPayment } from "@/lib/orders/orderPayments";
 import { refundOrderPayments } from "@/lib/orders/orderRefunds";
+import { sendCreditNotesForStripeRefunds } from "@/lib/invoices/refundCreditNotes";
 import { ORDER_STATE_SOURCE_SELECT, buildOrderStateSnapshot } from "@/lib/orders/paidOrderSnapshot";
 import { createOrderNotification } from "@/lib/orders/orderNotifications";
 import { createOrderActionEvent } from "@/lib/orders/orderEvents";
@@ -157,6 +158,7 @@ export async function applyPaidChange(session: Stripe.Checkout.Session): Promise
     amountCents: session.amount_total ?? 0,
     reason: `Paid change could not be applied: ${reason}`,
   });
+  if (refund.ok || refund.reason === "STRIPE_ERROR") await sendCreditNotesForStripeRefunds(refund.stripeRefundIds);
   await prisma.orderPendingChange.update({
     where: { id: pending.id },
     data: { status: "FAILED", failureReason: reason, resolvedAt: new Date() },

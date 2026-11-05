@@ -16,11 +16,14 @@ The homepage booking modal shell. Sections reveal one after another as each comp
 - `footer` — pinned below the scrolling body (e.g. the admin save bar).
 
 ## Shared side column (`aside`)
-Optional `aside={{ node, fromId, untilId? }}`: the revealed sections from `fromId` up to, not including,
-`untilId` (to the last section when it's omitted) render in a `lg:grid-cols-[1fr_400px]` row beside one `node`, vertically centred in the part of that row visible on screen — a sticky box sized on scroll/resize (`--aside-viewport`: from the row top or the scroll area top, whichever is lower, to the scroll area bottom, capped at the row height), so mid-scroll it sits in the middle of the screen (stacked under them on small
-screens); sections before and after stay full width. Grouping is `asideSectionGroups`
+Optional `aside={{ node, fromId, untilId?, bar? }}`: the revealed sections from `fromId` up to, not including,
+`untilId` (to the last section when it's omitted) render in a `lg:grid-cols-[1fr_400px]` row beside one `node`, vertically centred in the part of that row visible on screen — a sticky box sized on scroll/resize (`--aside-viewport`: from the row top or the scroll area top, whichever is lower, to the scroll area bottom, capped at the row height), so mid-scroll it sits in the middle of the screen; sections before and after stay full width. Grouping is `asideSectionGroups`
 (`steppedModalLogic.ts`, tested). The moving flow uses it for its one calculator, from "moving-from-details" until
 "your-details"; the white-goods flow from the last list's product-options step to the end.
+Below `lg` (64rem, `useIsLarge`) the `node` is not rendered in the row at all: it is pinned in a collapsible
+drawer between the scroll area and the footer, always in view — `bar` (e.g. `OrderTotalBar`, the lead total)
+is shown while collapsed, and tapping it opens `node` upward (max 55vh, scrolls). Visibility is
+`showsAsideDrawer` (`steppedModalLogic.ts`, tested): once its sections show, not on the final step.
 
 ## Dimming answered sections (`dimCompleted`)
 Opt-in (the moving, services and delivery/white-goods flows use it): every section except the **active** one and the

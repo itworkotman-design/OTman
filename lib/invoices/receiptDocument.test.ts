@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { OrderStateSnapshot } from "@/lib/orders/paidOrderSnapshot";
 import {
+  buildCreditNote,
+  buildCreditNoteEmail,
   buildReceipt,
   buildReceiptEmail,
   receiptFilename,
@@ -65,7 +67,8 @@ describe("buildReceipt — the receipt's content", () => {
       snapshot: booked,
     });
 
-    expect(receipt.number).toBe("7");
+    expect(receipt.number).toBe("W-7");
+    expect(receipt.kind).toBe("receipt");
     expect(receipt.lines).toEqual([
       { group: "Vaskemaskin", label: "Levering med innbæring", qty: 1, price: 1000 },
       { group: "Tillegg", label: "Kjøring", qty: 1, price: 250 },
@@ -104,11 +107,51 @@ describe("buildReceipt — the receipt's content", () => {
 
 describe("receipt email", () => {
   it("names the file and tells the customer what was paid", () => {
-    expect(receiptFilename("7")).toBe("Kvittering 7.pdf");
-    const { subject, html } = buildReceiptEmail({ number: "7", orderNumber: "20046", customerName: "Kari", amountIncVatNok: 1250 });
-    expect(subject).toBe("Kvittering 7 for ordre 20046");
+    expect(receiptFilename("W-7")).toBe("Kvittering W-7.pdf");
+    const { subject, html } = buildReceiptEmail({ number: "W-7", orderNumber: "20046", customerName: "Kari", amountIncVatNok: 1250 });
+    expect(subject).toBe("Kvittering W-7 for ordre 20046");
     expect(html).toContain("Hei Kari");
     expect(html).toMatch(/1\s250 kr/);
     expect(html).toContain("vedlagt");
+  });
+});
+
+describe("buildCreditNote — the kreditnota for a Stripe refund", () => {
+  const base = {
+    number: 12,
+    refundedAt: at("2026-11-06T09:30:00Z"),
+    orderNumber: "20046",
+    deliveryDate: null,
+    seller,
+    customer,
+    creditsReceiptNumber: "W-7",
+  };
+
+  it("is numbered in the same series, refers to the receipt it credits, and carries negative amounts", () => {
+    const note = buildCreditNote({ ...base, amountRefundedCents: 125000, previous: null, snapshot: null });
+
+    expect(note).toMatchObject({ kind: "creditNote", number: "W-12", creditsReceiptNumber: "W-7" });
+    expect(note).toMatchObject({ totalIncVatNok: -1250, exVatNok: -1000, vatNok: -250 });
+    expect(note.lines).toEqual([{ group: "", label: "Tilbakebetaling for ordre 20046", qty: 1, price: -1250 }]);
+  });
+
+  it("lists what was removed when the refund settles a price change", () => {
+    const note = buildCreditNote({ ...base, amountRefundedCents: 50000, previous: added, snapshot: booked });
+    expect(note.lines).toEqual([{ group: "Vaskemaskin", label: "Montering", qty: 1, price: -500 }]);
+    expect(note).toMatchObject({ totalIncVatNok: -500, exVatNok: -400, vatNok: -100 });
+  });
+
+  it("falls back to one line when the changed lines don't add up to what was refunded (a refund split across payments)", () => {
+    const note = buildCreditNote({ ...base, amountRefundedCents: 20000, previous: added, snapshot: booked });
+    expect(note.lines).toEqual([{ group: "", label: "Tilbakebetaling for ordre 20046", qty: 1, price: -200 }]);
+  });
+
+  it("names the file and tells the customer what was paid back", () => {
+    expect(receiptFilename("W-12", "creditNote")).toBe("Kreditnota W-12.pdf");
+    const { subject, html } = buildCreditNoteEmail({ number: "W-12", orderNumber: "20046", customerName: "Kari", amountIncVatNok: 500 });
+    expect(subject).toBe("Kreditnota W-12 for ordre 20046");
+    expect(html).toContain("Hei Kari");
+    expect(html).toMatch(/500 kr/);
+    expect(html).toContain("kortet");
   });
 });

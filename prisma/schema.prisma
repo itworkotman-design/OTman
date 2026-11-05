@@ -737,7 +737,8 @@ model OrderPayment {
   orderSnapshot           Json?
   createdAt               DateTime      @default(now())
   // Its receipt (kvittering, lib/invoices/paymentReceipts.ts): numbered in
-  // one series across all orders, emailed to the customer, PDF kept in S3.
+  // the web-sales series shared with refund credit notes (ReceiptNumber,
+  // shown as W-<n>), emailed to the customer, PDF kept in S3.
   receiptNumber           Int?          @unique
   receiptSentAt           DateTime?
   receiptPdfKey           String?
@@ -746,6 +747,19 @@ model OrderPayment {
 
   @@index([orderId, createdAt])
   @@index([companyId, createdAt])
+}
+
+// The web-sales sales-document series (shown as W-<n>, lib/invoices/
+// receiptNumbers.ts): one row per number, given to exactly one Stripe payment
+// receipt or refund credit note. The number is the key, so two documents can
+// never share one, and a number is only taken together with its document —
+// the series has no gaps. No foreign keys: a number stays taken even if the
+// order is deleted.
+model ReceiptNumber {
+  number         Int      @id
+  orderPaymentId String?  @unique
+  orderRefundId  String?  @unique
+  createdAt      DateTime @default(now())
 }
 
 // A faktura (or kreditnota) sent for a homepage order while payments are
@@ -794,6 +808,11 @@ model OrderRefund {
   // the new "paid" state later changes are compared against.
   orderSnapshot       Json?
   createdAt           DateTime     @default(now())
+  // Its credit note (kreditnota, lib/invoices/refundCreditNotes.ts): a number
+  // in the same web-sales series as the receipts (ReceiptNumber).
+  receiptNumber       Int?         @unique
+  receiptSentAt       DateTime?
+  receiptPdfKey       String?
   order               Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderPayment        OrderPayment @relation(fields: [orderPaymentId], references: [id], onDelete: Cascade)
 

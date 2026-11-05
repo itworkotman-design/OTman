@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   membershipFindFirst: vi.fn(),
   orderFindFirst: vi.fn(),
   refundOrderPayments: vi.fn(),
+  sendCreditNotes: vi.fn(),
   compareOrderWithPayments: vi.fn(),
   buildOrderStateSnapshot: vi.fn(),
   createOrderActionEvent: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/stripe/stripeClient", () => ({ getStripeClient: () => ({ refunds: {} }) }));
 vi.mock("@/lib/orders/orderRefunds", () => ({ refundOrderPayments: mocks.refundOrderPayments }));
+vi.mock("@/lib/invoices/refundCreditNotes", () => ({ sendCreditNotesForStripeRefunds: mocks.sendCreditNotes }));
 vi.mock("@/lib/orders/paidOrderSnapshot", async () => {
   const actual = await vi.importActual<typeof import("@/lib/orders/paidOrderSnapshot")>("@/lib/orders/paidOrderSnapshot");
   return {
@@ -88,7 +90,7 @@ beforeEach(() => {
   mocks.orderFindFirst.mockResolvedValue(order);
   mocks.buildOrderStateSnapshot.mockReturnValue(snapshot);
   mocks.compareOrderWithPayments.mockReturnValue(overpaid);
-  mocks.refundOrderPayments.mockResolvedValue({ ok: true, refundedCents: 125_00 });
+  mocks.refundOrderPayments.mockResolvedValue({ ok: true, refundedCents: 125_00, stripeRefundIds: ["re_1"] });
   mocks.sendLifecycleEmailsForOrders.mockResolvedValue({ sentCount: 1, failedOrderIds: [] });
 });
 
@@ -167,7 +169,7 @@ describe("POST /api/orders/[orderId]/refund-difference", () => {
   });
 
   it("reports a Stripe failure without emailing", async () => {
-    mocks.refundOrderPayments.mockResolvedValue({ ok: false, reason: "STRIPE_ERROR", refundedCents: 0 });
+    mocks.refundOrderPayments.mockResolvedValue({ ok: false, reason: "STRIPE_ERROR", refundedCents: 0, stripeRefundIds: [] });
 
     const res = await post({ amountCents: 125_00 });
 

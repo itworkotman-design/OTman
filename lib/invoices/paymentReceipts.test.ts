@@ -2,8 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   paymentFindUnique: vi.fn(),
-  paymentAggregate: vi.fn(),
-  paymentUpdateMany: vi.fn(),
+  allocate: vi.fn(),
   paymentUpdate: vi.fn(),
   orderUpdate: vi.fn(),
   emailCreate: vi.fn(),
@@ -18,8 +17,6 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     orderPayment: {
       findUnique: mocks.paymentFindUnique,
-      aggregate: mocks.paymentAggregate,
-      updateMany: mocks.paymentUpdateMany,
       update: mocks.paymentUpdate,
     },
     order: { update: mocks.orderUpdate },
@@ -33,6 +30,7 @@ vi.mock("@/lib/orders/orderAttachmentStorage", () => ({
   uploadAttachmentBufferToS3: mocks.upload,
 }));
 vi.mock("@/lib/orders/orderEvents", () => ({ createOrderActionEvent: mocks.actionEvent }));
+vi.mock("./receiptNumbers", async (actual) => ({ ...(await actual<object>()), allocateReceiptNumber: mocks.allocate }));
 vi.mock("@/lib/orders/staffAlerts", () => ({ alertStaff: mocks.alertStaff }));
 vi.mock("@/lib/orders/orderEmail", () => ({
   createOrderEmailThreadToken: () => "thread-new",
@@ -82,22 +80,21 @@ describe("sendPaymentReceipt — a kvittering for each Stripe payment", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     for (const [key, value] of Object.entries(ENV)) process.env[key] = value;
     mocks.paymentFindUnique.mockResolvedValue(payment());
-    mocks.paymentAggregate.mockResolvedValue({ _max: { receiptNumber: 6 } });
-    mocks.paymentUpdateMany.mockResolvedValue({ count: 1 });
+    mocks.allocate.mockResolvedValue(7);
     mocks.s3Configured.mockReturnValue(true);
     mocks.upload.mockResolvedValue({ storagePath: "s3://receipts/Kvittering 7.pdf" });
     mocks.sendGmailEmail.mockResolvedValue({ messageId: "m1", gmailMessageId: "g1", gmailThreadId: "t1" });
     mocks.emailCreate.mockResolvedValue({ id: "em1" });
   });
 
-  it("takes the next number in the series and emails the PDF to the customer", async () => {
+  it("takes the next W-number in the web-sales series and emails the PDF to the customer", async () => {
     expect(await sendPaymentReceipt({ paymentId: "pay1" })).toEqual({ ok: true, number: 7 });
 
-    expect(mocks.paymentUpdateMany).toHaveBeenCalledWith({ where: { id: "pay1", receiptNumber: null }, data: { receiptNumber: 7 } });
+    expect(mocks.allocate).toHaveBeenCalledWith({ orderPaymentId: "pay1" });
     const mail = mocks.sendGmailEmail.mock.calls[0]![0];
     expect(mail.to).toEqual({ email: "kari@example.com", name: "Kari Nordmann" });
-    expect(mail.subject).toBe("Kvittering 7 for ordre 20046");
-    expect(mail.attachments).toEqual([{ filename: "Kvittering 7.pdf", contentType: "application/pdf", content: expect.any(Buffer) }]);
+    expect(mail.subject).toBe("Kvittering W-7 for ordre 20046");
+    expect(mail.attachments).toEqual([{ filename: "Kvittering W-7.pdf", contentType: "application/pdf", content: expect.any(Buffer) }]);
     expect(mail.attachments[0].content.subarray(0, 5).toString()).toBe("%PDF-");
   });
 
@@ -109,26 +106,15 @@ describe("sendPaymentReceipt — a kvittering for each Stripe payment", () => {
       data: { receiptSentAt: new Date("2026-11-04T09:31:00Z"), receiptPdfKey: "s3://receipts/Kvittering 7.pdf" },
     });
     expect(mocks.emailCreate).toHaveBeenCalled();
-    expect(mocks.actionEvent).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ title: "Receipt 7 sent" }));
-  });
-
-  it("starts the series at 1", async () => {
-    mocks.paymentAggregate.mockResolvedValue({ _max: { receiptNumber: null } });
-    expect(await sendPaymentReceipt({ paymentId: "pay1" })).toEqual({ ok: true, number: 1 });
-  });
-
-  it("tries the next number when another receipt took it at the same time", async () => {
-    mocks.paymentAggregate.mockResolvedValueOnce({ _max: { receiptNumber: 6 } }).mockResolvedValueOnce({ _max: { receiptNumber: 7 } });
-    mocks.paymentUpdateMany.mockRejectedValueOnce(Object.assign(new Error("Unique constraint"), { code: "P2002" }));
-
-    expect(await sendPaymentReceipt({ paymentId: "pay1" })).toEqual({ ok: true, number: 8 });
+    expect(mocks.actionEvent).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ title: "Receipt W-7 sent" }));
   });
 
   it("keeps a number already given (a resend after a failed email)", async () => {
     mocks.paymentFindUnique.mockResolvedValue(payment({ receiptNumber: 3 }));
 
     expect(await sendPaymentReceipt({ paymentId: "pay1" })).toEqual({ ok: true, number: 3 });
-    expect(mocks.paymentUpdateMany).not.toHaveBeenCalled();
+    expect(mocks.allocate).not.toHaveBeenCalled();
+    expect(mocks.sendGmailEmail.mock.calls[0]![0].subject).toBe("Kvittering W-3 for ordre 20046");
   });
 
   it("never sends the same receipt twice", async () => {

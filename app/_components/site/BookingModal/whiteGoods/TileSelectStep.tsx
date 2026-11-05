@@ -16,7 +16,8 @@ export function TileSelectStep<T extends string>({
   onPick: (id: T) => void;
 }) {
   return (
-    <div className="flex flex-wrap justify-center gap-3">
+    // Phone: tiles share one row equally instead of wrapping into a stack.
+    <div className="flex justify-center gap-3 sm:flex-wrap">
       {options.map((option) => {
         const selected = value === option.id;
         return (
@@ -26,7 +27,7 @@ export function TileSelectStep<T extends string>({
             aria-pressed={selected}
             onClick={() => onPick(option.id)}
             className={[
-              "flex w-48 flex-col items-center gap-1 rounded-2xl border px-4 py-5 text-center transition",
+              "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl border px-2 py-5 text-center transition sm:w-48 sm:flex-none sm:px-4",
               selected
                 ? "border-logoblue bg-logoblue/5"
                 : "border-black/10 hover:-translate-y-0.5 hover:border-logoblue/40 hover:shadow-md",

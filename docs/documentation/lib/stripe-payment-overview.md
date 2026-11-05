@@ -10,4 +10,4 @@ A homepage order's Stripe payment history and status (`HOMEPAGE_PAYMENT_MODE=str
 
 **Cancelled / declined orders:** `buildStripePaymentOverview(payments, current, closed)` — with `closed` the order costs 0 kr, so nothing is due: outcome `closed` (with `totalRefundedIncVatNok`) once everything paid went back, or `refund` for what is still owed back. `nextStripePaymentStatus("closed")` leaves the payment status alone.
 
-Each payment entry has `receipt: { number, sentAt } | null` (`OrderPayment.receiptNumber` / `receiptSentAt`).
+Each payment entry has `receipt: { number, sentAt } | null` (`OrderPayment.receiptNumber` / `receiptSentAt`), and each refund has `creditNote: { number, sentAt } | null` (`OrderRefund.receiptNumber` / `receiptSentAt`). `number` is the formatted W-number (`W-7`).

@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { activeSectionIndex, asideSectionGroups, finalStepScrollTarget, heightHoldAction, isFinalStepShown, isSectionDimmed, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, revealedSectionToScrollTo, revealsUnseenSection, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { activeSectionIndex, asideSectionGroups, finalStepScrollTarget, heightHoldAction, isFinalStepShown, isSectionDimmed, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, revealedSectionToScrollTo, revealsUnseenSection, showsAsideDrawer, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
 import { followRevealedSection } from "./revealScrollFollow";
 
 export type StepSectionRenderProps = {
@@ -75,7 +75,10 @@ type SteppedModalProps = {
   // "moving from" until "your details").
   // Sticky in a 400px right column on large screens, centred in the visible part of its row, under those sections on
   // small ones; it appears with the first of them.
-  aside?: { node: ReactNode; fromId: string; untilId?: string };
+  // Below lg it's instead pinned in a collapsible drawer at the bottom of the
+  // modal (showsAsideDrawer); `bar` is what the drawer shows while collapsed
+  // (e.g. the order total).
+  aside?: { node: ReactNode; fromId: string; untilId?: string; bar?: ReactNode };
   // Fades every section to 50% except the newest two and the one last
   // clicked/focused (isSectionDimmed). Hover never changes it. Opt-in — the
   // moving, services and delivery flows use it.
@@ -196,6 +199,21 @@ export function AnimatedStack({ items, gap, className = "" }: { items: AnimatedS
   );
 }
 
+// Tailwind's lg breakpoint (64rem): where the aside becomes a side column.
+const LG_QUERY = "(min-width: 64rem)";
+function subscribeLg(onChange: () => void) {
+  const mql = window.matchMedia(LG_QUERY);
+  mql.addEventListener("change", onChange);
+  return () => mql.removeEventListener("change", onChange);
+}
+function useIsLarge() {
+  return useSyncExternalStore(
+    subscribeLg,
+    () => window.matchMedia(LG_QUERY).matches,
+    () => true,
+  );
+}
+
 export function SteppedModal({
   sections,
   finalStep,
@@ -215,6 +233,8 @@ export function SteppedModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+  const isLarge = useIsLarge();
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Lock page scroll while the modal is open so wheel/touch over the blurred
   // backdrop doesn't scroll the page behind it. Locks <html>, not <body>:
@@ -480,7 +500,7 @@ export function SteppedModal({
           >
             {/* An empty title (e.g. "My order"'s contact details) renders untitled. */}
             {section.title && (
-              <h4 className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">{section.title}</h4>
+              <h4 className="text-center text-[14px] sm:text-sm font-semibold uppercase tracking-[0.18em] text-logoblue">{section.title}</h4>
             )}
             {section.description && <p className="mt-1 text-center text-sm text-black/60">{section.description}</p>}
             <div className={section.title || section.description ? "mt-[2rem]" : ""}>
@@ -503,8 +523,8 @@ export function SteppedModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overscroll-contain bg-[#091030]/45 px-4 py-6 backdrop-blur-sm">
-      <div className="relative flex max-h-[92vh] w-full max-w-[1200px] flex-col overflow-hidden rounded-[32] bg-white shadow-[0_32px_100px_rgba(9,16,48,0.28)]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overscroll-contain bg-[#091030]/45 px-2 py-2 sm:px-4 sm:py-6 backdrop-blur-sm">
+      <div className="relative flex max-h-full sm:max-h-[92vh] w-full max-w-[1200px] flex-col overflow-hidden rounded-[32] bg-white shadow-[0_32px_100px_rgba(9,16,48,0.28)]">
         <div className="flex shrink-0 items-center justify-between px-5 py-3 sm:px-8">
           <div className="flex min-w-0 items-center gap-4">
             <Image src="/Otman Logo Horizontal Blue.svg" width={116} height={50} alt="Logo" className="h-[34] w-auto" />
@@ -526,7 +546,7 @@ export function SteppedModal({
           )}
         </div>
 
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-8 sm:py-8">
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-6 sm:px-8 sm:py-8">
           <div ref={contentRef}>
           {showFinalStep && finalStep.render({ onBack: onFinalStepBack ?? (() => setShowFinalStep(false)) })}
 
@@ -552,14 +572,16 @@ export function SteppedModal({
                     part of this row (--aside-viewport, set above; capped at the
                     row's height, so it never adds blank space below short
                     content) with the calculator centred inside. */}
-                <div ref={asideCellRef}>
-                  <div
-                    ref={asideBoxRef}
-                    className="lg:sticky lg:top-0 lg:flex lg:h-[min(var(--aside-viewport),100%)] lg:flex-col lg:justify-center-safe"
-                  >
-                    <RevealSection>{aside?.node}</RevealSection>
+                {isLarge && (
+                  <div ref={asideCellRef}>
+                    <div
+                      ref={asideBoxRef}
+                      className="lg:sticky lg:top-0 lg:flex lg:h-[min(var(--aside-viewport),100%)] lg:flex-col lg:justify-center-safe"
+                    >
+                      <RevealSection>{aside?.node}</RevealSection>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
             {sectionGroups.after.length > 0 && (
@@ -583,7 +605,45 @@ export function SteppedModal({
           </div>
         </div>
 
-        {footer && <div className="shrink-0 border-t border-black/10 bg-white px-5 py-4 sm:px-8">{footer}</div>}
+        {/* Small screens: the aside (calculator) pinned at the bottom, always in
+            view; tapping the bar opens it upward over the steps' scroll. */}
+        {showsAsideDrawer({ withinCount: sectionGroups.within.length, finalStepShown: showFinalStep, isLarge }) && (
+          <div className="shrink-0 border-t border-black/10 bg-white shadow-[0_-8px_24px_rgba(9,16,48,0.08)]">
+            <div
+              className={[
+                "grid transition-[grid-template-rows] duration-300 ease-in-out",
+                drawerOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+              ].join(" ")}
+              aria-hidden={!drawerOpen}
+            >
+              <div className="min-h-0 overflow-hidden">
+                <div className="max-h-[55vh] overflow-y-auto overscroll-contain px-2 pt-2">{aside?.node}</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDrawerOpen((o) => !o)}
+              aria-expanded={drawerOpen}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left"
+            >
+              <span className="min-w-0 flex-1">{aside?.bar}</span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className={["h-5 w-5 shrink-0 text-logoblue transition-transform duration-300", drawerOpen ? "" : "rotate-180"].join(" ")}
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {footer && <div className="shrink-0 border-t border-black/10 bg-white px-2 py-4 sm:px-8">{footer}</div>}
       </div>
     </div>
   );

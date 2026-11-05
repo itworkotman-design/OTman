@@ -40,44 +40,53 @@ export function WhiteGoodsProductGrid({
           <div
             key={product.id}
             className={[
-              "flex flex-col gap-2 rounded-2xl border p-3 transition",
+              "flex flex-col rounded-2xl border transition",
               selected ? "border-logoblue bg-logoblue/5" : "border-black/10",
             ].join(" ")}
           >
-            {/* Icon on the left, quantity stepper on the right, so the stepper
-                doesn't take a row of its own. */}
-            <div className="flex items-center justify-between gap-2">
-              <ProductIcon
-                code={product.code}
-                iconKey={product.iconKey}
-                className="h-8 w-8 shrink-0 text-logoblue"
-              />
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  aria-label={locale === "no" ? "Reduser antall" : "Decrease quantity"}
-                  disabled={qty <= 0}
-                  onClick={() => onChangeQuantity(product.id, qty - 1)}
-                  className="grid h-7 w-7 place-items-center rounded-full border border-black/15 text-sm disabled:pointer-events-none disabled:opacity-30"
-                >
-                  −
-                </button>
-                <span className="min-w-4 text-center text-sm font-semibold">{qty}</span>
-                <button
-                  type="button"
-                  aria-label={locale === "no" ? "Øk antall" : "Increase quantity"}
-                  onClick={() => onChangeQuantity(product.id, qty + 1)}
-                  className="grid h-7 w-7 place-items-center rounded-full border border-black/15 text-sm"
-                >
-                  +
-                </button>
+            <div className="flex flex-1 flex-col gap-2 p-3">
+              {/* Icon on the left, the quantity (only once picked) top right. */}
+              <div className="flex items-center justify-between gap-2">
+                <ProductIcon
+                  code={product.code}
+                  iconKey={product.iconKey}
+                  className="h-8 w-8 shrink-0 text-logoblue"
+                />
+                {selected && (
+                  <span className="grid h-6 min-w-6 place-items-center rounded-full bg-logoblue px-1.5 text-xs font-semibold text-white">
+                    {qty}
+                  </span>
+                )}
               </div>
+
+              <p className="flex items-center gap-1 text-sm font-medium text-black/80">
+                {productLabel(locale, product)}
+                {sizeInfoLabel && <InfoHint label={sizeInfoLabel} />}
+              </p>
             </div>
 
-            <p className="flex items-center gap-1 text-sm font-medium text-black/80">
-              {productLabel(locale, product)}
-              {sizeInfoLabel && <InfoHint label={sizeInfoLabel} />}
-            </p>
+            {/* Full-width −/+ halves split by a divider, like the calculator's
+                Discount/Extra footer (AddAdjustmentLineButtons). The bottom
+                radius (16px minus the 1px border) clips the hover fill. */}
+            <div className="grid grid-cols-2 overflow-hidden rounded-b-[15px] border-t border-inherit">
+              <button
+                type="button"
+                aria-label={locale === "no" ? "Reduser antall" : "Decrease quantity"}
+                disabled={qty <= 0}
+                onClick={() => onChangeQuantity(product.id, qty - 1)}
+                className="py-2.5 text-lg font-semibold leading-none text-logoblue transition-colors hover:bg-black/5 active:bg-black/10 disabled:pointer-events-none disabled:opacity-30"
+              >
+                −
+              </button>
+              <button
+                type="button"
+                aria-label={locale === "no" ? "Øk antall" : "Increase quantity"}
+                onClick={() => onChangeQuantity(product.id, qty + 1)}
+                className="border-l border-inherit py-2.5 text-lg font-semibold leading-none text-logoblue transition-colors hover:bg-black/5 active:bg-black/10"
+              >
+                +
+              </button>
+            </div>
           </div>
         );
       })}

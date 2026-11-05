@@ -26,9 +26,12 @@ that went through are already in the ledger and a retry only refunds the rest.
 | --- | --- |
 | `sumRefundableCents` | Everything charged minus everything already refunded, across an order's payments. |
 | `planOrderRefund` | Pure: splits an amount (or `"ALL"`) across payments, newest first. Fails with `INVALID_AMOUNT`, `NOTHING_TO_REFUND`, `EXCEEDS_REFUNDABLE` or `MISSING_PAYMENT_INTENT`. |
-| `refundOrderPayments` | Loads the order's payments and refunds, plans, calls `stripe.refunds.create` per allocation and records each `OrderRefund` (with the optional `orderSnapshot` — the order after the refund, which `compareOrderWithPayments` then treats as the paid state). Returns the refunded cents, the plan's failure reason, or `STRIPE_ERROR` with what was refunded before the failure. |
+| `refundOrderPayments` | Loads the order's payments and refunds, plans, calls `stripe.refunds.create` per allocation and records each `OrderRefund` (with the optional `orderSnapshot` — the order after the refund, which `compareOrderWithPayments` then treats as the paid state). Returns the refunded cents and the Stripe refund ids made (`stripeRefundIds`), the plan's failure reason, or `STRIPE_ERROR` with what was refunded (and the ids) before the failure. |
 
 ## Used by
 
+Every caller sends the credit notes for `stripeRefundIds` afterwards (`sendCreditNotesForStripeRefunds`, `lib/invoices/refundCreditNotes.ts`). That includes the refunds that went through before a `STRIPE_ERROR`.
+
 - `POST /api/orders/[orderId]/decline` (`"ALL"`).
 - `POST /api/orders/[orderId]/refund-difference` (exactly the overpaid amount).
+- `lib/customerAccounts/customerOrderPaidChange.ts` (a paid change that couldn't be applied).

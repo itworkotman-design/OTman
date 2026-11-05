@@ -1,10 +1,5 @@
 import { prisma } from "@/lib/db";
-import { sendGmailEmail } from "@/lib/email/sendGmailEmail";
-import { formatGmailSenderName, getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
-import { htmlToText } from "@/lib/email/htmlToText";
 import { createOrderActionEvent } from "@/lib/orders/orderEvents";
-import { buildReplyToAddress, createOrderEmailThreadToken } from "@/lib/orders/orderEmail";
-import { isS3AttachmentStorageConfigured, uploadAttachmentBufferToS3 } from "@/lib/orders/orderAttachmentStorage";
 import { parseOrderStateSnapshot } from "@/lib/orders/paidOrderSnapshot";
 import { alertStaff } from "@/lib/orders/staffAlerts";
 import { formatKr } from "@/lib/orders/orderChangeText";
@@ -19,9 +14,12 @@ import {
   type ReceiptSeller,
 } from "./receiptDocument";
 import { renderReceiptPdf } from "./receiptPdf";
+import { allocateReceiptNumber } from "./receiptNumbers";
+import { emailSalesDocument } from "./salesDocumentEmail";
 
 // The receipt (kvittering) for a Stripe payment on a homepage order: given
-// the next number in the one series (OrderPayment.receiptNumber), drawn
+// the next number in the web-sales series W-<n> (receiptNumbers.ts, shared
+// with refund credit notes), drawn
 // (receiptPdf.ts), kept in S3 and emailed to the customer. Sent once, right
 // after the payment is recorded (lib/stripe/checkoutSessionHandlers.ts).
 // Never throws: a receipt that can't go out raises a staff alert.
@@ -89,26 +87,6 @@ export function receiptForPayment(payment: ReceiptPayment, number: number, selle
   });
 }
 
-const isUniqueViolation = (error: unknown) => (error as { code?: string })?.code === "P2002";
-
-// The next number in the series. A unique index on receiptNumber settles a
-// race between two payments; the loser takes the number after.
-async function assignReceiptNumber(paymentId: string): Promise<number> {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const { _max } = await prisma.orderPayment.aggregate({ _max: { receiptNumber: true } });
-    const next = (_max.receiptNumber ?? 0) + 1;
-    try {
-      const { count } = await prisma.orderPayment.updateMany({ where: { id: paymentId, receiptNumber: null }, data: { receiptNumber: next } });
-      if (count === 1) return next;
-      const current = await prisma.orderPayment.findUnique({ where: { id: paymentId }, select: { receiptNumber: true } });
-      if (current?.receiptNumber) return current.receiptNumber;
-    } catch (error) {
-      if (!isUniqueViolation(error)) throw error;
-    }
-  }
-  throw new Error("Could not assign a receipt number");
-}
-
 export type SendPaymentReceiptResult =
   | { ok: true; number: number }
   | { ok: false; reason: "PAYMENT_NOT_FOUND" | "ALREADY_SENT" | "SETTINGS_MISSING" | "MISSING_CUSTOMER_EMAIL" | "SEND_FAILED" };
@@ -141,65 +119,32 @@ export async function sendPaymentReceipt(params: { paymentId: string; resend?: b
     const email = payment.order.email?.trim();
     if (!email) return fail("MISSING_CUSTOMER_EMAIL", "the order has no customer email.");
 
-    const number = payment.receiptNumber ?? (await assignReceiptNumber(payment.id));
+    const number = payment.receiptNumber ?? (await allocateReceiptNumber({ orderPaymentId: payment.id }));
     const receipt = receiptForPayment(payment, number, seller);
     const pdf = Buffer.from(await renderReceiptPdf(receipt));
-    const filename = receiptFilename(receipt.number);
-    const pdfKey = isS3AttachmentStorageConfigured()
-      ? (await uploadAttachmentBufferToS3({ bytes: pdf, scope: `receipts/${payment.orderId}`, filename, contentType: "application/pdf" })).storagePath
-      : null;
-
-    const threadToken = payment.order.emailThreadToken || createOrderEmailThreadToken();
-    const recipientName = payment.order.customerName ?? payment.order.customerLabel ?? undefined;
     const { subject, html } = buildReceiptEmail({
       number: receipt.number,
       orderNumber: receipt.orderNumber,
       customerName: receipt.customer.name,
       amountIncVatNok: receipt.totalIncVatNok,
     });
-    const sent = await sendGmailEmail({
-      to: { email, name: recipientName },
-      threadToken,
+    const { pdfKey } = await emailSalesDocument({
+      orderId: payment.orderId,
+      companyId: payment.companyId,
+      order: { ...payment.order, email },
       subject,
       html,
-      text: htmlToText(html),
-      replyTo: buildReplyToAddress(threadToken),
-      orderId: payment.orderId,
-      orderNumber: payment.order.orderNumber ?? null,
-      direction: "outbound",
-      attachments: [{ filename, contentType: "application/pdf", content: pdf }],
+      filename: receiptFilename(receipt.number),
+      pdf,
+      now,
     });
 
     await prisma.orderPayment.update({ where: { id: payment.id }, data: { receiptSentAt: now, receiptPdfKey: pdfKey } });
-    await prisma.orderEmailMessage.create({
-      data: {
-        orderId: payment.orderId,
-        companyId: payment.companyId,
-        direction: "OUTBOUND",
-        status: sent.syncWarning ? "SENT_WITH_SYNC_WARNING" : "SENT",
-        source: "GMAIL",
-        externalMessageId: sent.messageId,
-        gmailMessageId: sent.gmailMessageId,
-        gmailThreadId: sent.gmailThreadId,
-        subject,
-        bodyHtml: html,
-        fromEmail: getGmailSendAsEmail(),
-        fromName: formatGmailSenderName(),
-        toEmail: email,
-        toName: recipientName ?? null,
-        sentAt: now,
-      },
-      select: { id: true },
-    });
-    await prisma.order.update({
-      where: { id: payment.orderId },
-      data: { lastOutboundEmailAt: now, ...(payment.order.emailThreadToken ? {} : { emailThreadToken: threadToken }) },
-    });
     await createOrderActionEvent(prisma, {
       orderId: payment.orderId,
       companyId: payment.companyId,
       actor: STRIPE_ACTOR,
-      title: `Receipt ${number} sent`,
+      title: `Receipt ${receipt.number} sent`,
       details: [`Amount: ${formatKr(receipt.totalIncVatNok)}`, `Recipient: ${email}`],
       createdAt: now,
     });

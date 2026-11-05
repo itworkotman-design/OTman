@@ -107,12 +107,14 @@ type StripeRefunds = {
   };
 };
 
+// stripeRefundIds: the Stripe refunds made — the caller sends their credit
+// notes (sendCreditNotesForStripeRefunds, lib/invoices/refundCreditNotes.ts).
 export type RefundResult =
-  | { ok: true; refundedCents: number }
+  | { ok: true; refundedCents: number; stripeRefundIds: string[] }
   | { ok: false; reason: Exclude<RefundPlan, { ok: true }>["reason"] }
   // Some refunds may have gone through before the failure (refundedCents);
   // they're in the ledger, so retrying only refunds what's left.
-  | { ok: false; reason: "STRIPE_ERROR"; refundedCents: number };
+  | { ok: false; reason: "STRIPE_ERROR"; refundedCents: number; stripeRefundIds: string[] };
 
 export async function refundOrderPayments(
   client: RefundClient,
@@ -142,6 +144,7 @@ export async function refundOrderPayments(
   if (!plan.ok) return plan;
 
   let refundedCentsSoFar = 0;
+  const stripeRefundIds: string[] = [];
   for (const allocation of plan.allocations) {
     let refundId: string;
     try {
@@ -158,7 +161,7 @@ export async function refundOrderPayments(
       refundId = refund.id;
     } catch (error) {
       console.error("[orderRefunds] Stripe refund failed", params.orderId, allocation.paymentId, error);
-      return { ok: false, reason: "STRIPE_ERROR", refundedCents: refundedCentsSoFar };
+      return { ok: false, reason: "STRIPE_ERROR", refundedCents: refundedCentsSoFar, stripeRefundIds };
     }
 
     try {
@@ -179,7 +182,8 @@ export async function refundOrderPayments(
       if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error;
     }
     refundedCentsSoFar += allocation.amountCents;
+    stripeRefundIds.push(refundId);
   }
 
-  return { ok: true, refundedCents: refundedCentsSoFar };
+  return { ok: true, refundedCents: refundedCentsSoFar, stripeRefundIds };
 }

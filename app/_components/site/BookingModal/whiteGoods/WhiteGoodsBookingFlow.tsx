@@ -48,6 +48,7 @@ import { PickupContactPersonsCard, type PickupContactPerson } from "./PickupCont
 import { WhiteGoodsProductGrid, productLabel } from "./WhiteGoodsProductGrid";
 import { WebsiteListTiles } from "./WebsiteListTiles";
 import {
+  OrderTotalBar,
   WhiteGoodsOrderSummary,
   type OrderSummaryExtraLine,
   type OrderSummaryProduct,
@@ -1158,7 +1159,18 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     />
   );
 
-  const calculatorAside = { node: calculator, fromId: sharedCalculatorFromId(chosenListCodes) };
+  const calculatorAside = {
+    node: calculator,
+    fromId: sharedCalculatorFromId(chosenListCodes),
+    bar: (
+      <OrderTotalBar
+        locale={locale}
+        totalExVat={customerTotals.totalExVat}
+        totalIncVat={customerTotals.totalIncVat}
+        customerType={customerType ?? "private"}
+      />
+    ),
+  };
 
   // Every list on the order gets its own "choose products" + "product options"
   // steps, in the order they were added; "any other products?" sits at the

@@ -5,7 +5,7 @@ import { SteppedModal, type FinalStep, type StepSection } from "../SteppedModal"
 import { CustomerTypeStep } from "../whiteGoods/CustomerTypeStep";
 import { AutoAdvance } from "../AutoAdvance";
 import { DateTimeWindowFields } from "../whiteGoods/DateTimeWindowFields";
-import { WhiteGoodsOrderSummary } from "../whiteGoods/WhiteGoodsOrderSummary";
+import { OrderTotalBar, WhiteGoodsOrderSummary } from "../whiteGoods/WhiteGoodsOrderSummary";
 import { isTimeWindowComplete } from "@/lib/booking/timeWindows";
 import { parseDistanceKm } from "@/lib/booking/pricing/orderCalculatorExtras";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
@@ -348,6 +348,14 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
       totalIncVat={totals.totalIncVat}
       customerType={customerType ?? "private"}
       hideProductHints
+    />
+  );
+  const calculatorBar = (
+    <OrderTotalBar
+      locale={locale}
+      totalExVat={totals.totalExVat}
+      totalIncVat={totals.totalIncVat}
+      customerType={customerType ?? "private"}
     />
   );
   // Within 24h of the job a booked service can't be removed — only added to.
@@ -843,7 +851,7 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
             {t("Change order", "Endre bestilling")} #{customer.orderNumber}
           </span>
         }
-        aside={customerLocked ? undefined : { node: calculator, fromId: "moving-from-details", untilId: "your-details" }}
+        aside={customerLocked ? undefined : { node: calculator, fromId: "moving-from-details", untilId: "your-details", bar: calculatorBar }}
         footer={
           customerLoaded && customerInitialDraft ? (
             <CustomerOrderEditFooter
@@ -869,7 +877,7 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
       sections={sections}
       finalStep={finalStep}
       onClose={onClose}
-      aside={{ node: calculator, fromId: "moving-from-details", untilId: "your-details" }}
+      aside={{ node: calculator, fromId: "moving-from-details", untilId: "your-details", bar: calculatorBar }}
       dimCompleted
       scrollToNewSections
     />

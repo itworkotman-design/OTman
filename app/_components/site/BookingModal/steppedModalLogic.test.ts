@@ -11,6 +11,7 @@ import {
   revealsUnseenSection,
   revealedSectionToScrollTo,
   progressPercent,
+  showsAsideDrawer,
   showsBottomSpace,
   retractedRevealedCount,
   retractedSectionIndices,
@@ -335,5 +336,23 @@ describe("revealedSectionToScrollTo (StepSection.scrollOnReveal)", () => {
 
   it("is null when the section was already shown, or the new one doesn't ask", () => {
     expect(revealedSectionToScrollTo({ previousIds: ["a", "b"], sections, shownIds: ["a", "b", "c"] })).toBeNull();
+  });
+});
+
+describe("showsAsideDrawer", () => {
+  it("pins the aside in the bottom drawer on small screens once its sections show", () => {
+    expect(showsAsideDrawer({ withinCount: 2, finalStepShown: false, isLarge: false })).toBe(true);
+  });
+
+  it("keeps the side column instead on large screens", () => {
+    expect(showsAsideDrawer({ withinCount: 2, finalStepShown: false, isLarge: true })).toBe(false);
+  });
+
+  it("hides before the aside's first section is revealed", () => {
+    expect(showsAsideDrawer({ withinCount: 0, finalStepShown: false, isLarge: false })).toBe(false);
+  });
+
+  it("hides on the final step, which shows its own summary", () => {
+    expect(showsAsideDrawer({ withinCount: 2, finalStepShown: true, isLarge: false })).toBe(false);
   });
 });

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { buildOrderStateSnapshot, compareOrderWithPayments, type OrderPaymentComparison, type OrderStateSnapshot } from "./paidOrderSnapshot";
 import { isClosedOrderStatus } from "./statusPresentation";
 import type { PaymentStatus } from "./manualPayments";
+import { formatReceiptNumber } from "@/lib/invoices/receiptSeries";
 
 // A homepage order's Stripe payment history for the Alert Center's Payment
 // tab (HOMEPAGE_PAYMENT_MODE=stripe — with manual payments the fakturas are
@@ -10,15 +11,23 @@ import type { PaymentStatus } from "./manualPayments";
 // paid "My order" change or a top-up — each with its refunds, and paid so far
 // against the order now (compareOrderWithPayments).
 
+// A web-sales document: its W-number and when it was emailed.
+export type SalesDocumentRef = { number: string; sentAt: string | null };
+
+const documentRef = (number: number | null | undefined, sentAt: Date | null | undefined): SalesDocumentRef | null =>
+  number ? { number: formatReceiptNumber(number), sentAt: sentAt?.toISOString() ?? null } : null;
+
 export type StripePaymentEntry = {
   id: string;
   kind: "booking" | "additional";
   amountCents: number;
   stripePaymentIntentId: string | null;
   createdAt: string;
-  refunds: { id: string; amountCents: number; reason: string | null; createdAt: string }[];
+  // Each with its credit note (lib/invoices/refundCreditNotes.ts); null
+  // before one was made.
+  refunds: { id: string; amountCents: number; reason: string | null; createdAt: string; creditNote: SalesDocumentRef | null }[];
   // Its receipt (lib/invoices/paymentReceipts.ts); null before one was made.
-  receipt: { number: number; sentAt: string | null } | null;
+  receipt: SalesDocumentRef | null;
 };
 
 export type StripePaymentOverview = {
@@ -41,7 +50,15 @@ type LedgerPayment = {
   orderSnapshot: unknown;
   receiptNumber?: number | null;
   receiptSentAt?: Date | null;
-  refunds: { id: string; amountRefundedCents: number; reason: string | null; createdAt: Date; orderSnapshot: unknown }[];
+  refunds: {
+    id: string;
+    amountRefundedCents: number;
+    reason: string | null;
+    createdAt: Date;
+    orderSnapshot: unknown;
+    receiptNumber?: number | null;
+    receiptSentAt?: Date | null;
+  }[];
 };
 
 // `closed`: a cancelled or declined order (isClosedOrderStatus).
@@ -66,10 +83,9 @@ export function buildStripePaymentOverview(payments: LedgerPayment[], current: O
           amountCents: refund.amountRefundedCents,
           reason: refund.reason,
           createdAt: refund.createdAt.toISOString(),
+          creditNote: documentRef(refund.receiptNumber, refund.receiptSentAt),
         })),
-        receipt: payment.receiptNumber
-          ? { number: payment.receiptNumber, sentAt: payment.receiptSentAt?.toISOString() ?? null }
-          : null,
+        receipt: documentRef(payment.receiptNumber, payment.receiptSentAt),
       }))
       .reverse(),
     comparison: { outcome, totalPaidIncVatNok, totalRefundedIncVatNok, currentTotalIncVatNok, differenceIncVatNok },
@@ -118,7 +134,15 @@ export async function getOrderStripePaymentOverview(orderId: string, companyId: 
           receiptSentAt: true,
           refunds: {
             orderBy: { createdAt: "asc" },
-            select: { id: true, amountRefundedCents: true, reason: true, createdAt: true, orderSnapshot: true },
+            select: {
+              id: true,
+              amountRefundedCents: true,
+              reason: true,
+              createdAt: true,
+              orderSnapshot: true,
+              receiptNumber: true,
+              receiptSentAt: true,
+            },
           },
         },
       },

@@ -179,3 +179,15 @@ export function newSectionScrollTop(params: {
   const target = Math.min(sectionTop - padding, Math.max(scrollTop, showBottom));
   return target > scrollTop ? target : null;
 }
+
+// Below lg the `aside` (the calculator) isn't a side column: it's pinned in a
+// collapsible drawer at the bottom of the modal, so it's always in reach
+// instead of somewhere down the scroll. Shown once the first of its sections
+// is, and not on the final step (which has its own summary).
+export function showsAsideDrawer(params: {
+  withinCount: number;
+  finalStepShown: boolean;
+  isLarge: boolean;
+}): boolean {
+  return params.withinCount > 0 && !params.finalStepShown && !params.isLarge;
+}

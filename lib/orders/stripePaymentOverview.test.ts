@@ -42,24 +42,27 @@ describe("buildStripePaymentOverview", () => {
     });
   });
 
-  it("shows each payment's receipt (number, and when it was emailed) — none before one was made", () => {
+  it("shows each payment's receipt (W-number, and when it was emailed) — none before one was made", () => {
     const overview = buildStripePaymentOverview(
       [{ ...booking, receiptNumber: 7, receiptSentAt: new Date("2026-11-03T14:31:00Z") }, { ...change, receiptNumber: 8, receiptSentAt: null }, { ...change, id: "p3" }],
       current,
     );
-    expect(overview.payments.map((p) => p.receipt)).toEqual([null, { number: 8, sentAt: null }, { number: 7, sentAt: "2026-11-03T14:31:00.000Z" }]);
+    expect(overview.payments.map((p) => p.receipt)).toEqual([null, { number: "W-8", sentAt: null }, { number: "W-7", sentAt: "2026-11-03T14:31:00.000Z" }]);
   });
 
   it("shows refunds under their payment and nets them out of what's paid", () => {
     const refunded = {
       ...change,
-      refunds: [{ id: "r1", amountRefundedCents: 20000, reason: "Removed an item", createdAt: new Date("2026-11-03T16:00:00Z"), orderSnapshot: null }],
+      refunds: [
+        { id: "r1", amountRefundedCents: 20000, reason: "Removed an item", createdAt: new Date("2026-11-03T16:00:00Z"), orderSnapshot: null, receiptNumber: 9, receiptSentAt: null },
+      ],
     };
 
     const overview = buildStripePaymentOverview([booking, refunded], current);
 
+    // Each refund with its credit note (kreditnota).
     expect(overview.payments[0]!.refunds).toEqual([
-      { id: "r1", amountCents: 20000, reason: "Removed an item", createdAt: "2026-11-03T16:00:00.000Z" },
+      { id: "r1", amountCents: 20000, reason: "Removed an item", createdAt: "2026-11-03T16:00:00.000Z", creditNote: { number: "W-9", sentAt: null } },
     ]);
     expect(overview.comparison).toMatchObject({ totalPaidIncVatNok: 4910, differenceIncVatNok: 200, outcome: "due" });
   });

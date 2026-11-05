@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   orderUpdate: vi.fn(),
   orderUpdateMany: vi.fn(),
   refundOrderPayments: vi.fn(),
+  sendCreditNotes: vi.fn(),
   createOrderStatusChangedEvent: vi.fn(),
   resolveAllOrderNotifications: vi.fn(),
   sendLifecycleEmailsForOrders: vi.fn(),
@@ -22,6 +23,7 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/stripe/stripeClient", () => ({ getStripeClient: () => ({ refunds: {} }) }));
 vi.mock("@/lib/orders/orderRefunds", () => ({ refundOrderPayments: mocks.refundOrderPayments }));
+vi.mock("@/lib/invoices/refundCreditNotes", () => ({ sendCreditNotesForStripeRefunds: mocks.sendCreditNotes }));
 vi.mock("@/lib/orders/orderEvents", () => ({ createOrderStatusChangedEvent: mocks.createOrderStatusChangedEvent }));
 vi.mock("@/lib/orders/orderNotifications", () => ({ resolveAllOrderNotifications: mocks.resolveAllOrderNotifications }));
 vi.mock("@/lib/orders/sendCustomerLifecycleEmail", () => ({
@@ -63,7 +65,7 @@ beforeEach(() => {
   mocks.orderFindFirst.mockResolvedValue(order);
   mocks.orderUpdate.mockResolvedValue({});
   mocks.orderUpdateMany.mockResolvedValue({ count: 1 });
-  mocks.refundOrderPayments.mockResolvedValue({ ok: true, refundedCents: 1250_00 });
+  mocks.refundOrderPayments.mockResolvedValue({ ok: true, refundedCents: 1250_00, stripeRefundIds: ["re_1"] });
   mocks.sendLifecycleEmailsForOrders.mockResolvedValue({ sentCount: 1, failedOrderIds: [] });
   mocks.findCancelledOrderPartner.mockResolvedValue(null);
   // The Stripe refund tests; manual payments have their own below.
@@ -121,6 +123,7 @@ describe("POST /api/orders/[orderId]/decline", () => {
       amountCents: "ALL",
       reason: "Vi kjører ikke dit.",
     });
+    expect(mocks.sendCreditNotes).toHaveBeenCalledWith(["re_1"]);
     expect(mocks.orderUpdate).toHaveBeenCalledWith({
       where: { id: "o1" },
       data: expect.objectContaining({ status: "refunded", statusNotes: "Vi kjører ikke dit.", lastEditedByMembershipId: "m1" }),
@@ -161,7 +164,7 @@ describe("POST /api/orders/[orderId]/decline", () => {
   });
 
   it("leaves the order untouched and sends nothing when Stripe fails", async () => {
-    mocks.refundOrderPayments.mockResolvedValue({ ok: false, reason: "STRIPE_ERROR", refundedCents: 300_00 });
+    mocks.refundOrderPayments.mockResolvedValue({ ok: false, reason: "STRIPE_ERROR", refundedCents: 300_00, stripeRefundIds: ["re_1"] });
 
     const res = await post({ reason: "x" });
 
@@ -169,6 +172,8 @@ describe("POST /api/orders/[orderId]/decline", () => {
     expect(await res.json()).toEqual({ ok: false, reason: "REFUND_FAILED", refundedCents: 300_00 });
     expect(mocks.orderUpdate).not.toHaveBeenCalled();
     expect(mocks.sendLifecycleEmailsForOrders).not.toHaveBeenCalled();
+    // What did go back still gets its credit note.
+    expect(mocks.sendCreditNotes).toHaveBeenCalledWith(["re_1"]);
   });
 
   it("refuses when a payment can't be refunded through Stripe (no payment intent on record)", async () => {

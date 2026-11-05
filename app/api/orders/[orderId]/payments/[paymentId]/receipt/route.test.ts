@@ -65,9 +65,9 @@ describe("/api/orders/[orderId]/payments/[paymentId]/receipt — a Stripe paymen
 
   it("shows the PDF as sent, inline or as a download", async () => {
     const res = await get();
-    expect(res.headers.get("content-disposition")).toBe('inline; filename="Kvittering 7.pdf"');
+    expect(res.headers.get("content-disposition")).toBe('inline; filename="Kvittering W-7.pdf"');
     expect(Buffer.from(await res.arrayBuffer()).toString()).toBe("%PDF-stored");
-    expect((await get("?download=1")).headers.get("content-disposition")).toBe('attachment; filename="Kvittering 7.pdf"');
+    expect((await get("?download=1")).headers.get("content-disposition")).toBe('attachment; filename="Kvittering W-7.pdf"');
   });
 
   it("draws it again when no stored copy can be read", async () => {

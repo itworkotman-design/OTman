@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
 // Small "?" badge that reveals extra context in a bubble on hover (or focus,
 // for keyboard/touch) — used for a tile's size spec (WhiteGoodsProductGrid),
 // a product card's section hints and the order summary's price note, so the
@@ -22,18 +26,51 @@ export function HoverTip({ label }: { label: string }) {
   );
 }
 
+// Phones have no hover: a tap on the badge toggles the bubble, and a tap
+// anywhere else closes it. Hover only opens it on devices that can really
+// hover — a phone's "sticky hover" after a tap would otherwise keep it open.
 export function InfoHint({ label, placement = "above" }: { label: string; placement?: "above" | "above-start" | "below" }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [open]);
+
   return (
     <span
+      ref={ref}
+      role="button"
       tabIndex={0}
       aria-label={label}
-      className="group/hint relative inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full border border-black/20 text-[9px] font-semibold leading-none text-black/50 outline-none focus-visible:border-logoblue focus-visible:text-logoblue"
+      aria-expanded={open}
+      onClick={(e) => {
+        // Don't also trigger a surrounding clickable (a tile or option row).
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen((o) => !o);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") setOpen(false);
+      }}
+      className={[
+        "group/hint relative inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full border text-[9px] font-semibold leading-none outline-none focus-visible:border-logoblue focus-visible:text-logoblue",
+        // A slightly larger invisible tap target for fingers.
+        "before:absolute before:-inset-2 before:content-['']",
+        open ? "border-logoblue text-logoblue" : "border-black/20 text-black/50",
+      ].join(" ")}
     >
       ?
       <span
         role="tooltip"
         className={[
-          "pointer-events-none absolute z-10 w-max max-w-56 rounded-lg bg-black/85 px-2 py-1 text-[11px] font-normal leading-snug text-white opacity-0 transition-opacity duration-150 group-hover/hint:opacity-100 group-focus-visible/hint:opacity-100",
+          "pointer-events-none absolute z-10 w-max max-w-56 rounded-lg bg-black/85 px-2 py-1 text-[11px] font-normal leading-snug text-white transition-opacity duration-150 [@media(hover:hover)]:group-hover/hint:opacity-100 group-focus-visible/hint:opacity-100",
+          open ? "opacity-100" : "opacity-0",
           placement === "above"
             ? "bottom-full left-1/2 mb-1.5 -translate-x-1/2 text-center"
             : placement === "above-start"

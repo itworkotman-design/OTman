@@ -10,3 +10,4 @@ Dashboard page listing homepage (public customer) orders (`/api/orders?isWebsite
 - **Columns**: `getWebsiteOrdersColumns()` (admin columns without store/cashier/DNB). The visible set is saved to localStorage under its own key (`getWebsiteOrdersVisibilityStorageKey()`).
 - Shows the selected price total, a Refresh button and a 60s heartbeat (`websiteOrdersOnly: true`), so only website-order changes turn Refresh red.
 - The order modal opens with `canDelete={false}`, so website orders are cancelled or rejected rather than deleted.
+- **Monthly report for accounting** (`WebSalesReportDownload`): website-order admins (owner/admin, or Website orders at ADMIN) download the month's W-series receipts and credit notes with Stripe payouts as Excel.

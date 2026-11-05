@@ -286,7 +286,8 @@ const localizedItems = useMemo(
     <>
       <section aria-label={title[locale]}>
         <div className="w-full">
-          <div className="md:hidden">
+          {/* -mx-5 cancels <main>'s px-5 so the carousel glides edge-to-edge on phones */}
+          <div className="md:hidden -mx-5">
             <div
               ref={scrollerRef}
               className="flex gap-6 overflow-x-auto snap-x snap-mandatory px-[calc(50%-120px)] overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"

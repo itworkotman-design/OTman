@@ -5,6 +5,8 @@ import type { Receipt } from "./receiptDocument";
 // Draws a receipt (receiptDocument.ts) as an A4 PDF in the faktura's style
 // (invoicePdf.ts): seller, "Kvittering" and its number, who paid, the dates,
 // the lines covered, and the total with the VAT split out, marked paid by card.
+// A credit note (kind "creditNote") is drawn the same way as "Kreditnota",
+// with negative amounts, the receipt it credits, and marked paid back.
 
 const PAGE_WIDTH = 595.28;
 const PAGE_HEIGHT = 841.89;
@@ -14,8 +16,9 @@ const GREEN = rgb(0.08, 0.5, 0.24);
 const TEXT = rgb(0.1, 0.1, 0.1);
 const MUTED = rgb(0.45, 0.45, 0.45);
 
+// nb-NO writes negatives with U+2212, which WinAnsi can't draw.
 const formatKr = (amount: number) =>
-  `${amount.toLocaleString("nb-NO", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).replace(/ | /g, " ")} kr`;
+  `${amount.toLocaleString("nb-NO", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).replace(/ | /g, " ").replace(/−/g, "-")} kr`;
 const formatDate = (date: Date) =>
   date.toLocaleDateString("nb-NO", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Oslo" });
 
@@ -30,7 +33,10 @@ function formatOrgNumber(orgNumber: string) {
 }
 
 export async function renderReceiptPdf(receipt: Receipt): Promise<Uint8Array> {
+  const credit = receipt.kind === "creditNote";
+  const title = credit ? "Kreditnota" : "Kvittering";
   const doc = await PDFDocument.create();
+  doc.setTitle(`${title} ${receipt.number}`);
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
 
@@ -48,7 +54,7 @@ export async function renderReceiptPdf(receipt: Receipt): Promise<Uint8Array> {
       text(page, line, MARGIN, y, 9, font, MUTED);
       y -= 12;
     }
-    right(page, "Kvittering", PAGE_WIDTH - MARGIN, PAGE_HEIGHT - MARGIN, 22, bold, BLUE);
+    right(page, title, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - MARGIN, 22, bold, BLUE);
     right(page, `Nr. ${receipt.number}`, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - MARGIN - 20, 11, bold);
     return page;
   }
@@ -70,8 +76,9 @@ export async function renderReceiptPdf(receipt: Receipt): Promise<Uint8Array> {
     y -= 13;
   }
   const details: [string, string][] = [
-    ["Betalt", formatDate(receipt.paidAt)],
+    [credit ? "Tilbakebetalt" : "Betalt", formatDate(receipt.paidAt)],
     ["Ordre", receipt.orderNumber],
+    ...(receipt.creditsReceiptNumber ? ([["Gjelder kvittering", receipt.creditsReceiptNumber]] as [string, string][]) : []),
     ...(receipt.deliveryDate ? ([["Leveringsdato", formatOrderDate(receipt.deliveryDate, "no")]] as [string, string][]) : []),
     ["Betalingsmåte", "Kort"],
   ];
@@ -130,9 +137,17 @@ export async function renderReceiptPdf(receipt: Receipt): Promise<Uint8Array> {
   }
   y -= 6;
   page.drawRectangle({ x: PAGE_WIDTH - MARGIN - 210, y: y - 10, width: 210, height: 30, color: rgb(0.91, 0.97, 0.93) });
-  text(page, "Betalt", PAGE_WIDTH - MARGIN - 200, y, 12, bold, GREEN);
+  text(page, credit ? "Tilbakebetalt" : "Betalt", PAGE_WIDTH - MARGIN - 200, y, 12, bold, GREEN);
   right(page, formatKr(receipt.totalIncVatNok), PAGE_WIDTH - MARGIN - 10, y, 14, bold, GREEN);
 
-  text(page, "Beløpet er betalt med kort. Ingenting å betale.", MARGIN, MARGIN + 10, 9, font, MUTED);
+  text(
+    page,
+    credit ? "Beløpet er betalt tilbake til kortet det ble betalt med." : "Beløpet er betalt med kort. Ingenting å betale.",
+    MARGIN,
+    MARGIN + 10,
+    9,
+    font,
+    MUTED,
+  );
   return doc.save();
 }

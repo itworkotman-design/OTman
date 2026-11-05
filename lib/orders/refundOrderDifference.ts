@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getStripeClient } from "@/lib/stripe/stripeClient";
 import { refundOrderPayments } from "@/lib/orders/orderRefunds";
+import { sendCreditNotesForStripeRefunds } from "@/lib/invoices/refundCreditNotes";
 import { ORDER_PAYMENT_LEDGER_SELECT } from "@/lib/orders/orderPayments";
 import { ORDER_STATE_SOURCE_SELECT, buildOrderStateSnapshot, compareOrderWithPayments } from "@/lib/orders/paidOrderSnapshot";
 import { describeDetailChange, describeLineChange, formatKr } from "@/lib/orders/orderChangeText";
@@ -77,6 +78,8 @@ export async function refundOrderDifference(input: {
     reason: "Price lowered after payment",
     orderSnapshot: current,
   });
+  // A credit note for whatever went back, even when the rest failed.
+  if (refund.ok || refund.reason === "STRIPE_ERROR") await sendCreditNotesForStripeRefunds(refund.stripeRefundIds);
   if (!refund.ok) {
     if (refund.reason === "STRIPE_ERROR") {
       // Whatever went through is in the ledger; the summary shows what's left.
