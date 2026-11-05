@@ -127,7 +127,7 @@ export function RevealSection({
 
   return (
     <div
-      className={`grid transition-all duration-300 ease-in-out ${isOpen ? "grid-rows-[1fr] opacity-100" : "invisible grid-rows-[0fr] opacity-0"}`}
+      className={`grid grid-cols-1 transition-all duration-300 ease-in-out ${isOpen ? "grid-rows-[1fr] opacity-100" : "invisible grid-rows-[0fr] opacity-0"}`}
       // A collapsed section is off screen but stays mounted; keep it out of the
       // tab order and away from pointer events until it opens again.
       inert={!isOpen}
@@ -611,7 +611,7 @@ export function SteppedModal({
           <div className="shrink-0 border-t border-black/10 bg-white shadow-[0_-8px_24px_rgba(9,16,48,0.08)]">
             <div
               className={[
-                "grid transition-[grid-template-rows] duration-300 ease-in-out",
+                "grid grid-cols-1 transition-[grid-template-rows] duration-300 ease-in-out",
                 drawerOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
               ].join(" ")}
               aria-hidden={!drawerOpen}

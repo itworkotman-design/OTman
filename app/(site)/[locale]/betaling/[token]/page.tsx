@@ -79,7 +79,7 @@ export default async function OrderPaymentPage({
 
   if (!order) {
     return (
-      <div className="mx-auto max-w-xl px-4 py-12 sm:py-16">
+      <div className="mx-auto max-w-xl py-12 sm:px-4 sm:py-16">
         <h1 className="text-3xl font-bold tracking-tight text-gray-900">{t.heading}</h1>
         <div className="mt-6">
           <Notice tone="neutral">{t.notFound}</Notice>
@@ -135,7 +135,7 @@ export default async function OrderPaymentPage({
                   : { pay: true };
 
   return (
-    <div className="mx-auto max-w-xl px-4 py-12 sm:py-16">
+    <div className="mx-auto max-w-xl py-12 sm:px-4 sm:py-16">
       <p className="text-sm font-semibold uppercase tracking-wide text-logoblue">{t.eyebrow}</p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">{t.heading}</h1>
       {reference || order.deliveryDate ? (
@@ -148,13 +148,13 @@ export default async function OrderPaymentPage({
 
       <div className="mt-8 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
         {state.notice && (
-          <div className="px-6 pt-6">
+          <div className="px-4 pt-4 sm:px-6 sm:pt-6">
             <Notice tone={state.notice.tone}>{state.notice.text}</Notice>
           </div>
         )}
 
         {itemRows.length > 0 || order.productsSummary ? (
-          <section className="px-6 pt-6">
+          <section className="px-4 pt-4 sm:px-6 sm:pt-6">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t.yourOrder}</h2>
             {itemRows.length > 0 ? (
               <ul className="mt-3 divide-y divide-gray-100">
@@ -169,7 +169,7 @@ export default async function OrderPaymentPage({
         ) : null}
 
         {otherChanges.length > 0 && (
-          <section className="px-6 pt-5">
+          <section className="px-4 pt-5 sm:px-6">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t.otherChanges}</h2>
             <ul className="mt-2 space-y-1 text-sm text-textColorThird">
               {otherChanges.map((line) => (
@@ -179,27 +179,27 @@ export default async function OrderPaymentPage({
           </section>
         )}
 
-        <dl className="mx-6 my-6 space-y-2 rounded-xl bg-logoblue/5 px-5 py-4 text-sm">
+        <dl className="mx-4 my-4 space-y-2 rounded-xl bg-logoblue/5 px-4 py-4 text-sm sm:mx-6 sm:my-6 sm:px-5">
           <div className="flex items-baseline justify-between gap-4">
             <dt className={isTopUp ? "text-textColorThird" : "font-semibold text-gray-900"}>{isTopUp ? t.newTotal : t.total}</dt>
-            <dd className={isTopUp ? "font-medium text-gray-900" : "text-2xl font-bold text-logoblue"}>NOK {fmt(amountIncVat)}</dd>
+            <dd className={`whitespace-nowrap ${isTopUp ? "font-medium text-gray-900" : "text-2xl font-bold text-logoblue"}`}>NOK {fmt(amountIncVat)}</dd>
           </div>
           {isTopUp && (
             <>
               <div className="flex items-baseline justify-between gap-4">
                 <dt className="text-textColorThird">{t.amountPaid}</dt>
-                <dd className="font-medium text-gray-900">− NOK {fmt(totalPaidCents / 100)}</dd>
+                <dd className="whitespace-nowrap font-medium text-gray-900">− NOK {fmt(totalPaidCents / 100)}</dd>
               </div>
               <div className="flex items-baseline justify-between gap-4 border-t border-logoblue/15 pt-3">
                 <dt className="font-semibold text-gray-900">{t.payNow}</dt>
-                <dd className="text-2xl font-bold text-logoblue">NOK {fmt(remainingBalanceIncVat)}</dd>
+                <dd className="whitespace-nowrap text-2xl font-bold text-logoblue">NOK {fmt(remainingBalanceIncVat)}</dd>
               </div>
             </>
           )}
         </dl>
 
         {state.pay && (
-          <div className="px-6 pb-6">
+          <div className="px-4 pb-4 sm:px-6 sm:pb-6">
             <OrderPaymentClient token={token} locale={locale} payable resultParam={result ?? null} />
             <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-gray-400">
               <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
