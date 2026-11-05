@@ -33,7 +33,7 @@ export const serviceWindowContent = {
         en: "Delivery or assembly",
         no: "Levering eller montering",
       },
-      svg: "/Service logos-01.svg",
+      svg: "/Service logos-02.svg",
       modalTitle: {
         en: "Collection and Pickup",
         no: "Henting og oppsamling",
@@ -58,42 +58,12 @@ export const serviceWindowContent = {
       ],
     },
     {
-      id: "services",
-      title: {
-        en: "Services",
-        no: "Tjenester",
-      },
-      svg: "/Service logos-02.svg",
-      modalTitle: {
-        en: "Services",
-        no: "Tjenester",
-      },
-      modalIntro: {
-        en: "Assembly, installation, and other services for your home.",
-        no: "Montering, installasjon og andre tjenester for hjemmet ditt.",
-      },
-      formVariant: "transport",
-      categories: [
-        {
-          id: "services",
-          title: {
-            en: "Services",
-            no: "Tjenester",
-          },
-          description: {
-            en: "Assembly and installation of what you already have at home.",
-            no: "Montering og installasjon av det du allerede har hjemme.",
-          },
-        },
-      ],
-    },
-    {
       id: "moving",
       title: {
         en: "Moving",
         no: "Flytting",
       },
-      svg: "/Service logos-04.svg",
+      svg: "/Service logos-03.svg",
       modalTitle: {
         en: "Moving",
         no: "Flytting",
@@ -113,6 +83,36 @@ export const serviceWindowContent = {
           description: {
             en: "Crew support for heavy goods, staging, and structured loading.",
             no: "Mannskap til tunge varer, klargjoring og effektiv lasting.",
+          },
+        },
+      ],
+    },
+    {
+      id: "services",
+      title: {
+        en: "Services",
+        no: "Tjenester",
+      },
+      svg: "/Service logos-05.svg",
+      modalTitle: {
+        en: "Services",
+        no: "Tjenester",
+      },
+      modalIntro: {
+        en: "Assembly, installation, and other services for your home.",
+        no: "Montering, installasjon og andre tjenester for hjemmet ditt.",
+      },
+      formVariant: "transport",
+      categories: [
+        {
+          id: "services",
+          title: {
+            en: "Services",
+            no: "Tjenester",
+          },
+          description: {
+            en: "Assembly and installation of what you already have at home.",
+            no: "Montering og installasjon av det du allerede har hjemme.",
           },
         },
       ],

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: none;
+        stroke: #303d95;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 24px;
+      }
+    </style>
+  </defs>
+  <g transform="translate(0 -25)">
+  <!-- Hard hat: dome, centre ridge, brim -->
+  <path class="cls-1" d="M385,410C385,300,455,230,540,230S695,300,695,410"/>
+  <path class="cls-1" d="M500,236v84M580,236v84"/>
+  <rect class="cls-1" x="345" y="410" width="390" height="44" rx="22"/>
+  <!-- Face -->
+  <path class="cls-1" d="M415,470C420,580,475,640,540,640S660,580,665,470"/>
+  <!-- Shoulders + work vest -->
+  <path class="cls-1" d="M250,900C250,770,370,705,540,705S830,770,830,900"/>
+  <path class="cls-1" d="M465,712L540,810L615,712"/>
+  <path class="cls-1" d="M540,810V900"/>
+  <path class="cls-1" d="M360,820h70M650,820h70"/>
+  </g>
+</svg>
