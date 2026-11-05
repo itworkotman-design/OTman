@@ -38,6 +38,14 @@ const input: MovingReviewInput = {
 
 const rows = (block: { rows: { label: string; value: string }[] }) => Object.fromEntries(block.rows.map((r) => [r.label, r.value]));
 
+describe("buildMovingReviewBlocks — comments", () => {
+  it("shows each end's comment when there is one", () => {
+    const [from, to] = buildMovingReviewBlocks("no", { ...input, pickupComment: "Kodelås 1234" });
+    expect(from!.rows).toContainEqual({ label: "Kommentar", value: "Kodelås 1234" });
+    expect(to!.rows.some((row) => row.label === "Kommentar")).toBe(false);
+  });
+});
+
 describe("buildMovingReviewBlocks", () => {
   it("has a block per end of the move, then the timing, then the contact details", () => {
     const blocks = buildMovingReviewBlocks("no", input);

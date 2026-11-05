@@ -37,3 +37,5 @@ The left column runs Products → Pickup addresses → Delivery → Customer. It
 | `editorBlockers` | What keeps Save disabled: `findCardsWithoutPickup`, size-bracket problems, missing item names, install-only without an installation. |
 
 **Look:** the product cards use `WhiteGoodsProductCard`'s `tone="light"` (pale blue title band, blue text) and "Add extra products" is a pale blue button, so the admin editor is lighter than the customer's booking flow, which keeps the solid blue band.
+
+Each pickup stop and the delivery have a comment box. `stopsFromDetails` keeps each stop's comment, so saving here no longer drops what the customer wrote.

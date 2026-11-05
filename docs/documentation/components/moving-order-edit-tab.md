@@ -27,3 +27,5 @@ The admin's "Edit order" tab for a homepage move in `WebsiteOrderModal`, in the 
 - `movingEditBody(initial, current)` — the save body, only what changed.
 - `movingEditBlockers(draft)` — `{ end, field }[]` keeping Save disabled: a missing address, an end field the server would
   reject, or an incomplete time window.
+
+Each end has a comment box ("Kommentar til hentestedet" / "Kommentar til leveringen") that edits `edit.pickupComment` / `edit.deliveryComment`.

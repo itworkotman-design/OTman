@@ -8,10 +8,15 @@ export function movingOrderDescription(input: {
   destinationLine: string;
   serviceLabels: string[];
   notes: string | null;
+  // The customer's note for the driver at each end.
+  pickupComment?: string | null;
+  deliveryComment?: string | null;
 }): string {
+  const withComment = (line: string, comment: string | null | undefined) =>
+    comment?.trim() ? `${line}\n    *comment: ${comment.trim()}` : line;
   return [
-    `Moving from: ${input.originLine}`,
-    `Moving to: ${input.destinationLine}`,
+    withComment(`Moving from: ${input.originLine}`, input.pickupComment),
+    withComment(`Moving to: ${input.destinationLine}`, input.deliveryComment),
     input.serviceLabels.length > 0 ? `Additional services: ${input.serviceLabels.join(", ")}` : null,
     input.notes,
   ]

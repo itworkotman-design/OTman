@@ -86,6 +86,19 @@ describe("POST /api/site/moving-request — what's stored", () => {
     expect(mocks.orderCreate.mock.calls[0][0].data.withdrawalConsentAt).toBeInstanceOf(Date);
   });
 
+  it("keeps each end's comment in the answers and the description", async () => {
+    expect((await post({ pickupComment: "Kodelås 1234", deliveryComment: "Ring på" })).status).toBe(200);
+    const { data } = mocks.orderCreate.mock.calls[0][0];
+    expect(data.websiteBookingDetails).toMatchObject({ pickupComment: "Kodelås 1234", deliveryComment: "Ring på" });
+    expect(data.description).toContain("    *comment: Kodelås 1234");
+  });
+
+  it("refuses a comment with disallowed characters", async () => {
+    const res = await post({ deliveryComment: "<b>" });
+    expect(res.status).toBe(422);
+    expect((await res.json()).errors.deliveryComment).toBeDefined();
+  });
+
   it("doesn't ask a business", async () => {
     expect((await post()).status).toBe(200);
     expect(mocks.orderCreate.mock.calls[0][0].data.withdrawalConsentAt).toBeUndefined();

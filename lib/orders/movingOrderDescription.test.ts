@@ -18,6 +18,12 @@ describe("movingOrderDescription", () => {
     );
   });
 
+  it("puts each end's comment under it", () => {
+    expect(
+      movingOrderDescription({ originLine: "A", destinationLine: "B", serviceLabels: [], notes: null, pickupComment: "Kodelås 1234", deliveryComment: " Ring på " }),
+    ).toBe("Moving from: A\n    *comment: Kodelås 1234\n\nMoving to: B\n    *comment: Ring på");
+  });
+
   it("leaves out services and notes when missing", () => {
     expect(
       movingOrderDescription({ originLine: "A", destinationLine: "B", serviceLabels: [], notes: null }),

@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pkg from "pg";
+import { pgConnectionString } from "@/lib/dbConnectionString";
 
 const { Pool } = pkg;
 
@@ -13,7 +14,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: pgConnectionString(process.env.DATABASE_URL),
   ssl: {
     rejectUnauthorized: false,
   },

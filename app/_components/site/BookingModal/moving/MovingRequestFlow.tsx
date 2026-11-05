@@ -118,6 +118,9 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
   // move on, as in the delivery modal. Every keystroke resets it.
   const [pickupAddressSelected, setPickupAddressSelected] = useState(false);
   const [deliveryAddressSelected, setDeliveryAddressSelected] = useState(false);
+  // Optional notes for the driver at each end.
+  const [pickupComment, setPickupComment] = useState("");
+  const [deliveryComment, setDeliveryComment] = useState("");
   // Both ends of the move get the same questions (PropertySection). The
   // origin's size is what the move is priced on.
   const [origin, setOrigin] = useState<MovingPropertyDraft>(emptyMovingProperty);
@@ -221,6 +224,8 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
           deliveryAddress: string;
           origin: MovingPropertyDraft;
           destination: MovingPropertyDraft;
+          pickupComment?: string;
+          deliveryComment?: string;
         };
         setPickupAddress(moving.pickupAddress);
         setDeliveryAddress(moving.deliveryAddress);
@@ -229,6 +234,8 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
         setOrigin(moving.origin);
         setDestination(moving.destination);
         setServiceCodes(moving.serviceCodes);
+        setPickupComment(moving.pickupComment ?? "");
+        setDeliveryComment(moving.deliveryComment ?? "");
         setPreferredDate(details.preferredDate);
         setTimeWindow(details.timeWindow);
         setName(details.customer.name);
@@ -380,6 +387,8 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
           origin,
           destination,
           serviceCodes,
+          pickupComment,
+          deliveryComment,
           customerType,
           preferredDate,
           timeWindow,
@@ -488,6 +497,9 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
           addressSelected={pickupAddressSelected}
           value={origin}
           onChange={setOrigin}
+          comment={pickupComment}
+          onCommentChange={setPickupComment}
+          commentLabel={t("Comment for the pickup (optional)", "Kommentar til hentestedet (valgfritt)")}
           sizeOptions={catalogOptions}
           catalogLoading={catalogLoading}
           catalogError={catalogError}
@@ -530,6 +542,9 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
           addressSelected={deliveryAddressSelected}
           value={destination}
           onChange={setDestination}
+          comment={deliveryComment}
+          onCommentChange={setDeliveryComment}
+          commentLabel={t("Comment for the delivery (optional)", "Kommentar til leveringen (valgfritt)")}
           sizeOptions={catalogOptions}
           catalogLoading={catalogLoading}
           catalogError={catalogError}
@@ -690,6 +705,8 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
     preferredDate,
     timeWindow,
     drivingDistance,
+    pickupComment,
+    deliveryComment,
     contact: { name, phone, email, notes },
   });
 
@@ -801,7 +818,7 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
       customer: { name, phone, email, comments: notes },
       preferredDate,
       timeWindow,
-      moving: { pickupAddress, deliveryAddress, origin, destination, serviceCodes },
+      moving: { pickupAddress, deliveryAddress, origin, destination, serviceCodes, pickupComment, deliveryComment },
     };
     // A typed address must be picked from the suggestions before saving, as when booking.
     const blockedMessage =

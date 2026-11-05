@@ -146,7 +146,7 @@ export type CustomerEditState = {
   preferredDate: string;
   timeWindow: string;
   pickups?: AdminPickupStop[];
-  delivery?: { address: string; floor: number | null; liftAvailable: boolean };
+  delivery?: { address: string; floor: number | null; liftAvailable: boolean; comment?: string };
   cards?: CustomerEditCard[];
 };
 
@@ -234,7 +234,12 @@ export function classifyCustomerOrderEdit(before: CustomerEditState, after: Cust
       kinds.add("notes");
     }
   }
-  if (after.delivery !== undefined && !same(before.delivery, after.delivery)) kinds.add("addresses");
+  if (after.delivery !== undefined) {
+    // Its comment is a note for the driver; the rest is where we go.
+    const place = (d: CustomerEditState["delivery"]) => (d ? { address: d.address, floor: d.floor, liftAvailable: d.liftAvailable } : d);
+    if ((before.delivery?.comment ?? "") !== (after.delivery.comment ?? "")) kinds.add("notes");
+    if (!same(place(before.delivery), place(after.delivery))) kinds.add("addresses");
+  }
 
   if (after.cards !== undefined) {
     const beforeById = new Map((before.cards ?? []).map((card) => [card.cardId, card]));

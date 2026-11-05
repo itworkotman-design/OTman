@@ -34,6 +34,15 @@ const valid: AdminOrderDetails = {
 };
 
 describe("parseAdminOrderDetails", () => {
+  it("keeps the delivery's comment, trimmed, and checks it for disallowed characters", () => {
+    const result = parseAdminOrderDetails({ ...valid, delivery: { ...valid.delivery, comment: " Ring på " } });
+    expect(result.ok && result.details.delivery.comment).toBe("Ring på");
+    const blank = parseAdminOrderDetails({ ...valid, delivery: { ...valid.delivery, comment: " " } });
+    expect(blank.ok && blank.details.delivery).not.toHaveProperty("comment");
+    const bad = parseAdminOrderDetails({ ...valid, delivery: { ...valid.delivery, comment: "<script>" } });
+    expect(bad).toMatchObject({ ok: false, errors: { "delivery.comment": expect.any(String) } });
+  });
+
   it("keeps each stop's comment, trimmed, and checks it for disallowed characters", () => {
     const result = parseAdminOrderDetails({ ...valid, pickups: [{ ...valid.pickups[0], comment: "  Varemottak " }] });
     expect(result.ok && result.details.pickups[0].comment).toBe("Varemottak");

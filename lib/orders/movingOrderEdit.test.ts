@@ -36,6 +36,11 @@ describe("movingEditFromOrder", () => {
     expect(movingEditFromOrder(stored)).toEqual(edit);
   });
 
+  it("reads each end's comment back", () => {
+    const withComments = { ...stored, websiteBookingDetails: { ...stored.websiteBookingDetails, pickupComment: "Kodelås", deliveryComment: "Ring på" } };
+    expect(movingEditFromOrder(withComments)).toEqual({ ...edit, pickupComment: "Kodelås", deliveryComment: "Ring på" });
+  });
+
   it("is null for an order without stored moving answers (booked before they were kept)", () => {
     expect(movingEditFromOrder({ ...stored, websiteBookingDetails: null })).toBeNull();
   });
@@ -51,6 +56,13 @@ describe("parseMovingEdit", () => {
     });
   });
 
+  it("keeps the comments, trimmed, and checks them for disallowed characters", () => {
+    const parsed = parseMovingEdit({ ...edit, pickupComment: " Kodelås ", deliveryComment: "" });
+    expect(parsed.ok && parsed.edit).toMatchObject({ pickupComment: "Kodelås" });
+    expect(parsed.ok && parsed.edit).not.toHaveProperty("deliveryComment");
+    expect(parseMovingEdit({ ...edit, deliveryComment: "<b>" })).toMatchObject({ ok: false, errors: { deliveryComment: expect.any(String) } });
+  });
+
   it("requires both addresses", () => {
     expect(parseMovingEdit({ ...edit, deliveryAddress: " " })).toMatchObject({ ok: false, errors: { deliveryAddress: "Required" } });
   });
@@ -63,6 +75,10 @@ describe("parseMovingEdit", () => {
 describe("classifyMovingEdit — the same change kinds as a delivery order", () => {
   it("sees nothing for an unchanged move", () => {
     expect(classifyMovingEdit(edit, { ...edit })).toEqual([]);
+  });
+
+  it("a changed comment is a note (allowed within 24h too)", () => {
+    expect(classifyMovingEdit(edit, { ...edit, deliveryComment: "Ring på" })).toEqual(["notes"]);
   });
 
   it("a moved address is an address change", () => {
@@ -117,6 +133,17 @@ describe("movingOrderSaveData", () => {
     expect(save.orderData.description).toContain("Moving from: Apartment, Under 40 m²");
     expect(save.orderData.description).toContain("Piano");
     expect(save.itemRows.map((r) => r.optionCode)).toEqual(["SIZE_UNDER_40", "SERVICE_NEDPAKKING", "KM_FROM_21"]);
+  });
+
+  it("saves the comments in the answers and the description", () => {
+    const parsed = parseMovingEdit({ ...edit, pickupComment: "Kodelås 1234", deliveryComment: "Ring på" });
+    if (!parsed.ok) throw new Error("not ok");
+    const quote = priceMovingOrder(catalog, { ...parsed, serviceCodes: edit.serviceCodes, drivingDistance: "" });
+    if (!quote.ok) throw new Error("not ok");
+    const save = movingOrderSaveData({ quote, parsed, drivingDistance: "", notes: null, customerType: "private" });
+    expect(save.orderData.websiteBookingDetails).toMatchObject({ pickupComment: "Kodelås 1234", deliveryComment: "Ring på" });
+    expect(save.orderData.description).toContain("    *comment: Kodelås 1234");
+    expect(save.orderData.description).toContain("    *comment: Ring på");
   });
 
   it("keeps the order's discount and extra on the re-priced move", () => {

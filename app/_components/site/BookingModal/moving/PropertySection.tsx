@@ -50,6 +50,10 @@ type DetailsProps = SectionProps & {
   sizeOptions: MovingCatalogOption[];
   catalogLoading: boolean;
   catalogError: string | null;
+  // Optional note for the driver at this end (gate code, which entrance…).
+  comment: string;
+  onCommentChange: (value: string) => void;
+  commentLabel: string;
 };
 
 export function floorsLabel(locale: Locale, n: number) {
@@ -148,6 +152,9 @@ export function PropertyDetailsSection({
   sizeOptions,
   catalogLoading,
   catalogError,
+  comment,
+  onCommentChange,
+  commentLabel,
   onReady,
   onRetract,
 }: DetailsProps) {
@@ -272,6 +279,17 @@ export function PropertyDetailsSection({
           </Chip>
         ))}
       </div>
+
+      <label className="mt-1 block">
+        <SubHeading>{commentLabel}</SubHeading>
+        <textarea
+          value={comment}
+          onChange={(e) => onCommentChange(sanitizeTextInput(e.target.value))}
+          rows={2}
+          placeholder={t("e.g. gate code, which entrance, call on arrival", "f.eks. portkode, hvilken inngang, ring ved ankomst")}
+          className="mt-2 w-full resize-none rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-logoblue"
+        />
+      </label>
 
       <AutoAdvance ready={isReady} onReady={onReady} onRetract={onRetract} />
     </div>

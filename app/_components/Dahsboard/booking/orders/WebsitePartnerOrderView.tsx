@@ -84,6 +84,8 @@ export function websitePartnerReviewBlocks(view: WebsitePartnerView, locale: Boo
         deliveryAddress: view.moving.edit.deliveryAddress,
         origin: view.moving.edit.origin,
         destination: view.moving.edit.destination,
+        pickupComment: view.moving.edit.pickupComment,
+        deliveryComment: view.moving.edit.deliveryComment,
         sizeOptions: view.sizeOptions,
         preferredDate: view.moving.preferredDate,
         timeWindow: view.moving.timeWindow,

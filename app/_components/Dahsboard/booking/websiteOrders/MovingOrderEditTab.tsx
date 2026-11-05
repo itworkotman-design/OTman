@@ -223,6 +223,9 @@ export default function MovingOrderEditTab({
       address: draft.edit.pickupAddress,
       property: draft.edit.origin,
       onAddress: (pickupAddress: string) => setEdit({ pickupAddress }),
+      comment: draft.edit.pickupComment ?? "",
+      commentLabel: t("Comment for the pickup", "Kommentar til hentestedet"),
+      onComment: (pickupComment: string) => setEdit({ pickupComment }),
       onProperty: (patch: Partial<MovingPropertyDraft>) => setEdit({ origin: { ...draft.edit.origin, ...patch } }),
     },
     {
@@ -231,6 +234,9 @@ export default function MovingOrderEditTab({
       address: draft.edit.deliveryAddress,
       property: draft.edit.destination,
       onAddress: (deliveryAddress: string) => setEdit({ deliveryAddress }),
+      comment: draft.edit.deliveryComment ?? "",
+      commentLabel: t("Comment for the delivery", "Kommentar til leveringen"),
+      onComment: (deliveryComment: string) => setEdit({ deliveryComment }),
       onProperty: (patch: Partial<MovingPropertyDraft>) => setEdit({ destination: { ...draft.edit.destination, ...patch } }),
     },
   ];
@@ -355,6 +361,17 @@ export default function MovingOrderEditTab({
                   </div>
                   {blocked(end.key, "parking") && <p className={errorClass}>{t("Choose where the van can park.", "Velg hvor bilen kan parkere.")}</p>}
                 </div>
+
+                <label className="mt-4 block border-t border-neutral-200 pt-4">
+                  <span className={labelClass}>{end.commentLabel}</span>
+                  <textarea
+                    rows={2}
+                    className={`${fieldClass} resize-none`}
+                    value={end.comment}
+                    placeholder={t("e.g. gate code, which entrance", "f.eks. portkode, hvilken inngang")}
+                    onChange={(e) => end.onComment(e.target.value)}
+                  />
+                </label>
               </div>
             </section>
           );

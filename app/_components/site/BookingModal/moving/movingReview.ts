@@ -25,6 +25,9 @@ export type MovingReviewInput = {
   preferredDate: string;
   timeWindow: string;
   drivingDistance: string;
+  // The customer's note for the driver at each end.
+  pickupComment?: string;
+  deliveryComment?: string;
   contact: { name: string; phone: string; email: string; notes: string };
 };
 
@@ -35,7 +38,7 @@ export function buildMovingReviewBlocks(locale: Locale, input: MovingReviewInput
   const present = (rows: [string, string | null | undefined][]): ReviewRow[] =>
     rows.filter((row): row is [string, string] => !!row[1]?.trim()).map(([label, value]) => ({ label, value }));
 
-  const end = (title: string, address: string, property: MovingPropertyDraft): ReviewBlock => {
+  const end = (title: string, address: string, property: MovingPropertyDraft, comment: string | undefined): ReviewBlock => {
     const homeType = MOVING_HOME_TYPES.find((h) => h.code === property.homeType);
     const size = input.sizeOptions.find((o) => o.code === property.sizeOptionCode);
     const parking = MOVING_PARKING_OPTIONS.find((p) => p.code === property.parking);
@@ -60,13 +63,14 @@ export function buildMovingReviewBlocks(locale: Locale, input: MovingReviewInput
         [t("Number of floors", "Antall etasjer"), floorsLabel(locale, property.floors)],
         [t("Floor", "Etasje"), floor],
         [t("Parking", "Parkering"), parking && (no ? parking.labelNo : parking.labelEn)],
+        [t("Comment", "Kommentar"), comment],
       ]),
     };
   };
 
   return [
-    end(t("Moving from", "Flytter fra"), input.pickupAddress, input.origin),
-    end(t("Moving to", "Flytter til"), input.deliveryAddress, input.destination),
+    end(t("Moving from", "Flytter fra"), input.pickupAddress, input.origin, input.pickupComment),
+    end(t("Moving to", "Flytter til"), input.deliveryAddress, input.destination, input.deliveryComment),
     {
       kind: "details",
       title: t("Timing", "Tidspunkt"),

@@ -12,3 +12,9 @@ Changing a booked move — shared by the admin edit and the customer's "My order
 - `movingOrderSaveData({ quote, parsed, drivingDistance, notes, customerType, adjustments?, handlingRows? })` — the order fields and lines a
   save writes, plus the typed `pricing`. With `adjustments` (the order's discount/extra and partner minus/plus) the lines are
   priced with them (`movingOrderAdjustedPricing`), so an edit never drops what staff set.
+
+`MovingEdit` carries the optional `pickupComment` / `deliveryComment`:
+
+- `parseMovingEdit` trims them and checks them for disallowed characters.
+- `classifyMovingEdit` counts a changed comment as `notes`, which is always allowed.
+- `movingOrderSaveData` stores them in the booking details and the description.

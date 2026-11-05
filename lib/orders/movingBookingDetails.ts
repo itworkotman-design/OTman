@@ -16,7 +16,17 @@ export type MovingBookingDetails = {
   origin: MovingPropertyDraft;
   destination: MovingPropertyDraft;
   serviceCodes: string[];
+  // The customer's note for the driver at each end (gate code…), when given.
+  pickupComment?: string;
+  deliveryComment?: string;
 };
+
+function commentFields(input: { pickupComment?: unknown; deliveryComment?: unknown }) {
+  const clean = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+  const pickupComment = clean(input.pickupComment);
+  const deliveryComment = clean(input.deliveryComment);
+  return { ...(pickupComment ? { pickupComment } : {}), ...(deliveryComment ? { deliveryComment } : {}) };
+}
 
 function toDraft(property: MovingProperty): MovingPropertyDraft {
   return {
@@ -34,6 +44,8 @@ export function buildMovingBookingDetails(input: {
   origin: MovingProperty;
   destination: MovingProperty;
   serviceCodes: string[];
+  pickupComment?: string | null;
+  deliveryComment?: string | null;
 }): MovingBookingDetails {
   return {
     version: 1,
@@ -41,6 +53,7 @@ export function buildMovingBookingDetails(input: {
     origin: toDraft(input.origin),
     destination: toDraft(input.destination),
     serviceCodes: [...input.serviceCodes],
+    ...commentFields(input),
   };
 }
 
@@ -60,5 +73,6 @@ export function parseMovingBookingDetails(value: unknown): MovingBookingDetails 
     origin: origin.property,
     destination: destination.property,
     serviceCodes: raw.serviceCodes as string[],
+    ...commentFields(raw),
   });
 }

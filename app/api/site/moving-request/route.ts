@@ -113,6 +113,8 @@ async function createMovingRequest(
     destinationLine: quote.destinationLine,
     serviceLabels: quote.services.map((service) => service.labelEn),
     notes: str(body.notes),
+    pickupComment: bookingDetails.pickupComment,
+    deliveryComment: bookingDetails.deliveryComment,
   });
   const summary = quote.summary;
   const movingPricing = quote.pricing;
@@ -227,7 +229,7 @@ export async function POST(req: Request) {
     if (emailErr) errors.email = emailErr;
   }
 
-  const textFields = ["pickupAddress", "deliveryAddress", "name", "timeWindow", "notes"];
+  const textFields = ["pickupAddress", "deliveryAddress", "name", "timeWindow", "notes", "pickupComment", "deliveryComment"];
   for (const field of textFields) {
     if (field in body && !(field in errors)) {
       const err = validateTextField(s(body[field]));
@@ -292,6 +294,9 @@ export async function POST(req: Request) {
       origin: input.origin,
       destination: input.destination,
       serviceCodes: quote.services.map((service) => service.code),
+      // Optional notes for the driver at each end.
+      pickupComment: str(body.pickupComment),
+      deliveryComment: str(body.deliveryComment),
     });
     // Packing or cleaning is a service: a private customer asks for it to be
     // done within the withdrawal period (the summary checkbox).

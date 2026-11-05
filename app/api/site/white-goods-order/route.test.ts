@@ -235,6 +235,13 @@ describe("POST /api/site/white-goods-order", () => {
     expect(json.errors.notes).toBeDefined();
   });
 
+  it("returns 422 for a delivery comment containing disallowed characters", async () => {
+    const res = await post({ ...validBody, deliveryComment: "<b>" });
+
+    expect(res.status).toBe(422);
+    expect((await res.json()).errors.deliveryComment).toBeDefined();
+  });
+
   it("returns 422 for a pickup comment containing disallowed characters, on any stop", async () => {
     const res = await post({
       ...validBody,

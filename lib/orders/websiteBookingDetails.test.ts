@@ -29,6 +29,14 @@ const input: WhiteGoodsBookingDetailsInput = {
 };
 
 describe("buildWhiteGoodsBookingDetails", () => {
+  it("stores the delivery's comment, trimmed, leaving it out when blank", () => {
+    const details = buildWhiteGoodsBookingDetails({ ...input, delivery: { ...input.delivery, comment: "  Ring på " } });
+    expect(details.delivery.comment).toBe("Ring på");
+    expect(parseWhiteGoodsBookingDetails(JSON.parse(JSON.stringify(details)))?.delivery.comment).toBe("Ring på");
+    expect(buildWhiteGoodsBookingDetails({ ...input, delivery: { ...input.delivery, comment: " " } }).delivery).not.toHaveProperty("comment");
+    expect(buildWhiteGoodsBookingDetails(input).delivery).not.toHaveProperty("comment");
+  });
+
   it("stores each stop's comment, leaving it out when blank", () => {
     const [extra] = parseExtraPickupLocations([{ source: "store", address: "Strømmen 1", comment: "Varemottak" }]);
     const details = buildWhiteGoodsBookingDetails({

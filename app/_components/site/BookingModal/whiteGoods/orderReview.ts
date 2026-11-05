@@ -20,7 +20,7 @@ export type ReviewPickup = BookingPickupStop;
 
 export type ReviewInput = {
   pickups: ReviewPickup[];
-  delivery: { address: string; floor: number | null; liftAvailable: boolean };
+  delivery: { address: string; floor: number | null; liftAvailable: boolean; comment?: string };
   preferredDate: string;
   timeWindow: string;
   drivingDistance: string;
@@ -87,6 +87,7 @@ export function buildOrderReviewBlocks(locale: Locale, input: ReviewInput): Revi
         [t("Preferred date", "Ønsket dato"), formatOrderDate(input.preferredDate, locale)],
         [t("Time window", "Tidsvindu"), input.timeWindow],
         [t("Driving distance", "Kjøreavstand"), input.drivingDistance.trim() ? `${input.drivingDistance} km` : null],
+        [t("Comment", "Kommentar"), input.delivery.comment],
       ]),
     },
     {

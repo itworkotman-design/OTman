@@ -22,3 +22,5 @@ Controlled: `value`/`onChange` is the end's `MovingPropertyDraft`, shared by bot
 Layout of `PropertyDetailsSection`: a `sm:grid-cols-[minmax(0,1fr)_220px]` row — size tiles, then the floor + lift
 row on the left, the house preview (vertically centred) filling the right column beside all of them;
 parking runs full width below.
+
+`PropertyDetailsSection` ends with an optional comment box (`comment`, `onCommentChange`, `commentLabel`): the customer's note for the driver at that end.

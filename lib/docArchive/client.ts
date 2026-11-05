@@ -1,5 +1,6 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import pkg from "pg";
+import { pgConnectionString } from "@/lib/dbConnectionString";
 import {
   createArchiveHostAdapter,
   createArchivePrismaClient,
@@ -18,7 +19,7 @@ if (!process.env.ARCHIVE_DATABASE_URL) {
 }
 
 const pool = new Pool({
-  connectionString: process.env.ARCHIVE_DATABASE_URL,
+  connectionString: pgConnectionString(process.env.ARCHIVE_DATABASE_URL),
   ssl: {
     rejectUnauthorized: false,
   },

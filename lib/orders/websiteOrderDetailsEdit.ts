@@ -52,7 +52,7 @@ export type AdminOrderDetails = {
     orgNumber?: string;
   };
   pickups: AdminPickupStop[];
-  delivery: { address: string; floor: number | null; liftAvailable: boolean };
+  delivery: { address: string; floor: number | null; liftAvailable: boolean; comment?: string };
   preferredDate: string;
   timeWindow: string;
   // Km, e.g. "21.5". null = calculate the route (or keep it when no address
@@ -145,7 +145,14 @@ export function parseAdminOrderDetails(raw: unknown): ParsedAdminOrderDetails {
   });
 
   const d = record(v.delivery) ?? {};
-  const delivery = { address: text(d.address), floor: floorOf(d.floor), liftAvailable: d.liftAvailable === true };
+  const deliveryComment = text(d.comment);
+  const delivery: AdminOrderDetails["delivery"] = {
+    address: text(d.address),
+    floor: floorOf(d.floor),
+    liftAvailable: d.liftAvailable === true,
+    ...(deliveryComment ? { comment: deliveryComment } : {}),
+  };
+  if (validateTextField(deliveryComment)) errors["delivery.comment"] = "Contains disallowed characters";
 
   let drivingDistanceOverride: string | null = null;
   const rawOverride = text(v.drivingDistanceOverride).replace(",", ".");
@@ -254,6 +261,7 @@ function generatedNotes(details: WhiteGoodsBookingDetails): string | null {
     deliveryLiftAvailable: details.delivery.liftAvailable,
     orderFloorNo: pair.orderFloorNo,
     orderLift: pair.orderLift,
+    deliveryComment: details.delivery.comment ?? null,
   });
   return buildWebsiteOrderTextFields({ customerComment: null, noteLines, multiPickupLines: [] }).description;
 }

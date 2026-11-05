@@ -49,6 +49,12 @@ describe("stopsFromDetails", () => {
     expect(stops.map((s) => s.cardIds)).toEqual([[0, 1]]);
   });
 
+  it("keeps each stop's comment, so saving here doesn't wipe what the customer wrote", () => {
+    const stops = stopsFromDetails([stop({ comment: "Kodelås 1234" }), stop({ address: "Bjerkeveien 2" })], [card(0)], nameOf);
+    expect(stops.map((s) => s.comment)).toEqual(["Kodelås 1234", undefined]);
+    expect(stopsForSave(stops, nameOf)[0]?.comment).toBe("Kodelås 1234");
+  });
+
   it("puts each product on its stop by card id", () => {
     const stops = stopsFromDetails(
       [stop({ cardIds: [1] }), stop({ address: "Bjerkeveien 2", cardIds: [0] })],

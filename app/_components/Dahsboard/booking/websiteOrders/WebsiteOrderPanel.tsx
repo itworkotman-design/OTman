@@ -232,6 +232,8 @@ export default function WebsiteOrderPanel({
           deliveryAddress: order.moving.edit.deliveryAddress,
           origin: order.moving.edit.origin,
           destination: order.moving.edit.destination,
+          pickupComment: order.moving.edit.pickupComment,
+          deliveryComment: order.moving.edit.deliveryComment,
           sizeOptions: order.sizeOptions,
           preferredDate: order.moving.preferredDate,
           timeWindow: order.moving.timeWindow,

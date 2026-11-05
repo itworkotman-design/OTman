@@ -73,10 +73,23 @@ export function buildCustomerEditPayload(
     const withContacts = withPickupContacts(initial.pickups, current.pickups);
     if (changed(withPickupContacts(initial.pickups, initial.pickups), withContacts)) payload.pickups = withContacts;
   }
+  // The delivery's comment can still change too: sent on the delivery as
+  // loaded, so its address, floor or lift can't slip through.
+  if (!beforeCutoff && isRecord(initial.delivery) && isRecord(current.delivery)) {
+    const commentOf = (d: Stop) => (typeof d.comment === "string" ? d.comment.trim() : "");
+    if (commentOf(initial.delivery) !== commentOf(current.delivery)) {
+      const rest = { ...initial.delivery };
+      delete rest.comment;
+      const comment = commentOf(current.delivery);
+      payload.delivery = { ...rest, ...(comment ? { comment } : {}) };
+    }
+  }
   return payload;
 }
 
 type Stop = Record<string, unknown>;
+
+const isRecord = (value: unknown): value is Stop => !!value && typeof value === "object" && !Array.isArray(value);
 
 // The stops as the server sent them, with only each one's contact person and
 // comment taken from the form — what's compared and sent within 24h of the

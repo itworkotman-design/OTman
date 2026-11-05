@@ -56,7 +56,7 @@ export function BookingTermsNotice({ locale, isRequest = false, showFees = true,
               )}
             </li>
             <li>
-              {t(`To cancel, call ${OTMAN_PHONE} or email info@otman.no.`, `Avbestill på telefon ${OTMAN_PHONE} eller e-post info@otman.no.`)}
+              {t(`To cancel, email info@otman.no.`, `Avbestill på e-post info@otman.no.`)}
             </li>
           </ul>
         </div>

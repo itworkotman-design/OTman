@@ -175,6 +175,18 @@ describe("adminDetailsFromFlow", () => {
     expect(details.pickups[1]).not.toHaveProperty("comment");
   });
 
+  it("sends the delivery's comment, leaving it out when blank", () => {
+    const flowStop = { source: "store" as const, placeName: "", address: "Strømmen 1", floor: null, liftAvailable: false, contactName: "", contactPhone: "", cardIds: [], productNames: [] };
+    const state = (comment: string) => ({
+      customerType: "private" as const, name: "Kari", orgNumber: "", phone: "", email: "", notes: "",
+      firstPickup: flowStop, extraPickups: [],
+      delivery: { address: "Kirkegata 5", floor: 1, liftAvailable: false, comment },
+      preferredDate: "", timeWindow: "", drivingDistance: "",
+    });
+    expect(adminDetailsFromFlow(state(" Ring på ")).delivery).toEqual({ address: "Kirkegata 5", floor: 1, liftAvailable: false, comment: "Ring på" });
+    expect(adminDetailsFromFlow(state("  ")).delivery).not.toHaveProperty("comment");
+  });
+
   it("lets the server work the distance out when the editor has none", () => {
     const details = adminDetailsFromFlow({
       customerType: null,

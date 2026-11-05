@@ -27,6 +27,13 @@ describe("moving booking details (Order.websiteBookingDetails for a MOVING order
     });
   });
 
+  it("keeps a comment for each end, trimmed, leaving out blank ones", () => {
+    const details = buildMovingBookingDetails({ customerType: "private", origin, destination, serviceCodes: [], pickupComment: " Kodelås 1234 ", deliveryComment: " " });
+    expect(details.pickupComment).toBe("Kodelås 1234");
+    expect(details).not.toHaveProperty("deliveryComment");
+    expect(parseMovingBookingDetails(JSON.parse(JSON.stringify(details)))?.pickupComment).toBe("Kodelås 1234");
+  });
+
   it("round-trips through JSON", () => {
     const details = buildMovingBookingDetails({ customerType: null, origin, destination, serviceCodes: [] });
     expect(parseMovingBookingDetails(JSON.parse(JSON.stringify(details)))).toEqual(details);

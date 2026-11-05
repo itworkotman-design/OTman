@@ -216,6 +216,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   // necessarily the same kind of building.
   const [pickupLiftAvailable, setPickupLiftAvailable] = useState(false);
   const [deliveryLiftAvailable, setDeliveryLiftAvailable] = useState(false);
+  // Optional note for the driver at the delivery address (gate code…).
+  const [deliveryComment, setDeliveryComment] = useState("");
   const [preferredDate, setPreferredDate] = useState("");
   const [timeWindow, setTimeWindow] = useState("");
   // Not user-editable — calculated from the pickup/delivery addresses below
@@ -558,6 +560,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     setDeliveryAddress(details.delivery.address, !!details.delivery.address);
     setDeliveryFloor(details.delivery.floor);
     setDeliveryLiftAvailable(details.delivery.liftAvailable);
+    setDeliveryComment(details.delivery.comment ?? "");
     setPreferredDate(details.preferredDate);
     setTimeWindow(details.timeWindow);
     setDrivingDistance(loaded.drivingDistance ?? "");
@@ -1034,6 +1037,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
           deliveryFloor: effectiveDeliveryFloor,
           pickupLiftAvailable,
           deliveryLiftAvailable,
+          deliveryComment,
           drivingDistance,
           preferredDate,
           timeWindow,
@@ -1517,6 +1521,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
             setDeliveryFloor={setDeliveryFloor}
             deliveryLiftAvailable={deliveryLiftAvailable}
             setDeliveryLiftAvailable={setDeliveryLiftAvailable}
+            deliveryComment={deliveryComment}
+            setDeliveryComment={setDeliveryComment}
             preferredDate={preferredDate}
             setPreferredDate={setPreferredDate}
             timeWindow={timeWindow}
@@ -1600,7 +1606,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
         comment: loc.comment,
       })),
     ],
-    delivery: { address: deliveryAddress, floor: deliveryFloor, liftAvailable: deliveryLiftAvailable },
+    delivery: { address: deliveryAddress, floor: deliveryFloor, liftAvailable: deliveryLiftAvailable, comment: deliveryComment },
     preferredDate,
     timeWindow,
     drivingDistance,
@@ -1743,7 +1749,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
         comment: loc.comment,
       };
     }),
-    delivery: { address: deliveryAddress, floor: deliveryFloor, liftAvailable: deliveryLiftAvailable },
+    delivery: { address: deliveryAddress, floor: deliveryFloor, liftAvailable: deliveryLiftAvailable, comment: deliveryComment },
     preferredDate,
     timeWindow,
     drivingDistance,

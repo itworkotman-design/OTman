@@ -8,3 +8,5 @@ Addresses, date, time window and distance live on the order's own columns. Teste
 ## Functions
 - `buildMovingBookingDetails({ customerType, origin, destination, serviceCodes })` — version 1; both ends as the flow's draft codes.
 - `parseMovingBookingDetails(value)` — re-validates both ends with `parseMovingProperty`; `null` for anything else (e.g. a move booked before this was stored). An unknown customer type becomes `null`.
+
+`pickupComment` / `deliveryComment` (optional, trimmed, absent when blank): the customer's note for the driver at each end, sent as `pickupComment` / `deliveryComment` in the booking body. Kept by `buildMovingBookingDetails` / `parseMovingBookingDetails`.

@@ -338,6 +338,8 @@ async function createWhiteGoodsOrder(
   const pickupContactPhoneStr = str(body.pickupContactPhone);
   // Optional, any pickup source — the customer's note for the driver.
   const pickupCommentStr = str(body.pickupComment);
+  // Optional — the customer's note for the driver at the delivery address.
+  const deliveryCommentStr = str(body.deliveryComment);
 
   const orderFloorNo = String(costliestFloor(pickupFloor, deliveryFloor));
   // Legacy single field (read when the order is re-priced) — "yes" only when
@@ -369,6 +371,7 @@ async function createWhiteGoodsOrder(
     deliveryLiftAvailable,
     orderFloorNo,
     orderLift,
+    deliveryComment: deliveryCommentStr,
   });
 
   // Structured copy of what the customer entered, for the admin
@@ -392,7 +395,7 @@ async function createWhiteGoodsOrder(
         : {}),
     },
     extraPickups: extraPickupLocations,
-    delivery: { address: str(body.deliveryAddress), floor: deliveryFloor, liftAvailable: deliveryLiftAvailable },
+    delivery: { address: str(body.deliveryAddress), floor: deliveryFloor, liftAvailable: deliveryLiftAvailable, comment: deliveryCommentStr },
     preferredDate: str(body.preferredDate),
     timeWindow: str(body.timeWindow),
     drivingDistance: drivingDistanceStr || null,
@@ -562,7 +565,7 @@ export async function POST(req: Request) {
     if (emailErr) errors.email = emailErr;
   }
 
-  const textFields = ["pickupAddress", "deliveryAddress", "name", "timeWindow", "notes", "pickupPlaceName", "pickupContactName", "pickupComment"];
+  const textFields = ["pickupAddress", "deliveryAddress", "name", "timeWindow", "notes", "pickupPlaceName", "pickupContactName", "pickupComment", "deliveryComment"];
   for (const field of textFields) {
     if (field in body && !(field in errors)) {
       const err = validateTextField(s(body[field]));

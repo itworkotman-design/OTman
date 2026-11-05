@@ -9,3 +9,5 @@ so staff read them there.
 ### `movingOrderDescription({ originLine, destinationLine, serviceLabels, notes })`
 `Moving from: …`, `Moving to: …` (lines from `movingPropertyLine`), `Additional services: …`
 when any, then the customer's notes — blank-line separated.
+
+Optional `pickupComment` / `deliveryComment` each become a `    *comment: …` line under their "Moving from" / "Moving to" line.

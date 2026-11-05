@@ -34,6 +34,14 @@ describe("buildPickupNoteLines", () => {
     ]);
   });
 
+  it("adds the customer's comment for the delivery, under a Delivery line", () => {
+    const lines = buildPickupNoteLines({ ...delivery, stops: [stop({ address: "Storgata 1" })], deliveryComment: " Ring på ved ankomst " });
+    expect(lines).toEqual(["Pickup 1 - Store (Storgata 1)", "", "Delivery", "    *comment: Ring på ved ankomst"]);
+
+    const withFloor = buildPickupNoteLines({ ...delivery, orderFloorNo: "1", stops: [stop({})], deliveryComment: "Kodelås 1234" });
+    expect(withFloor.slice(-3)).toEqual(["Delivery", "    *floor 5, no lift", "    *comment: Kodelås 1234"]);
+  });
+
   it("writes one line per pickup stop, with its type, name, address and products", () => {
     const lines = buildPickupNoteLines({
       ...delivery,

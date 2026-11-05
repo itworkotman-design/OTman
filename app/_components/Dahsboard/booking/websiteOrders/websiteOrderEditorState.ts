@@ -55,6 +55,7 @@ export function stopsFromDetails(
       liftAvailable: stop.liftAvailable,
       contactName: stop.contactName,
       contactPhone: stop.contactPhone,
+      ...(stop.comment ? { comment: stop.comment } : {}),
       cardIds: claims[i] ?? [],
     }),
   );

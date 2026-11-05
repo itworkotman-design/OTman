@@ -24,6 +24,9 @@ export type MovingEdit = {
   origin: MovingPropertyDraft;
   destination: MovingPropertyDraft;
   serviceCodes: string[];
+  // The customer's note for the driver at each end (optional).
+  pickupComment?: string;
+  deliveryComment?: string;
 };
 
 export function movingEditFromOrder(order: {
@@ -39,6 +42,8 @@ export function movingEditFromOrder(order: {
     origin: details.origin,
     destination: details.destination,
     serviceCodes: details.serviceCodes,
+    ...(details.pickupComment ? { pickupComment: details.pickupComment } : {}),
+    ...(details.deliveryComment ? { deliveryComment: details.deliveryComment } : {}),
   };
 }
 
@@ -57,6 +62,13 @@ export function parseMovingEdit(raw: unknown): ParsedMovingEdit {
   };
   const pickupAddress = address("pickupAddress");
   const deliveryAddress = address("deliveryAddress");
+  const comment = (field: "pickupComment" | "deliveryComment") => {
+    const value = typeof input[field] === "string" ? (input[field] as string).trim() : "";
+    if (value && validateTextField(value)) errors[field] = "Contains disallowed characters";
+    return value;
+  };
+  const pickupComment = comment("pickupComment");
+  const deliveryComment = comment("deliveryComment");
 
   const origin = parseMovingProperty(input.origin);
   const destination = parseMovingProperty(input.destination);
@@ -78,7 +90,15 @@ export function parseMovingEdit(raw: unknown): ParsedMovingEdit {
   });
   return {
     ok: true,
-    edit: { pickupAddress, deliveryAddress, origin: booked.origin, destination: booked.destination, serviceCodes: booked.serviceCodes },
+    edit: {
+      pickupAddress,
+      deliveryAddress,
+      origin: booked.origin,
+      destination: booked.destination,
+      serviceCodes: booked.serviceCodes,
+      ...(pickupComment ? { pickupComment } : {}),
+      ...(deliveryComment ? { deliveryComment } : {}),
+    },
     origin: origin.property,
     destination: destination.property,
   };
@@ -96,6 +116,9 @@ export function classifyMovingEdit(before: MovingEdit, after: MovingEdit): Custo
     kinds.add("addresses");
   }
   if (!same(before.origin, after.origin) || !same(before.destination, after.destination)) kinds.add("reconfigure");
+  // A comment is a note for the driver, like the order's own notes.
+  const comments = (edit: MovingEdit) => [edit.pickupComment?.trim() ?? "", edit.deliveryComment?.trim() ?? ""];
+  if (!same(comments(before), comments(after))) kinds.add("notes");
   const removed = before.serviceCodes.some((code) => !after.serviceCodes.includes(code));
   const added = after.serviceCodes.some((code) => !before.serviceCodes.includes(code));
   if (removed) kinds.add("reconfigure");
@@ -129,6 +152,8 @@ export function movingOrderSaveData(params: {
     origin: parsed.origin,
     destination: parsed.destination,
     serviceCodes: quote.services.map((service) => service.code),
+    pickupComment: parsed.edit.pickupComment,
+    deliveryComment: parsed.edit.deliveryComment,
   });
   return {
     orderData: {
@@ -144,6 +169,8 @@ export function movingOrderSaveData(params: {
         destinationLine: quote.destinationLine,
         serviceLabels: quote.services.map((service) => service.labelEn),
         notes: params.notes,
+        pickupComment: parsed.edit.pickupComment,
+        deliveryComment: parsed.edit.deliveryComment,
       }),
       websiteBookingDetails: bookingDetails as unknown as Prisma.InputJsonValue,
     },

@@ -5,9 +5,9 @@ import AddressAutocompleteInput from "@/app/_components/Dahsboard/booking/create
 import { PinIcon } from "@/app/_components/Dahsboard/booking/create/fieldIcons";
 import type { BookingUiLocale } from "@/lib/booking/bookingUiText";
 import type { Locale } from "@/lib/content/ServiceWindowContent";
-import { DocumentIcon, WarningTriangleIcon } from "./orderDetailsIcons";
+import { DocumentIcon, MessageIcon, WarningTriangleIcon } from "./orderDetailsIcons";
 import { DateTimeWindowFields } from "./DateTimeWindowFields";
-import { AddressLabel, FieldLabel, sideColumnClass } from "./formFieldStyles";
+import { AddressLabel, FieldLabel, inputClass, sideColumnClass } from "./formFieldStyles";
 import { isTimeWindowComplete } from "@/lib/booking/timeWindows";
 import { FloorLiftField } from "./floorLiftField";
 import { sanitizeTextInput } from "@/lib/orders/websiteOrderValidation";
@@ -30,6 +30,9 @@ type Props = {
   setDeliveryFloor: (value: number | null) => void;
   deliveryLiftAvailable: boolean;
   setDeliveryLiftAvailable: (value: boolean) => void;
+  // Optional note for the driver at the delivery address.
+  deliveryComment: string;
+  setDeliveryComment: (value: string) => void;
   preferredDate: string;
   setPreferredDate: (value: string) => void;
   timeWindow: string;
@@ -54,6 +57,8 @@ export function OrderDetailsCard({
   setDeliveryFloor,
   deliveryLiftAvailable,
   setDeliveryLiftAvailable,
+  deliveryComment,
+  setDeliveryComment,
   preferredDate,
   setPreferredDate,
   timeWindow,
@@ -164,6 +169,22 @@ export function OrderDetailsCard({
           onLiftChange={setDeliveryLiftAvailable}
           surchargePerFloor={floorSurchargePerFloor}
         />
+
+        <label className="block">
+          <FieldLabel icon={<MessageIcon className="h-4 w-4" />}>
+            {t("Comment for the delivery (optional)", "Kommentar til leveringen (valgfritt)")}
+          </FieldLabel>
+          <textarea
+            value={deliveryComment}
+            onChange={(e) => setDeliveryComment(sanitizeTextInput(e.target.value))}
+            rows={2}
+            placeholder={t(
+              "e.g. gate code, which entrance, call on arrival",
+              "f.eks. portkode, hvilken inngang, ring ved ankomst",
+            )}
+            className={`${inputClass} h-auto resize-none py-2.5`}
+          />
+        </label>
 
         <DateTimeWindowFields
           locale={locale}

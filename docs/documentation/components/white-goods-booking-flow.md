@@ -24,3 +24,5 @@ Admins no longer edit through this flow: `WebsiteOrderModal`'s "Edit order" tab 
 In customer edit mode, the flow runs `findCardsWithoutPickup` on `editedDetails.pickups` (the stops it is about to send) and passes a `blockedMessage` to `CustomerOrderEditFooter`, so Save stays disabled while any product has no pickup address. Within 24h of the job, when the customer can't edit pickups, the message tells them to contact us. Before the cutoff it also runs `findPickupsWithoutProducts`: a pickup address with no products blocks Save too, naming the pickup. Store pickups never send a contact person (in the payload or the review summary).
 
 The summary shows `BookingTermsNotice` above the submit button (terms/privacy links; fees and the withdrawal-period checkbox on bookings).
+
+The delivery card (`OrderDetailsCard`) has an optional "Kommentar til leveringen" text box (`deliveryComment`), like the pickup comment.

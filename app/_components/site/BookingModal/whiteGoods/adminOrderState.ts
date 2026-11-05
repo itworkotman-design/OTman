@@ -101,11 +101,12 @@ export function adminDetailsFromFlow(state: {
   notes: string;
   firstPickup: FlowStop;
   extraPickups: FlowStop[];
-  delivery: { address: string; floor: number | null; liftAvailable: boolean };
+  delivery: { address: string; floor: number | null; liftAvailable: boolean; comment?: string };
   preferredDate: string;
   timeWindow: string;
   drivingDistance: string;
 }): AdminOrderDetails {
+  const { comment: deliveryComment, ...delivery } = state.delivery;
   return {
     customer: {
       name: state.name,
@@ -116,7 +117,7 @@ export function adminDetailsFromFlow(state: {
       ...(state.customerType === "business" && state.orgNumber.trim() ? { orgNumber: state.orgNumber.trim() } : {}),
     },
     pickups: [toAdminStop(state.firstPickup), ...state.extraPickups.map(toAdminStop)],
-    delivery: { ...state.delivery },
+    delivery: { ...delivery, ...(deliveryComment?.trim() ? { comment: deliveryComment.trim() } : {}) },
     preferredDate: state.preferredDate,
     timeWindow: state.timeWindow,
     drivingDistanceOverride: state.drivingDistance.trim() ? state.drivingDistance : null,

@@ -12,7 +12,8 @@
 //       *floor 10, no lift
 //       *comment: Kodelås 1234
 //
-// (the "*comment" line only when the customer left one for that stop).
+// (the "*comment" line only when the customer left one for that stop). A
+// comment for the delivery goes under a "Delivery" line the same way.
 
 export type PickupNoteStop = {
   source: string | null;
@@ -58,6 +59,7 @@ export function buildPickupNoteLines(params: {
   deliveryLiftAvailable: boolean;
   orderFloorNo: string;
   orderLift: "yes" | "no";
+  deliveryComment?: string | null;
 }): string[] {
   const blocks = params.stops.map((stop, i) => [
     stopLine(stop, i),
@@ -68,12 +70,18 @@ export function buildPickupNoteLines(params: {
   const deliveryShownByGsm =
     params.orderFloorNo === String(params.deliveryFloor) &&
     params.orderLift === (params.deliveryLiftAvailable ? "yes" : "no");
-  if (!deliveryShownByGsm) {
+  const deliveryComment = params.deliveryComment?.trim();
+  if (!deliveryShownByGsm || deliveryComment) {
     blocks.push([
       "Delivery",
-      params.deliveryFloor !== 0
-        ? floorLine(params.deliveryFloor, params.deliveryLiftAvailable)
-        : `    *${params.deliveryLiftAvailable ? "lift" : "no lift"}`,
+      ...(deliveryShownByGsm
+        ? []
+        : [
+            params.deliveryFloor !== 0
+              ? floorLine(params.deliveryFloor, params.deliveryLiftAvailable)
+              : `    *${params.deliveryLiftAvailable ? "lift" : "no lift"}`,
+          ]),
+      ...(deliveryComment ? [`    *comment: ${deliveryComment}`] : []),
     ]);
   }
 

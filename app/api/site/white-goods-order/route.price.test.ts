@@ -270,6 +270,14 @@ describe("POST /api/site/white-goods-order — the price the customer saw", () =
     ]);
   });
 
+  it("keeps the delivery's comment in the description and the booking details", async () => {
+    const res = await post(body({ shownTotal: serverTotal("171.12"), deliveryComment: " Ring på, kodelås 4321 " }));
+    expect(res.status).toBe(200);
+    const data = mocks.orderCreate.mock.calls[0]![0].data;
+    expect(data.description).toContain(["Delivery", "    *comment: Ring på, kodelås 4321"].join("\n"));
+    expect(data.websiteBookingDetails.delivery.comment).toBe("Ring på, kodelås 4321");
+  });
+
   it("refuses an order that doesn't say what total the customer saw", async () => {
     const res = await post(body());
     expect(res.status).toBe(400);

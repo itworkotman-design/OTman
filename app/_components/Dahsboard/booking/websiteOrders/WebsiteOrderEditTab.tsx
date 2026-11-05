@@ -581,6 +581,17 @@ export default function WebsiteOrderEditTab({
                 )}
               </div>
 
+              <label className="mt-3 block">
+                <span className={labelClass}>{t("Comment for this pickup", "Kommentar til hentestedet")}</span>
+                <textarea
+                  rows={2}
+                  className={`${fieldClass} resize-none`}
+                  value={stop.comment ?? ""}
+                  placeholder={t("e.g. gate code, use the loading dock", "f.eks. portkode, bruk varemottaket")}
+                  onChange={(e) => updateStop(index, { comment: e.target.value })}
+                />
+              </label>
+
               <div className="mt-4 border-t border-neutral-200 pt-4">
                 <p className={labelClass}>{t("Products picked up here", "Produkter som hentes her")}</p>
                 {!isSplit ? (
@@ -683,6 +694,17 @@ export default function WebsiteOrderEditTab({
                 {t("Lift available", "Heis tilgjengelig")}
               </label>
             </div>
+
+            <label className="mt-3 block">
+              <span className={labelClass}>{t("Comment for the delivery", "Kommentar til leveringen")}</span>
+              <textarea
+                rows={2}
+                className={`${fieldClass} resize-none`}
+                value={details.delivery.comment ?? ""}
+                placeholder={t("e.g. gate code, which entrance", "f.eks. portkode, hvilken inngang")}
+                onChange={(e) => updateDetails({ delivery: { ...details.delivery, comment: e.target.value } })}
+              />
+            </label>
 
             <div className="mt-4 flex flex-col gap-3 border-t border-neutral-200 pt-4">
               <label>

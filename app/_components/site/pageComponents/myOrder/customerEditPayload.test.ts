@@ -40,6 +40,13 @@ describe("buildCustomerEditPayload", () => {
     expect(buildCustomerEditPayload(initial, current, false)).toEqual({});
   });
 
+  it("after the cutoff sends a changed delivery comment — on the delivery as loaded, nothing else changed", () => {
+    const current = { ...structuredClone(initial), delivery: { address: "Annen vei", floor: 9, liftAvailable: true, comment: "Ring på" } };
+    expect(buildCustomerEditPayload(initial, current, false)).toEqual({
+      delivery: { address: "Kirkegata 5", floor: 2, liftAvailable: false, comment: "Ring på" },
+    });
+  });
+
   it("after the cutoff sends a changed pickup contact person — on the stops as loaded, nothing else changed", () => {
     const current = {
       ...structuredClone(initial),

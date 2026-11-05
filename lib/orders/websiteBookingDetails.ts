@@ -39,7 +39,8 @@ export type WhiteGoodsBookingDetails = {
   // is the order's customerName.
   orgNumber?: string;
   pickups: BookingPickupStop[];
-  delivery: { address: string; floor: number | null; liftAvailable: boolean };
+  // comment: the customer's note for the delivery (gate code…), when given.
+  delivery: { address: string; floor: number | null; liftAvailable: boolean; comment?: string };
   preferredDate: string;
   timeWindow: string;
   drivingDistance: string;
@@ -70,7 +71,7 @@ export type WhiteGoodsBookingDetailsInput = {
     comment?: string | null;
   };
   extraPickups: ParsedExtraPickupLocation[];
-  delivery: { address: string | null; floor: number; liftAvailable: boolean };
+  delivery: { address: string | null; floor: number; liftAvailable: boolean; comment?: string | null };
   preferredDate: string | null;
   timeWindow: string | null;
   drivingDistance: string | null;
@@ -102,6 +103,11 @@ function orgNumberField(type: BookingCustomerType | null, value: unknown): { org
 
 function text(value: unknown): string {
   return typeof value === "string" ? value : "";
+}
+
+function commentField(value: unknown): { comment?: string } {
+  const comment = text(value).trim();
+  return comment ? { comment } : {};
 }
 
 function names(value: unknown): string[] {
@@ -152,6 +158,7 @@ export function buildWhiteGoodsBookingDetails(input: WhiteGoodsBookingDetailsInp
       address: text(input.delivery.address),
       floor: floorOrNull(input.delivery.floor),
       liftAvailable: input.delivery.liftAvailable,
+      ...commentField(input.delivery.comment),
     },
     preferredDate: text(input.preferredDate),
     timeWindow: text(input.timeWindow),
@@ -183,6 +190,7 @@ export function parseWhiteGoodsBookingDetails(value: unknown): WhiteGoodsBooking
       address: text(delivery.address),
       floor: floorOrNull(delivery.floor),
       liftAvailable: delivery.liftAvailable === true,
+      ...commentField(delivery.comment),
     },
     preferredDate: text(v.preferredDate),
     timeWindow: text(v.timeWindow),

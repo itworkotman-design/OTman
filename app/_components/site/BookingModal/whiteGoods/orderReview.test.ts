@@ -24,6 +24,12 @@ const rows = (block: { rows: { label: string; value: string }[] }) =>
   Object.fromEntries(block.rows.map((row) => [row.label, row.value]));
 
 describe("buildOrderReviewBlocks", () => {
+  it("shows the delivery's comment when there is one", () => {
+    const blocks = buildOrderReviewBlocks("no", { ...base, delivery: { ...base.delivery, comment: "Ring på" } });
+    expect(rows(blocks[1]!).Kommentar).toBe("Ring på");
+    expect(rows(buildOrderReviewBlocks("no", base)[1]!).Kommentar).toBeUndefined();
+  });
+
   it("shows a pickup's comment when there is one", () => {
     const [pickupBlock] = buildOrderReviewBlocks("no", { ...base, pickups: [{ ...pickup, comment: "Varemottak bak" }] });
     expect(rows(pickupBlock).Kommentar).toBe("Varemottak bak");
