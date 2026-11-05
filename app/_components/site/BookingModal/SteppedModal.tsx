@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { activeSectionIndex, asideSectionGroups, finalStepScrollTarget, heightHoldAction, isFinalStepShown, isSectionDimmed, newSectionScrollTop, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, revealedSectionToScrollTo, revealsUnseenSection, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
+import { activeSectionIndex, asideSectionGroups, finalStepScrollTarget, heightHoldAction, isFinalStepShown, isSectionDimmed, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, revealedSectionToScrollTo, revealsUnseenSection, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
+import { followRevealedSection } from "./revealScrollFollow";
 
 export type StepSectionRenderProps = {
   // True for the one section currently being answered (the last one
@@ -243,26 +244,53 @@ export function SteppedModal({
   // Smoothly scrolls the body down to a just-revealed section once its open
   // animation (RevealSection) is done, so its full height is measured.
   const newSectionScrollTimerRef = useRef<number | undefined>(undefined);
+  // Stops following the last revealed section (revealScrollFollow.ts).
+  const stopFollowRef = useRef<() => void>(() => {});
   const scrollToSectionAfterReveal = (sectionId: string) => {
     window.clearTimeout(newSectionScrollTimerRef.current);
+    stopFollowRef.current();
     newSectionScrollTimerRef.current = window.setTimeout(() => {
       const scroller = scrollRef.current;
       const el = scroller?.querySelector<HTMLElement>(`[data-step-section="${CSS.escape(sectionId)}"]`);
       if (!scroller || !el) return;
-      const scrollerTop = scroller.getBoundingClientRect().top + scroller.clientTop;
-      const rect = el.getBoundingClientRect();
-      const target = newSectionScrollTop({
-        scrollTop: scroller.scrollTop,
-        viewportHeight: scroller.clientHeight,
-        sectionTop: rect.top - scrollerTop + scroller.scrollTop,
-        sectionBottom: rect.bottom - scrollerTop + scroller.scrollTop,
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      // Scrolled now, and again while its content is still arriving (e.g.
+      // the product grid loading from the server) — until the user scrolls.
+      stopFollowRef.current = followRevealedSection({
+        measure: () => {
+          if (!el.isConnected) return null;
+          const scrollerTop = scroller.getBoundingClientRect().top + scroller.clientTop;
+          const rect = el.getBoundingClientRect();
+          return {
+            scrollTop: scroller.scrollTop,
+            viewportHeight: scroller.clientHeight,
+            sectionTop: rect.top - scrollerTop + scroller.scrollTop,
+            sectionBottom: rect.bottom - scrollerTop + scroller.scrollTop,
+          };
+        },
+        scrollTo: (top) => scroller.scrollTo({ top, behavior: reduceMotion ? "auto" : "smooth" }),
+        observe: (onResize) => {
+          const observer = new ResizeObserver(onResize);
+          observer.observe(el);
+          return () => observer.disconnect();
+        },
+        setTimer: (callback, ms) => {
+          const timer = window.setTimeout(callback, ms);
+          return () => window.clearTimeout(timer);
+        },
         padding: 24,
       });
-      if (target === null) return;
-      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      scroller.scrollTo({ top: target, behavior: reduceMotion ? "auto" : "smooth" });
     }, TRANSITION_MS + 50);
   };
+  // The user taking over the scroll ends the follow.
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+    const stop = () => stopFollowRef.current();
+    const events = ["wheel", "touchstart", "keydown", "mousedown"] as const;
+    events.forEach((event) => scroller.addEventListener(event, stop, { passive: true }));
+    return () => events.forEach((event) => scroller.removeEventListener(event, stop));
+  }, []);
   const lastHeightRef = useRef(0);
   const holdTimerRef = useRef<number | undefined>(undefined);
   // True from when a reveal starts holding the height until that hold is released.
@@ -411,7 +439,13 @@ export function SteppedModal({
     scrollToSectionAfterReveal(section.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealedCount]);
-  useEffect(() => () => window.clearTimeout(newSectionScrollTimerRef.current), []);
+  useEffect(
+    () => () => {
+      window.clearTimeout(newSectionScrollTimerRef.current);
+      stopFollowRef.current();
+    },
+    [],
+  );
   // +1 for the final review/payment step, so the bar only completes once
   // the user actually reaches it, not while the last question section is
   // still being answered.

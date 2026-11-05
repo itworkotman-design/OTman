@@ -1,6 +1,6 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import pkg from "pg";
-import { pgConnectionString } from "@/lib/dbConnectionString";
+import { pgPoolOptions } from "@/lib/dbConnectionString";
 import {
   createArchiveHostAdapter,
   createArchivePrismaClient,
@@ -18,12 +18,7 @@ if (!process.env.ARCHIVE_DATABASE_URL) {
   throw new Error("ARCHIVE_DATABASE_URL is not set");
 }
 
-const pool = new Pool({
-  connectionString: pgConnectionString(process.env.ARCHIVE_DATABASE_URL),
-  ssl: {
-    rejectUnauthorized: false,
-  },
-});
+const pool = new Pool(pgPoolOptions(process.env.ARCHIVE_DATABASE_URL));
 
 const driverAdapter = new PrismaPg(pool, { schema: "archive" });
 
