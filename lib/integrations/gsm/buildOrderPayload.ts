@@ -42,9 +42,11 @@ const WORDPRESS_ORDER_PRICES_PRODUCT_NAME = "WordPress order prices";
 const RETURN_TO_STORE_CODE = "RETURNSTORE";
 const RETURN_TO_STORE_NOTICE = "❗Retur til butikk❗";
 const DISCOUNTED_SUFFIX = " (DISCOUNTED)";
+const RETURN_TO_RECYCLING_CODE = "RETURNREC";
+
 const RETURN_LABELS_BY_CODE: Record<string, string> = {
   [RETURN_TO_STORE_CODE]: RETURN_TO_STORE_NOTICE,
-  RETURNREC: "Retur til gjenvinningsstasjon",
+  [RETURN_TO_RECYCLING_CODE]: "Retur til gjenvinningsstasjon",
 };
 
 function normalizePhone(value?: string | null) {
@@ -295,6 +297,12 @@ function getGsmSummaryItems(items: OrderItem[], productCardsSnapshot: unknown) {
 
     return !isWordpressKmPriceItem(item);
   });
+}
+
+function hasReturnToRecycling(order: GsmOrderInput) {
+  return order.items?.some(
+    (item) => getItemOptionCode(item) === RETURN_TO_RECYCLING_CODE,
+  ) ?? false;
 }
 
 function hasReturnToStore(order: GsmOrderInput) {
@@ -557,7 +565,12 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
     );
   }
 
-  if (order.returnAddress?.trim()) {
+  // A return to a recycling station is handled by the driver without a
+  // separate GSM stop (the description still says "Retur til
+  // gjenvinningsstasjon"), unless it is the order's only task.
+  const skipRecyclingReturnTask = hasReturnToRecycling(order) && tasks.length > 0;
+
+  if (order.returnAddress?.trim() && !skipRecyclingReturnTask) {
     tasks.push(
       makeTask("drop_off", order.returnAddress.trim(), {
         contact: buildAddressContact(order.customReturnAddressName, order.customReturnAddressPhone),
