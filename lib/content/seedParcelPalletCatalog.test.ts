@@ -89,7 +89,7 @@ describe("seedParcelPalletCatalog", () => {
     expect(new Set(sorted.map((p) => p.sortOrder)).size).toBe(sorted.length);
   });
 
-  it("fills prices still at the 0 kr placeholder on reseed, but keeps prices staff entered", async () => {
+  it("fills prices still at the 0 kr placeholder on reseed, but keeps prices staff entered (cleaned to end in 0)", async () => {
     const zero = { price: "0", subcontractorPrice: "0", xtraPrice: "0", xtraSubcontractorPrice: "0" };
     mocks.productFindUnique.mockImplementation(async ({ where }: { where: { code: string } }) =>
       where.code === "PKG_PALL"
@@ -101,7 +101,7 @@ describe("seedParcelPalletCatalog", () => {
     const update = (code: string) => mocks.productUpsert.mock.calls.find(([arg]) => arg.create.code === code)![0].update;
     expect(update("PKG_PALL").deliveryTypes.find((t: { key: string }) => t.key === "FIRST_STEP")).toMatchObject({ price: "776" });
     expect(update("PKG_PALL").deliveryTypes.find((t: { key: string }) => t.key === "INDOOR").enabled).toBe(false);
-    expect(update("PKG_ESKER").deliveryTypes.find((t: { key: string }) => t.key === "FIRST_STEP")).toMatchObject({ price: "650" });
+    expect(update("PKG_ESKER").deliveryTypes.find((t: { key: string }) => t.key === "FIRST_STEP")).toMatchObject({ price: "656", subcontractorPrice: "420" });
   });
 
   it("keeps prices staff entered on this list's own per-price-list config row (what the catalog reads), filling only 0 kr placeholders", async () => {
@@ -123,7 +123,7 @@ describe("seedParcelPalletCatalog", () => {
     const firstStep = (code: string) => config(code).update.deliveryTypes.find((t: { key: string }) => t.key === "FIRST_STEP");
     expect(config("PKG_PALL").where.priceListId_productId.priceListId).toBe("pl-parcel-pallet");
     expect(firstStep("PKG_PALL")).toMatchObject({ price: "776" });
-    expect(firstStep("PKG_ESKER")).toMatchObject({ price: "650" });
+    expect(firstStep("PKG_ESKER")).toMatchObject({ price: "656", subcontractorPrice: "420" });
   });
 
   it("seeds taking the empty pallet at exactly 100 kr ex. VAT, not raised to the next multiple of 8", async () => {
@@ -133,7 +133,7 @@ describe("seedParcelPalletCatalog", () => {
     expect(creates.some((c) => c.customerPriceCents === 10400)).toBe(false);
   });
 
-  it("fills an option price still at 0 kr, but never overwrites one staff entered", async () => {
+  it("fills an option price still at 0 kr, and keeps one staff entered (cleaned to end in 0; exact-priced ones exactly)", async () => {
     mocks.priceListItemFindUnique
       .mockResolvedValueOnce({ customerPriceCents: 0, subcontractorPriceCents: 0 })
       .mockResolvedValue({ customerPriceCents: 15000, subcontractorPriceCents: 9000 });
@@ -141,7 +141,9 @@ describe("seedParcelPalletCatalog", () => {
 
     const updates = mocks.priceListItemUpsert.mock.calls.map(([arg]) => arg.update);
     expect(updates[0]).toEqual({ customerPriceCents: 11200, subcontractorPriceCents: 5000 });
-    expect(updates.slice(1).every((u) => JSON.stringify(u) === "{}")).toBe(true);
+    const codes = mocks.productOptionUpsert.mock.calls.map(([arg]) => arg.create.code as string);
+    // 150 kr kept → 152 (190 incl.); the pallet pickup stays exactly as stored.
+    updates.slice(1).forEach((u, i) => expect(u).toEqual(codes[i + 1] === "PALLET_PICKUP" ? {} : { customerPriceCents: 15200 }));
   });
 
   it("has no PriceListItem rows for the delivery-only products with no options (envelope, bag) — confirming deliveryTypes above is the actual price-bearing field for those, not a moot check", async () => {

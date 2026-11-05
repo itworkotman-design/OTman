@@ -19,6 +19,16 @@ Two families, deliberately separate so a seed can never hit the wrong database:
   `/dashboard/booking/editPrices` (Moving, parcel/pallet, and furniture's
   `staffPriced` "Other furniture" size brackets) never have those prices
   overwritten on reseed.
+- **Every seed writes clean customer prices** (ending in 0 incl. VAT, a
+  multiple of 8 kr ex. VAT — `lib/booking/pricing/websiteCleanPrice.ts`), the
+  same numbers `clean-website-prices.ts` gives: seeded prices, the list fees and
+  deviation fees, and also the prices a reseed *keeps* (staff-priced options,
+  a preserving catalog's options and delivery prices on both `Product` and the
+  list's own `PriceListProductConfig`, Moving's options and fees) — kept, but
+  raised to the next multiple of 8; installation only rounded down. Untouched:
+  partner prices, per-km rates, and `exactCustomerPrice` options (the pallet
+  pickup's deliberate 100 kr). So reseeding a catalog also cleans it; tests in
+  `seedWebsiteCatalog.cleanPrices.test.ts` and `seedMovingCatalog.test.ts`.
 
 ## `scripts/convert-website-orders-to-ex-vat.ts`
 

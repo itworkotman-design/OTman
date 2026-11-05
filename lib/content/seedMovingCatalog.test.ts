@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   productOptionUpdateMany: vi.fn(),
   priceListItemUpsert: vi.fn(),
   priceListItemUpdateMany: vi.fn(),
+  priceListItemFindUnique: vi.fn(),
+  priceListItemUpdate: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -15,7 +17,12 @@ vi.mock("@/lib/db", () => ({
     priceList: { upsert: mocks.priceListUpsert, update: mocks.priceListUpdate },
     product: { upsert: mocks.productUpsert },
     productOption: { upsert: mocks.productOptionUpsert, updateMany: mocks.productOptionUpdateMany },
-    priceListItem: { upsert: mocks.priceListItemUpsert, updateMany: mocks.priceListItemUpdateMany },
+    priceListItem: {
+      upsert: mocks.priceListItemUpsert,
+      updateMany: mocks.priceListItemUpdateMany,
+      findUnique: mocks.priceListItemFindUnique,
+      update: mocks.priceListItemUpdate,
+    },
     priceListProductConfig: { upsert: async () => ({}), findUnique: async () => null },
   },
 }));
@@ -35,6 +42,7 @@ import {
 import { roundToNearest5, websiteSeedCustomerPrice, WHITE_GOODS_ORDER_LEVEL_EXTRAS } from "./whiteGoodsElectronics";
 import { DEVIATION_FEE_OPTIONS } from "@/lib/booking/pricing/deviationFees";
 import { createDefaultPriceListSettings, parsePriceListSettings, serializePriceListSettings } from "@/lib/products/priceListSettings";
+import { cleanWebsitePriceString } from "@/lib/booking/pricing/websiteCleanPrice";
 
 describe("seedMovingCatalog", () => {
   beforeEach(() => {
@@ -301,13 +309,29 @@ describe("seedMovingCatalog — per-km rates", () => {
     expect(Number(settings.kmOver100.price)).toBeCloseTo(WHITE_GOODS_ORDER_LEVEL_EXTRAS.kmOver100.customerPrice);
   });
 
-  it("never overwrites km rates, express or deviation fees staff have set", async () => {
+  it("keeps km rates, express and deviation fees staff have set — fees cleaned to end in 0 incl. VAT, km rates as-is", async () => {
     const settings = createDefaultPriceListSettings();
     settings.kmFrom21 = { ...settings.kmFrom21, price: "35", subcontractorPrice: "20" };
     settings.kmOver100 = { ...settings.kmOver100, price: "30", subcontractorPrice: "18" };
     settings.expressDelivery = { ...settings.expressDelivery, price: "900", subcontractorPrice: "400" };
     settings.deviations.WRONGADRESS = { ...settings.deviations.WRONGADRESS, price: "700" };
     mocks.priceListUpsert.mockResolvedValue({ id: "pl-moving", description: serializePriceListSettings(settings) });
+
+    await seedMovingCatalog();
+
+    const saved = parsePriceListSettings(mocks.priceListUpdate.mock.calls[0][0].data.description);
+    expect(saved.kmFrom21).toMatchObject({ price: "35", subcontractorPrice: "20" });
+    expect(saved.kmOver100).toMatchObject({ price: "30", subcontractorPrice: "18" });
+    expect(saved.expressDelivery).toMatchObject({ price: "904", subcontractorPrice: "400" });
+    expect(saved.deviations.WRONGADRESS.price).toBe("704");
+  });
+
+  it("writes nothing when the stored settings are already clean", async () => {
+    mocks.priceListUpsert.mockResolvedValue({ id: "pl-moving", description: null });
+    await seedMovingCatalog();
+    const firstWrite = mocks.priceListUpdate.mock.calls[0][0].data.description;
+    mocks.priceListUpdate.mockClear();
+    mocks.priceListUpsert.mockResolvedValue({ id: "pl-moving", description: firstWrite });
 
     await seedMovingCatalog();
 
@@ -338,7 +362,8 @@ describe("seedMovingCatalog — per-km rates", () => {
     const raw = String(mocks.priceListUpdate.mock.calls[0][0].data.description);
     const stored = JSON.parse(raw.slice(raw.indexOf(":") + 1)) as { deviations: Record<string, { price: string; subcontractorPrice: string }> };
     for (const option of DEVIATION_FEE_OPTIONS) {
-      expect(stored.deviations[option.code]).toMatchObject({ price: String(option.price), subcontractorPrice: String(option.subcontractorPrice) });
+      // Customer price cleaned like every website price (590 → 592, 740 incl.); partner as-is.
+      expect(stored.deviations[option.code]).toMatchObject({ price: cleanWebsitePriceString(String(option.price)), subcontractorPrice: String(option.subcontractorPrice) });
     }
   });
 
@@ -357,6 +382,56 @@ describe("seedMovingCatalog — per-km rates", () => {
     expect(raw).toContain('"deviations"');
     const saved = parsePriceListSettings(raw);
     expect(saved.kmFrom21.price).toBe("35");
-    expect(saved.expressDelivery.price).toBe("900");
+    expect(saved.expressDelivery.price).toBe("904");
+  });
+});
+
+describe("seedMovingCatalog — clean customer prices", () => {
+  beforeEach(() => {
+    Object.values(mocks).forEach((mock) => mock.mockReset());
+    mocks.priceListUpsert.mockResolvedValue({ id: "pl-moving" });
+    mocks.productUpsert.mockImplementation(async (arg: { create: { code: string } }) => ({ id: `p-${arg.create.code}` }));
+    mocks.productOptionUpsert.mockImplementation(async (arg: { create: { code: string } }) => ({ id: `o-${arg.create.code}` }));
+    mocks.priceListItemUpsert.mockResolvedValue({});
+    mocks.priceListItemUpdateMany.mockResolvedValue({ count: 0 });
+    mocks.productOptionUpdateMany.mockResolvedValue({ count: 0 });
+    mocks.priceListItemFindUnique.mockResolvedValue(null);
+  });
+
+  const upsertFor = (code: string) =>
+    mocks.priceListItemUpsert.mock.calls
+      .map(([arg]) => arg)
+      .find((arg) => arg.where.priceListId_productOptionId.productOptionId === `o-${code}`);
+
+  it("creates (and fills a 0 kr placeholder with) the starting price raised to end in 0 incl. VAT", async () => {
+    await seedMovingCatalog();
+
+    // 7 500 ex. VAT (9 375 incl.) → 7 504 (9 380); 5 000 is already clean.
+    expect(upsertFor("SIZE_UNDER_60").create.customerPriceCents).toBe(750400);
+    expect(upsertFor("SIZE_UNDER_40").create.customerPriceCents).toBe(500000);
+    const fill = mocks.priceListItemUpdateMany.mock.calls
+      .map(([arg]) => arg)
+      .find((arg) => arg.where.productOptionId === "o-SIZE_UNDER_60");
+    expect(fill.data).toEqual({ customerPriceCents: 750400 });
+    // Partner prices are never touched.
+    expect(upsertFor("SIZE_UNDER_60").create.subcontractorPriceCents).toBe(0);
+  });
+
+  it("cleans a price staff have set, keeping it otherwise", async () => {
+    mocks.priceListItemFindUnique.mockImplementation(
+      async (arg: { where: { priceListId_productOptionId: { productOptionId: string } } }) =>
+        arg.where.priceListId_productOptionId.productOptionId === "o-SIZE_UNDER_80"
+          ? { customerPriceCents: 1250000 }
+          : { customerPriceCents: 960000 },
+    );
+
+    await seedMovingCatalog();
+
+    // 12 500 → 12 504 for the one unclean row; clean rows aren't written.
+    expect(mocks.priceListItemUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.priceListItemUpdate).toHaveBeenCalledWith({
+      where: { priceListId_productOptionId: { priceListId: "pl-moving", productOptionId: "o-SIZE_UNDER_80" } },
+      data: { customerPriceCents: 1250400 },
+    });
   });
 });

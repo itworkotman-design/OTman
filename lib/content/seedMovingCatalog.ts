@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { parsePriceSetting } from "@/lib/booking/pricing/orderCalculatorExtras";
 import { roundToNearest5, websiteSeedCustomerPrice, WHITE_GOODS_ORDER_LEVEL_EXTRAS } from "@/lib/content/whiteGoodsElectronics";
 import { parsePriceListSettings, serializePriceListSettings } from "@/lib/products/priceListSettings";
+import { cleanWebsiteExVatPrice, cleanWebsitePriceListSettings } from "@/lib/booking/pricing/websiteCleanPrice";
 import {
   MOVING_CARRY_SURCHARGE_OPTIONS,
   MOVING_CARRY_SURCHARGE_PRODUCT_CODE,
@@ -90,9 +91,10 @@ export async function seedMovingCatalog() {
 // moving list holds them like the others). Staff change them for moving in
 // /dashboard/booking/editPrices. Like the item prices above, only a rate
 // still at 0 kr is filled in and a missing fee added — a price staff have set
-// is never overwritten.
+// is never overwritten, only cleaned: every fee (not the km rates) ends in 0
+// incl. VAT like all website prices (websiteCleanPrice.ts).
 async function seedPriceListSettings(priceList: { id: string; description?: string | null }) {
-  const settings = parsePriceListSettings(priceList.description);
+  let settings = parsePriceListSettings(priceList.description);
   for (const key of ["kmFrom21", "kmOver100"] as const) {
     if (parsePriceSetting(settings[key].price) !== 0) continue;
     const seed = WHITE_GOODS_ORDER_LEVEL_EXTRAS[key];
@@ -107,8 +109,9 @@ async function seedPriceListSettings(priceList: { id: string; description?: stri
       subcontractorPrice: String(roundToNearest5(seed.subcontractorPrice)),
     };
   }
-  // Written whenever it differs from what's stored — a filled-in rate, or
-  // settings stored before the deviation fees (parsing adds them).
+  settings = cleanWebsitePriceListSettings(settings);
+  // Written whenever it differs from what's stored — a filled-in rate, a
+  // cleaned fee, or settings stored before the deviation fees (parsing adds them).
   const description = serializePriceListSettings(settings);
   if (description !== priceList.description) {
     await prisma.priceList.update({
@@ -146,6 +149,9 @@ async function seedFlatProduct(
   let optionsUpserted = 0;
 
   for (const [index, optionSeed] of seed.options.entries()) {
+    // Every customer price ends in 0 incl. VAT (a multiple of 8 kr ex. VAT,
+    // websiteCleanPrice.ts): 7 500 → 7 504 (9 380 incl.). Partner prices as-is.
+    const customerPriceCents = Math.round(cleanWebsiteExVatPrice(optionSeed.customerPrice) * 100);
     const optionData = {
       label: optionSeed.labelEn,
       description: optionSeed.labelNo,
@@ -173,7 +179,7 @@ async function seedFlatProduct(
       create: {
         priceListId,
         productOptionId: option.id,
-        customerPriceCents: Math.round(optionSeed.customerPrice * 100),
+        customerPriceCents,
         subcontractorPriceCents: Math.round(optionSeed.subcontractorPrice * 100),
       },
     });
@@ -182,8 +188,17 @@ async function seedFlatProduct(
     // price staff have entered is never overwritten.
     await prisma.priceListItem.updateMany({
       where: { priceListId, productOptionId: option.id, customerPriceCents: 0 },
-      data: { customerPriceCents: Math.round(optionSeed.customerPrice * 100) },
+      data: { customerPriceCents },
     });
+    // A price staff have set is kept, but cleaned the same way.
+    const itemKey = { priceListId_productOptionId: { priceListId, productOptionId: option.id } };
+    const stored = await prisma.priceListItem.findUnique({ where: itemKey, select: { customerPriceCents: true } });
+    if (stored && stored.customerPriceCents) {
+      const cleanedCents = Math.round(cleanWebsiteExVatPrice(stored.customerPriceCents / 100) * 100);
+      if (cleanedCents !== stored.customerPriceCents) {
+        await prisma.priceListItem.update({ where: itemKey, data: { customerPriceCents: cleanedCents } });
+      }
+    }
     optionsUpserted += 1;
   }
 

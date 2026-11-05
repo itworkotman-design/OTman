@@ -21,6 +21,23 @@ import {
 } from "@/lib/content/whiteGoodsElectronics";
 import { buildDeliveryTypesJson, mergePreservedDeliveryTypes } from "@/lib/content/websiteDeliveryTypes";
 import { shortenCatalogCode } from "@/lib/content/shortCatalogCode";
+import { cleanWebsiteDeliveryTypes, cleanWebsiteExVatPrice, cleanWebsitePriceListSettings } from "@/lib/booking/pricing/websiteCleanPrice";
+
+// Prices a reseed keeps from the database (staff-priced options, a preserving
+// catalog's) still end in 0 for the customer: kept, but raised to the next
+// multiple of 8 kr ex. VAT like every seeded price (websiteCleanPrice.ts) —
+// what scripts/clean-website-prices.ts does to them. Partner prices are kept.
+function keptPriceUpdate(stored: { customerPriceCents: number } | null): { customerPriceCents: number } | Record<string, never> {
+  if (!stored) return {};
+  const cleanedCents = Math.round(cleanWebsiteExVatPrice(stored.customerPriceCents / 100) * 100);
+  return cleanedCents === stored.customerPriceCents ? {} : { customerPriceCents: cleanedCents };
+}
+
+// A kept delivery price (Product.deliveryTypes / the list's own copy), cleaned
+// the same way — installation only rounded down (cleanWebsiteDeliveryTypes).
+function keptDeliveryTypes(stored: unknown, seeded: ReturnType<typeof buildDeliveryTypesJson>) {
+  return cleanWebsiteDeliveryTypes(mergePreservedDeliveryTypes(stored, seeded)) as ReturnType<typeof mergePreservedDeliveryTypes>;
+}
 
 function buildPriceListSettings(deliveryOnly: boolean, weightClassPrices: WeightClassPriceOverrides = {}) {
   const extras = WHITE_GOODS_ORDER_LEVEL_EXTRAS;
@@ -67,7 +84,9 @@ function buildPriceListSettings(deliveryOnly: boolean, weightClassPrices: Weight
     );
   }
   settings.weightClassPricing = weightClassPricing;
-  return settings;
+  // The fees left at their defaults (extra pallet/work, add-to-order, the
+  // deviation fees) end in 0 incl. VAT too; per-km rates are left as-is.
+  return cleanWebsitePriceListSettings(settings);
 }
 
 // Option codes were shortened (shortCatalogCode.ts). An option still stored
@@ -172,7 +191,7 @@ export async function seedWebsiteCatalog({
       : null;
     const product = await prisma.product.upsert({
       where: { code: productSeed.code },
-      update: stored ? { ...productData, deliveryTypes: mergePreservedDeliveryTypes(stored.deliveryTypes, deliveryTypes) } : productData,
+      update: stored ? { ...productData, deliveryTypes: keptDeliveryTypes(stored.deliveryTypes, deliveryTypes) } : productData,
       create: { ...productData, code: productSeed.code },
     });
     productsUpserted += 1;
@@ -188,7 +207,7 @@ export async function seedWebsiteCatalog({
       ? await prisma.priceListProductConfig.findUnique({ where: configKey, select: { deliveryTypes: true } })
       : null;
     const configDeliveryTypes = preservePricesOnReseed
-      ? mergePreservedDeliveryTypes(storedConfig?.deliveryTypes ?? stored?.deliveryTypes, deliveryTypes)
+      ? keptDeliveryTypes(storedConfig?.deliveryTypes ?? stored?.deliveryTypes, deliveryTypes)
       : deliveryTypes;
     await prisma.priceListProductConfig.upsert({
       where: configKey,
@@ -234,16 +253,19 @@ export async function seedWebsiteCatalog({
       };
 
       const where = { priceListId_productOptionId: { priceListId: priceList.id, productOptionId: option.id } };
-      // Preserved prices are kept, except one still at the 0 kr placeholder.
-      let update: typeof prices | Record<string, never> = prices;
-      if (optionSeed.staffPriced) update = {};
-      else if (preservePricesOnReseed) {
+      // Preserved prices are kept (cleaned — keptPriceUpdate), except one
+      // still at the 0 kr placeholder, which gets the seed's. An exact-priced
+      // option keeps its stored price exactly.
+      let update: typeof prices | { customerPriceCents: number } | Record<string, never> = prices;
+      if (optionSeed.staffPriced || preservePricesOnReseed) {
         const existing = await prisma.priceListItem.findUnique({
           where,
           select: { customerPriceCents: true, subcontractorPriceCents: true },
         });
         const placeholder = !!existing && !existing.customerPriceCents && !existing.subcontractorPriceCents;
-        update = placeholder ? prices : {};
+        if (placeholder && !optionSeed.staffPriced) update = prices;
+        else if (optionSeed.exactCustomerPrice) update = {};
+        else update = keptPriceUpdate(existing);
       }
       await prisma.priceListItem.upsert({
         where,

@@ -12,7 +12,7 @@ vi.mock("@/lib/db", () => ({
     priceList: { upsert: mocks.priceListUpsert },
     product: { upsert: mocks.productUpsert },
     productOption: { upsert: mocks.productOptionUpsert, findMany: async () => [], update: async () => ({}) },
-    priceListItem: { upsert: mocks.priceListItemUpsert },
+    priceListItem: { upsert: mocks.priceListItemUpsert, findUnique: async () => null },
     priceListProductConfig: { upsert: async () => ({}), findUnique: async () => null },
   },
 }));
