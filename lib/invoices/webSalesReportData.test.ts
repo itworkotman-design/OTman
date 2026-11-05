@@ -13,9 +13,9 @@ vi.mock("@/lib/stripe/stripeClient", () => ({ getStripeClient: () => ({}) }));
 vi.mock("@/lib/stripe/payoutLookup", () => ({ fetchStripeSettlements: mocks.fetchStripeSettlements }));
 
 import { loadWebSalesReport } from "./webSalesReportData";
-import { parseReportMonth } from "./webSalesReport";
+import { parseReportPeriod } from "./webSalesReport";
 
-const month = parseReportMonth("2026-11")!;
+const period = parseReportPeriod({ month: "2026-11" })!;
 const order = { displayId: 20049, orderNumber: null, customerName: null, customerLabel: "Kari Nordmann" };
 
 describe("loadWebSalesReport — the company's Stripe payments and refunds of the month", () => {
@@ -40,15 +40,15 @@ describe("loadWebSalesReport — the company's Stripe payments and refunds of th
   });
 
   it("reads only this company's documents dated in the month", async () => {
-    await loadWebSalesReport({ companyId: "c1", month });
-    const where = { companyId: "c1", createdAt: { gte: month.from, lt: month.to } };
+    await loadWebSalesReport({ companyId: "c1", period });
+    const where = { companyId: "c1", createdAt: { gte: period.from, lt: period.to } };
     expect(mocks.paymentFindMany.mock.calls[0]![0].where).toEqual(where);
     expect(mocks.refundFindMany.mock.calls[0]![0].where).toEqual(where);
-    expect(mocks.fetchStripeSettlements).toHaveBeenCalledWith(expect.anything(), { from: month.from, to: month.to });
+    expect(mocks.fetchStripeSettlements).toHaveBeenCalledWith(expect.anything(), { from: period.from, to: period.to });
   });
 
   it("builds the report rows (order number falls back to the display id, customer to the label)", async () => {
-    const { report, stripeUnavailable } = await loadWebSalesReport({ companyId: "c1", month });
+    const { report, stripeUnavailable } = await loadWebSalesReport({ companyId: "c1", period });
     expect(stripeUnavailable).toBe(false);
     expect(report.rows.map((row) => [row.number, row.orderNumber, row.customer, row.credits])).toEqual([
       ["W-7", "20049", "Kari Nordmann", null],
@@ -58,7 +58,7 @@ describe("loadWebSalesReport — the company's Stripe payments and refunds of th
 
   it("still makes the report when Stripe can't be reached, and says so", async () => {
     mocks.fetchStripeSettlements.mockRejectedValue(new Error("stripe down"));
-    const { report, stripeUnavailable } = await loadWebSalesReport({ companyId: "c1", month });
+    const { report, stripeUnavailable } = await loadWebSalesReport({ companyId: "c1", period });
     expect(stripeUnavailable).toBe(true);
     expect(report.rows).toHaveLength(2);
   });

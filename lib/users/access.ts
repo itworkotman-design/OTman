@@ -145,6 +145,15 @@ export function hasAnyVisibleDashboardSection(membership: DashboardSectionMember
 // authoritative super-user signal, not a per-module grant); everyone else
 // needs an explicit USER_MANAGEMENT/Admin grant. A VIEWER-level grant (or no
 // grant) never qualifies, even though `.enabled` alone would let them browse.
+// Who may act on website orders' money (decline, refund) and download the
+// web-sales report: company owner/admin, or Website orders enabled at ADMIN.
+// Server-side via authorizeWebsiteOrderAdmin; the UI uses it to hide controls.
+export function isWebsiteOrdersAdmin(membership: { role: Role; appAccess: MembershipAppAccess[] }): boolean {
+  if (membership.role === "OWNER" || membership.role === "ADMIN") return true;
+  const websiteOrders = getModuleAccess(membership, "WEBSITE_ORDERS");
+  return websiteOrders.enabled && websiteOrders.level === "ADMIN";
+}
+
 export function isUserManagementAdmin(membership: {
   role: Role;
   appAccess: MembershipAppAccess[];

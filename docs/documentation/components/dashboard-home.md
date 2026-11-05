@@ -20,5 +20,6 @@ Loads dashboard metrics, shows online members and per-year store/subcontractor o
 | `DailyActivityChart` | Renders the dual daily orders and revenue charts for the current month. |
 | `LeaderboardCard` | Renders a ranked list of store/subcontractor `LeaderboardEntry` items (username, order count, and optionally profit) for the current year. |
 | `DashboardHome` | Main dashboard home component. It fetches dashboard metrics and online members, renders the store and subcontractor leaderboards, the `Quick Tasks` card, and manages both the finish-month action and the `orderEmailsEnabled` toggle for outbound order emails. |
+| Web-sales report card | `WebSalesReportSection` (the W-series report for the accountant, Excel or PDF, for a month or a day), shown above GDPR to website-order admins (`isWebsiteOrdersAdmin`). |
 | `handleFinishMonth` | Calls the month-end summary route and shows inline success or error feedback. |
 | `handleToggleOrderEmails` | Calls the dashboard home `PATCH` route to enable or disable outbound order emails for the active company and reflects the result inline. |

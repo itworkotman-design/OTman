@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/db";
 import { getStripeClient } from "@/lib/stripe/stripeClient";
 import { fetchStripeSettlements } from "@/lib/stripe/payoutLookup";
-import { buildWebSalesReport, type ReportMonth, type StripeSettlementLookup, type WebSalesReport } from "./webSalesReport";
+import { buildWebSalesReport, type ReportPeriod, type StripeSettlementLookup, type WebSalesReport } from "./webSalesReport";
 
-// Loads the monthly web-sales report (webSalesReport.ts) for one company:
-// its Stripe payments (receipts) and refunds (credit notes) dated in the
-// month, plus Stripe's payouts (lib/stripe/payoutLookup.ts). When Stripe
+// Loads the web-sales report (webSalesReport.ts) for one company: its
+// Stripe payments (receipts) and refunds (credit notes) dated in the period
+// (a month or a day), plus Stripe's payouts (lib/stripe/payoutLookup.ts). When Stripe
 // can't be reached the report is still made, without payouts and fees.
 
 type ReportOrder = { displayId: number; orderNumber: string | null; customerName: string | null; customerLabel: string | null };
@@ -16,9 +16,9 @@ const customerName = (order: ReportOrder) => order.customerName?.trim() || order
 
 export async function loadWebSalesReport(input: {
   companyId: string;
-  month: ReportMonth;
+  period: ReportPeriod;
 }): Promise<{ report: WebSalesReport; stripeUnavailable: boolean }> {
-  const where = { companyId: input.companyId, createdAt: { gte: input.month.from, lt: input.month.to } };
+  const where = { companyId: input.companyId, createdAt: { gte: input.period.from, lt: input.period.to } };
   const [payments, refunds] = await Promise.all([
     prisma.orderPayment.findMany({
       where,
@@ -41,14 +41,14 @@ export async function loadWebSalesReport(input: {
   let stripe: StripeSettlementLookup = { byPaymentIntent: new Map(), byRefund: new Map(), payoutsInMonth: [] };
   let stripeUnavailable = false;
   try {
-    stripe = await fetchStripeSettlements(getStripeClient(), { from: input.month.from, to: input.month.to });
+    stripe = await fetchStripeSettlements(getStripeClient(), { from: input.period.from, to: input.period.to });
   } catch (error) {
     console.error("[web-sales-report] Could not read Stripe payouts", error);
     stripeUnavailable = true;
   }
 
   const report = buildWebSalesReport({
-    month: input.month.month,
+    period: input.period.label,
     payments: payments.map(({ order, ...payment }) => ({ ...payment, orderNumber: orderNumber(order), customerName: customerName(order) })),
     refunds: refunds.map(({ order, orderPayment, ...refund }) => ({
       ...refund,

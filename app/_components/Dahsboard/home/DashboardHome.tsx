@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import type { DashboardSection } from "@prisma/client";
 import { useCurrentUser } from "@/lib/users/useCurrentUser";
-import { canViewDashboardSection } from "@/lib/users/access";
+import { canViewDashboardSection, isWebsiteOrdersAdmin } from "@/lib/users/access";
+import { useUserLanguage } from "@/lib/users/language";
 import GdprSection from "./GdprSection";
+import WebSalesReportSection from "./WebSalesReportSection";
 import ReviewsSection from "./ReviewsSection";
 import { RemindersSection } from "./RemindersSection";
 
@@ -525,6 +527,9 @@ export default function DashboardHome() {
   const canSeePeopleOnline = Boolean(currentUser && canViewDashboardSection(currentUser, "PEOPLE_ONLINE"));
   const canSeeReviews = Boolean(currentUser && canViewDashboardSection(currentUser, "REVIEWS"));
   const canSeeGdpr = Boolean(currentUser && canViewDashboardSection(currentUser, "GDPR"));
+  // The same rule as the report's API (authorizeWebsiteOrderAdmin).
+  const canSeeWebSalesReport = Boolean(currentUser && isWebsiteOrdersAdmin(currentUser));
+  const { locale } = useUserLanguage(currentUser);
 
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [onlineMembers, setOnlineMembers] = useState<OnlineMember[]>([]);
@@ -864,6 +869,8 @@ export default function DashboardHome() {
         )}
 
         {canSeeReviews && <ReviewsSection />}
+
+        {canSeeWebSalesReport && <WebSalesReportSection locale={locale} />}
 
         {canSeeGdpr && <GdprSection />}
 

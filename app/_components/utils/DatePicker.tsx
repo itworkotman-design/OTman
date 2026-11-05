@@ -1,16 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { parseIsoDate, toIsoDate } from "@/lib/dates/isoDate";
-import {
-  WEEKDAY_LABELS,
-  addMonths,
-  buildCalendarDays,
-  getMonthLabel,
-  getWeekendDay,
-  isCalendarDayDisabled,
-  startOfMonth,
-} from "@/lib/dates/calendarMonth";
+import { parseIsoDate } from "@/lib/dates/isoDate";
+import { addMonths, getMonthLabel, startOfMonth } from "@/lib/dates/calendarMonth";
+import CalendarDayGrid from "./CalendarDayGrid";
 import { bookingText, type BookingUiLocale } from "@/lib/booking/bookingUiText";
 
 type Props = {
@@ -39,10 +32,6 @@ function formatDisplayDate(value: string, locale: BookingUiLocale): string {
 
 // Single-date version of the archive filter's custom calendar popover; a
 // replacement for <input type="date">.
-const WEEKEND_TEXT_CLASS = {
-  saturday: { enabled: "text-orange-600", disabled: "text-orange-300" },
-  sunday: { enabled: "text-red-600", disabled: "text-red-300" },
-} as const;
 
 export default function DatePicker({
   id,
@@ -58,7 +47,6 @@ export default function DatePicker({
   const [open, setOpen] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(parseIsoDate(value) ?? new Date()));
   const containerRef = useRef<HTMLDivElement>(null);
-  const today = toIsoDate(new Date());
 
   useEffect(() => {
     if (!open) return;
@@ -103,7 +91,7 @@ export default function DatePicker({
       </button>
 
       {open ? (
-        <div className="absolute left-0 top-[calc(100%+8px)] z-20 w-full max-w-sm rounded-xl border border-black/10 bg-white p-3 shadow-xl">
+        <div className="absolute left-0 top-[calc(100%+8px)] z-20 w-full min-w-80 max-w-sm rounded-xl border border-black/10 bg-white p-3 shadow-xl">
           <div className="mb-2 flex items-center justify-between gap-2">
             <button
               type="button"
@@ -124,46 +112,7 @@ export default function DatePicker({
             </button>
           </div>
 
-          <div className="grid grid-cols-7 gap-1 text-center text-xs text-neutral-500">
-            {WEEKDAY_LABELS[locale].map((label, index) => (
-              <div
-                key={label}
-                className={`py-1 ${index === 5 ? WEEKEND_TEXT_CLASS.saturday.enabled : index === 6 ? WEEKEND_TEXT_CLASS.sunday.enabled : ""}`}
-              >
-                {label}
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7 gap-1">
-            {buildCalendarDays(visibleMonth).map((day) => {
-              const disabled = isCalendarDayDisabled(day.iso, { min, disabledWeekdays });
-              const selected = day.iso === value;
-              const weekend = getWeekendDay(day.iso);
-              const dimmed = disabled || !day.inCurrentMonth;
-              const weekendClass = weekend ? WEEKEND_TEXT_CLASS[weekend][dimmed ? "disabled" : "enabled"] : "";
-
-              return (
-                <button
-                  key={day.iso}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => handleSelect(day.iso)}
-                  className={`h-10 rounded-md text-sm transition ${
-                    selected
-                      ? "bg-logoblue! text-white font-bold"
-                      : disabled
-                        ? `cursor-not-allowed line-through ${weekendClass || "text-neutral-300"}`
-                        : day.inCurrentMonth
-                          ? `hover:bg-black/5 ${weekendClass}`
-                          : `hover:bg-black/5 ${weekendClass || "text-neutral-300"}`
-                  } ${day.iso === today && !selected ? "ring-1 ring-logoblue" : ""}`}
-                >
-                  {day.dayOfMonth}
-                </button>
-              );
-            })}
-          </div>
+          <CalendarDayGrid month={visibleMonth} value={value} onSelect={handleSelect} min={min} disabledWeekdays={disabledWeekdays} locale={locale} />
         </div>
       ) : null}
     </div>

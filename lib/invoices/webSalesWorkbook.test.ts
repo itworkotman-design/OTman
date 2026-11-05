@@ -4,7 +4,7 @@ import { buildWebSalesReport } from "./webSalesReport";
 import { buildWebSalesWorkbook, webSalesReportFilename } from "./webSalesWorkbook";
 
 const report = buildWebSalesReport({
-  month: "2026-11",
+  period: "2026-11",
   payments: [
     {
       id: "p1",
@@ -70,7 +70,8 @@ describe("buildWebSalesWorkbook — the Excel file for the accountant", () => {
     expect(text).toContain("Stripe kunne ikke nås");
   });
 
-  it("names the file after the month", () => {
+  it("names the file after the period", () => {
     expect(webSalesReportFilename("2026-11")).toBe("Nettsalg W-serie 2026-11.xlsx");
+    expect(webSalesReportFilename("2026-11-05")).toBe("Nettsalg W-serie 2026-11-05.xlsx");
   });
 });

@@ -8,8 +8,8 @@ import type { WebSalesReport } from "./webSalesReport";
 
 const NOK_FORMAT = "#,##0.00";
 
-export function webSalesReportFilename(month: string) {
-  return `Nettsalg W-serie ${month}.xlsx`;
+export function webSalesReportFilename(period: string, format: "xlsx" | "pdf" = "xlsx") {
+  return `Nettsalg W-serie ${period}.${format}`;
 }
 
 const formatDateTime = (date: Date) =>
@@ -24,7 +24,7 @@ export async function buildWebSalesWorkbook(
 
   const summary = workbook.addWorksheet("Sammendrag");
   summary.columns = [{ width: 52 }, { width: 16 }, { width: 16 }, { width: 16 }];
-  summary.addRow([`Nettsalg betalt med kort (Stripe), W-serien – ${report.month}`]).font = { bold: true, size: 14 };
+  summary.addRow([`Nettsalg betalt med kort (Stripe), W-serien – ${report.period}`]).font = { bold: true, size: 14 };
   summary.addRow([`Laget ${formatDateTime(options.createdAt)}. Beløp i NOK.`]);
   if (options.stripeUnavailable) {
     summary.addRow(["OBS: Stripe kunne ikke nås da rapporten ble laget – utbetalinger og gebyrer mangler. Last ned rapporten på nytt senere."]).font = {
@@ -33,7 +33,7 @@ export async function buildWebSalesWorkbook(
     };
   }
   summary.addRow([]);
-  summary.addRow(["Bilag for måneden", "Inkl. mva", "Eks. mva", "Mva 25 %"]).font = { bold: true };
+  summary.addRow(["Bilag i perioden", "Inkl. mva", "Eks. mva", "Mva 25 %"]).font = { bold: true };
   for (const [label, amounts] of [
     ["Salg (kvitteringer)", totals.sales],
     ["Tilbakebetalinger (kreditnotaer)", totals.refunds],
@@ -44,8 +44,8 @@ export async function buildWebSalesWorkbook(
   }
   summary.addRow([]);
   summary.addRow(["Stripe", "Beløp"]).font = { bold: true };
-  summary.addRow(["Utbetalt fra Stripe til bank denne måneden", totals.payoutsNok]);
-  summary.addRow(["Stripe-gebyrer på månedens betalinger (se Stripes fakturaer)", totals.feesNok]);
+  summary.addRow(["Utbetalt fra Stripe til bank i perioden", totals.payoutsNok]);
+  summary.addRow(["Stripe-gebyrer på periodens betalinger (se Stripes fakturaer)", totals.feesNok]);
   summary.addRow(["Ikke utbetalt fra Stripe da rapporten ble laget", totals.notPaidOutNok]);
   summary.addRow([]);
   summary.addRow([`Antall bilag: ${report.rows.length}. Bilag uten utbetaling er merket «Ikke utbetalt» på arket Bilag.`]);

@@ -24,7 +24,6 @@ import BookingColumnVisibilityModal from "@/app/_components/Dahsboard/booking/ar
 import DashboardOrderModal from "@/app/_components/Dahsboard/booking/DashboardOrderModal";
 import OrderEmailModal, { type AlertCenterTab } from "@/app/_components/Dahsboard/booking/archive/OrderEmailModal";
 import ShiftLeaderBanner from "@/app/_components/Dahsboard/booking/ShiftLeaderBanner";
-import WebSalesReportDownload from "@/app/_components/Dahsboard/booking/websiteOrders/WebSalesReportDownload";
 import type { BookingArchiveFilters, BookingArchiveOption, OrderRow } from "@/app/_components/Dahsboard/booking/archive/types";
 
 // Same tooling as the main orders page, minus everything that only makes sense
@@ -42,12 +41,7 @@ type OrdersApiResponse = {
 export default function WebsiteOrdersPage() {
   const currentUser = useCurrentUser();
   const { locale } = useUserLanguage(currentUser);
-  const websiteOrdersAccess = currentUser ? getModuleAccess(currentUser, "WEBSITE_ORDERS") : null;
-  const hasWebsiteOrdersAccess = !!websiteOrdersAccess?.enabled;
-  // The same rule as authorizeWebsiteOrderAdmin (the report's API).
-  const isWebsiteOrdersAdmin =
-    !!currentUser &&
-    (currentUser.role === "OWNER" || currentUser.role === "ADMIN" || (hasWebsiteOrdersAccess && websiteOrdersAccess?.level === "ADMIN"));
+  const hasWebsiteOrdersAccess = currentUser ? getModuleAccess(currentUser, "WEBSITE_ORDERS").enabled : false;
 
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -383,12 +377,6 @@ export default function WebsiteOrdersPage() {
       </div>
 
       <ShiftLeaderBanner currentUserId={currentUser?.id} />
-
-      {isWebsiteOrdersAdmin && (
-        <div className="mb-4 max-w-md">
-          <WebSalesReportDownload locale={locale} />
-        </div>
-      )}
 
       <div className="flex w-full sm:w-fit max-w-full flex-col items-stretch gap-3 padding-weird-landscape">
         <BookingFilters

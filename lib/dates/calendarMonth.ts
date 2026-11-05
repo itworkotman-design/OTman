@@ -56,6 +56,16 @@ export function getMonthLabel(month: Date, locale: CalendarLocale): string {
   });
 }
 
+// The month view: a year's twelve months, "YYYY-MM" with a short name.
+export function buildYearMonths(year: number, locale: CalendarLocale): { key: string; label: string }[] {
+  return Array.from({ length: 12 }, (_, index) => {
+    const label = new Date(Date.UTC(year, index, 1))
+      .toLocaleDateString(locale === "nb" ? "nb-NO" : "en-GB", { month: "short", timeZone: "UTC" })
+      .replace(/\.$/, "");
+    return { key: `${year}-${String(index + 1).padStart(2, "0")}`, label: label.charAt(0).toUpperCase() + label.slice(1) };
+  });
+}
+
 // `disabledWeekdays` uses Date.getDay() numbering (0 = Sunday).
 export function isCalendarDayDisabled(
   iso: string,

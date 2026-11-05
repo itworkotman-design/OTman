@@ -2,25 +2,39 @@ import { getOsloDateKey, osloWallClockToDate } from "@/lib/dates/isoDate";
 import { roundNok } from "@/lib/orders/orderTotals";
 import { formatReceiptNumber } from "./receiptSeries";
 
-// The monthly web-sales report for the accountant (option A: the W-series is
-// posted to PowerOffice as one voucher a month). Every receipt (Stripe
-// payment) and credit note (Stripe refund) of the month in Oslo time, with
-// the VAT split exactly as on the documents, which Stripe payout each one went
-// out in, and the totals the voucher is posted from. Pure: the data comes
-// from webSalesReportData.ts, the Excel file from webSalesWorkbook.ts.
+// The web-sales report for the accountant (option A: the W-series is posted
+// to PowerOffice as one voucher a month). Every receipt (Stripe payment) and
+// credit note (Stripe refund) of the period — usually a month, or a single
+// day — in Oslo time, with the VAT split exactly as on the documents, which
+// Stripe payout each one went out in, and the totals the voucher is posted
+// from. Pure: the data comes from webSalesReportData.ts, the files from
+// webSalesWorkbook.ts (Excel) and webSalesReportPdf.ts (PDF).
 
-export type ReportMonth = { month: string; from: Date; to: Date };
+// The report's period: a month ("2026-11") or a single day ("2026-11-05"),
+// from and to (exclusive) as Oslo midnights.
+export type ReportPeriod = { label: string; from: Date; to: Date };
 
-// "YYYY-MM" → the month's start and end (exclusive) as Oslo midnights.
-export function parseReportMonth(value: string | null | undefined): ReportMonth | null {
-  const match = /^(\d{4})-(\d{2})$/.exec(value ?? "");
+const isoDay = (date: Date) => date.toISOString().slice(0, 10);
+
+// `{ month: "YYYY-MM" }` or `{ date: "YYYY-MM-DD" }`; null when neither is valid.
+export function parseReportPeriod(input: { month?: string | null; date?: string | null }): ReportPeriod | null {
+  const date = input.date ?? "";
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (day) {
+    const start = new Date(Date.UTC(Number(day[1]), Number(day[2]) - 1, Number(day[3])));
+    if (isoDay(start) !== date) return null;
+    const next = isoDay(new Date(start.getTime() + 24 * 60 * 60 * 1000));
+    return { label: date, from: osloWallClockToDate(date, "00:00"), to: osloWallClockToDate(next, "00:00") };
+  }
+
+  const match = /^(\d{4})-(\d{2})$/.exec(input.month ?? "");
   if (!match) return null;
   const year = Number(match[1]);
   const month = Number(match[2]);
   if (month < 1 || month > 12) return null;
   const next = month === 12 ? `${year + 1}-01` : `${year}-${String(month + 1).padStart(2, "0")}`;
   return {
-    month: `${match[1]}-${match[2]}`,
+    label: `${match[1]}-${match[2]}`,
     from: osloWallClockToDate(`${match[1]}-${match[2]}-01`, "00:00"),
     to: osloWallClockToDate(`${next}-01`, "00:00"),
   };
@@ -79,7 +93,8 @@ export type WebSalesReportRow = {
 type Amounts = { incVatNok: number; exVatNok: number; vatNok: number };
 
 export type WebSalesReport = {
-  month: string;
+  // The period (ReportPeriod.label).
+  period: string;
   rows: WebSalesReportRow[];
   // Rows Stripe hasn't paid out yet (when the report was made).
   notPaidOut: WebSalesReportRow[];
@@ -111,7 +126,7 @@ const sumAmounts = (rows: Amounts[]): Amounts => ({
 });
 
 export function buildWebSalesReport(input: {
-  month: string;
+  period: string;
   payments: ReportPayment[];
   refunds: ReportRefund[];
   stripe: StripeSettlementLookup;
@@ -159,7 +174,7 @@ export function buildWebSalesReport(input: {
   const refunds = sumAmounts(rows.filter((row) => row.type === "Kreditnota"));
 
   return {
-    month: input.month,
+    period: input.period,
     rows,
     notPaidOut,
     payouts: input.stripe.payoutsInMonth,

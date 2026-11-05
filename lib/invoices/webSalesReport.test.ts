@@ -1,22 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { buildWebSalesReport, parseReportMonth, type StripeSettlementLookup } from "./webSalesReport";
+import { buildWebSalesReport, parseReportPeriod, type StripeSettlementLookup } from "./webSalesReport";
 
-describe("parseReportMonth — the month in Oslo time", () => {
-  it("runs from Oslo midnight on the 1st to Oslo midnight on the 1st of the next month", () => {
-    expect(parseReportMonth("2026-11")).toEqual({
-      month: "2026-11",
+describe("parseReportPeriod — a month or a single day, in Oslo time", () => {
+  it("a month runs from Oslo midnight on the 1st to Oslo midnight on the 1st of the next month", () => {
+    expect(parseReportPeriod({ month: "2026-11" })).toEqual({
+      label: "2026-11",
       from: new Date("2026-10-31T23:00:00Z"),
       to: new Date("2026-11-30T23:00:00Z"),
     });
     // Summer time.
-    expect(parseReportMonth("2026-07")?.from).toEqual(new Date("2026-06-30T22:00:00Z"));
-    expect(parseReportMonth("2026-12")?.to).toEqual(new Date("2026-12-31T23:00:00Z"));
+    expect(parseReportPeriod({ month: "2026-07" })?.from).toEqual(new Date("2026-06-30T22:00:00Z"));
+    expect(parseReportPeriod({ month: "2026-12" })?.to).toEqual(new Date("2026-12-31T23:00:00Z"));
+  });
+
+  it("a day runs from its Oslo midnight to the next", () => {
+    expect(parseReportPeriod({ date: "2026-11-05" })).toEqual({
+      label: "2026-11-05",
+      from: new Date("2026-11-04T23:00:00Z"),
+      to: new Date("2026-11-05T23:00:00Z"),
+    });
+    expect(parseReportPeriod({ date: "2026-12-31" })?.to).toEqual(new Date("2026-12-31T23:00:00Z"));
   });
 
   it("rejects anything else", () => {
-    expect(parseReportMonth("2026-13")).toBeNull();
-    expect(parseReportMonth("2026-1")).toBeNull();
-    expect(parseReportMonth(null)).toBeNull();
+    expect(parseReportPeriod({ month: "2026-13" })).toBeNull();
+    expect(parseReportPeriod({ month: "2026-1" })).toBeNull();
+    expect(parseReportPeriod({ date: "2026-02-30" })).toBeNull();
+    expect(parseReportPeriod({ month: null, date: null })).toBeNull();
   });
 });
 
@@ -45,7 +55,7 @@ const emptyStripe: StripeSettlementLookup = { byPaymentIntent: new Map(), byRefu
 
 describe("buildWebSalesReport — every receipt and credit note of the month", () => {
   it("lists receipts as sales and credit notes as negative, with the VAT split as on the documents", () => {
-    const report = buildWebSalesReport({ month: "2026-11", payments: [payment()], refunds: [refund()], stripe: emptyStripe });
+    const report = buildWebSalesReport({ period: "2026-11", payments: [payment()], refunds: [refund()], stripe: emptyStripe });
 
     expect(report.rows).toEqual([
       expect.objectContaining({ type: "Kvittering", number: "W-7", date: "2026-11-04", orderNumber: "20049", customer: "Kari Nordmann", incVatNok: 3730, exVatNok: 2984, vatNok: 746, stripeRef: "pi_1", credits: null }),
@@ -55,7 +65,7 @@ describe("buildWebSalesReport — every receipt and credit note of the month", (
 
   it("orders the rows by number, and flags a payment that never got a number", () => {
     const report = buildWebSalesReport({
-      month: "2026-11",
+      period: "2026-11",
       payments: [payment({ id: "p2", receiptNumber: 8 }), payment({ id: "p3", receiptNumber: null }), payment()],
       refunds: [],
       stripe: emptyStripe,
@@ -69,7 +79,7 @@ describe("buildWebSalesReport — every receipt and credit note of the month", (
       byRefund: new Map([["re_1", { payoutId: "po_2", payoutDate: "2026-11-11", feeNok: 0 }]]),
       payoutsInMonth: [],
     };
-    const report = buildWebSalesReport({ month: "2026-11", payments: [payment()], refunds: [refund()], stripe });
+    const report = buildWebSalesReport({ period: "2026-11", payments: [payment()], refunds: [refund()], stripe });
     expect(report.rows[0]).toMatchObject({ payoutId: "po_1", payoutDate: "2026-11-09", feeNok: 63.6 });
     expect(report.rows[1]).toMatchObject({ payoutId: "po_2", payoutDate: "2026-11-11" });
   });
@@ -81,7 +91,7 @@ describe("buildWebSalesReport — every receipt and credit note of the month", (
       payoutsInMonth: [{ id: "po_1", arrivalDate: "2026-11-09", amountNok: 3166.4, status: "paid" }],
     };
     const report = buildWebSalesReport({
-      month: "2026-11",
+      period: "2026-11",
       payments: [payment(), payment({ id: "p2", receiptNumber: 8, amountChargedCents: 125000, stripePaymentIntentId: "pi_2" })],
       refunds: [refund()],
       stripe,

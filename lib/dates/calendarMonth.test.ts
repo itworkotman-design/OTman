@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addMonths, buildCalendarDays, getWeekendDay, isCalendarDayDisabled, startOfMonth } from "./calendarMonth";
+import { addMonths, buildCalendarDays, buildYearMonths, getWeekendDay, isCalendarDayDisabled, startOfMonth } from "./calendarMonth";
 
 describe("calendarMonth", () => {
   it("startOfMonth / addMonths move to the first of the month", () => {
@@ -15,6 +15,14 @@ describe("calendarMonth", () => {
     expect(days[0]).toEqual({ iso: "2026-09-28", dayOfMonth: 28, inCurrentMonth: false });
     expect(days[3]).toEqual({ iso: "2026-10-01", dayOfMonth: 1, inCurrentMonth: true });
     expect(days[41]).toEqual({ iso: "2026-11-08", dayOfMonth: 8, inCurrentMonth: false });
+  });
+
+  it("builds a year's twelve months for the month view", () => {
+    const months = buildYearMonths(2026, "en");
+    expect(months).toHaveLength(12);
+    expect(months[0]).toEqual({ key: "2026-01", label: "Jan" });
+    expect(months[10]).toEqual({ key: "2026-11", label: "Nov" });
+    expect(buildYearMonths(2026, "nb")[4]!.label.toLowerCase()).toBe("mai");
   });
 
   it("disables days before min", () => {
