@@ -895,6 +895,40 @@ describe("buildOrderPayload", () => {
     ]);
   });
 
+  it("still sends the return task when one product returns to the store and another to recycling", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    const payload = buildOrderPayload({
+      ...buildOrder({
+        pickupAddress: "Pickup 1",
+        deliveryAddress: "Delivery 1",
+        returnAddress: "Store 1",
+      }),
+      items: [
+        buildOrderItem({ cardId: 0 }),
+        buildOrderItem({
+          id: "item-2",
+          cardId: 0,
+          itemType: "RETURN_OPTION",
+          optionCode: "RETURNREC",
+        }),
+        buildOrderItem({ id: "item-3", cardId: 1 }),
+        buildOrderItem({
+          id: "item-4",
+          cardId: 1,
+          itemType: "RETURN_OPTION",
+          optionCode: "RETURNSTORE",
+        }),
+      ],
+    });
+
+    expect(payload.tasks_data.map((task) => task.address.raw_address)).toEqual([
+      "Pickup 1",
+      "Delivery 1",
+      "Store 1",
+    ]);
+  });
+
   it("keeps the recycling return task when it would otherwise be the only task", () => {
     process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
 

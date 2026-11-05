@@ -567,8 +567,10 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
 
   // A return to a recycling station is handled by the driver without a
   // separate GSM stop (the description still says "Retur til
-  // gjenvinningsstasjon"), unless it is the order's only task.
-  const skipRecyclingReturnTask = hasReturnToRecycling(order) && tasks.length > 0;
+  // gjenvinningsstasjon"), unless it is the order's only task. The order has
+  // a single return address, so any return-to-store product keeps the task.
+  const skipRecyclingReturnTask =
+    hasReturnToRecycling(order) && !hasReturnToStore(order) && tasks.length > 0;
 
   if (order.returnAddress?.trim() && !skipRecyclingReturnTask) {
     tasks.push(
