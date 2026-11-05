@@ -22,7 +22,6 @@ import ContactUsCard from "./ContactUsCard";
 import CustomerProfileMenu from "./CustomerProfileMenu";
 import { paymentBadge, progressBadge } from "./orderProgressText";
 import { orderRules } from "./orderRules";
-import { OTMAN_PHONE, OTMAN_PHONE_HREF } from "@/lib/content/companyContact";
 import {
   ArrowLeftIcon,
   BoxIcon,
@@ -205,9 +204,9 @@ export default function CustomerOrderClient({ locale, order, products, accountEm
             {t("Ordered", "Bestilt")} {orderedAt}
           </p>
         </div>
-        {permissions.open && (
+        {permissions.open && canChange && (
           <div className="flex flex-wrap gap-3">
-            {canChange && (
+            {(
               <button
                 type="button"
                 onClick={() => {
@@ -220,14 +219,6 @@ export default function CustomerOrderClient({ locale, order, products, accountEm
                 {t("Change order", "Endre bestilling")}
               </button>
             )}
-            {/* Cancelling is by phone only. */}
-            <a
-              href={OTMAN_PHONE_HREF}
-              className="inline-flex h-11 items-center gap-2 rounded-xl border border-gray-300 bg-white px-5 text-sm font-semibold text-gray-700 transition hover:border-logoblue"
-            >
-              <PhoneIcon className="h-5 w-5" />
-              {t(`Call to cancel: ${OTMAN_PHONE}`, `Ring for å avbestille: ${OTMAN_PHONE}`)}
-            </a>
           </div>
         )}
       </div>

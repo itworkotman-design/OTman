@@ -61,7 +61,7 @@ An unpaid order just saves; it's paid in full later.
 
 ### Cancelling
 
-There is no cancel route: customers cancel by phone only (`lib/content/companyContact.ts`). "My order" shows a call link instead, and staff close the order with Decline (`POST /api/orders/[orderId]/decline`), which refunds what was paid.
+There is no cancel route: customers cancel by email to info@otman.no (`HOW_TO_CANCEL` in `lib/content/companyContact.ts`), and staff close the order with Decline (`POST /api/orders/[orderId]/decline`), which refunds what was paid.
 
 ## Homepage moves
 A `MOVING` order with stored answers is edited as a whole move (`moving`: addresses, both ends, services —

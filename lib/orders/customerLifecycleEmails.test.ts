@@ -224,12 +224,12 @@ describe("buildOrderReceivedEmail", () => {
     expect(html).not.toContain("Totalpris");
   });
 
-  it("states until when the order can be changed — 24h before the time window starts — and that cancelling is by phone", () => {
+  it("states until when the order can be changed — 24h before the time window starts — and that cancelling is by email", () => {
     const { html } = buildOrderReceivedEmail({ ...order, orderNumber: "K7MQ4XZ2", customerLogin, orderDetails: details });
 
     expect(html).toContain("14. oktober kl. 10:00");
     expect(html).toContain("legge til tjenester");
-    expect(html).toContain("Vil du avbestille, ring oss på +47 402 84 977.");
+    expect(html).toContain("Vil du avbestille, skriv til oss på info@otman.no.");
     expect(html).not.toContain("forespørsel");
   });
 
@@ -423,13 +423,13 @@ describe("buildRefundIssuedEmail", () => {
   });
 });
 
-describe("cancelling is by phone only", () => {
+describe("cancelling is by email", () => {
   it("the needs-change email offers a change request, and a phone number to cancel — no cancel link", () => {
     const { html } = buildRejectedEmail({ ...order, statusNotes: "Vi trenger etasjen." });
 
     expect(html).toContain("/bestilling/endre/");
     expect(html).not.toContain("/bestilling/avbryt/");
-    expect(html).toContain("Vil du avbestille, ring oss på +47 402 84 977.");
+    expect(html).toContain("Vil du avbestille, skriv til oss på info@otman.no.");
   });
 
   it("the payment reminder offers paying or a change request, and a phone number to cancel — no cancel link", () => {
@@ -437,6 +437,6 @@ describe("cancelling is by phone only", () => {
 
     expect(html).toContain("/betaling/");
     expect(html).not.toContain("/bestilling/avbryt/");
-    expect(html).toContain("Vil du avbestille, ring oss på +47 402 84 977.");
+    expect(html).toContain("Vil du avbestille, skriv til oss på info@otman.no.");
   });
 });

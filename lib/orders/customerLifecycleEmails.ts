@@ -6,7 +6,7 @@ import type { BookingPickupStop } from "./websiteBookingDetails";
 import { getGmailSendAsEmail } from "@/lib/email/gmailAccounts";
 import { getOrderEmailLogoUrl } from "@/lib/email/emailAssets";
 import { getOrderActionBaseUrl } from "@/lib/stripe/stripeClient";
-import { CALL_TO_CANCEL } from "@/lib/content/companyContact";
+import { HOW_TO_CANCEL } from "@/lib/content/companyContact";
 
 export type LifecycleEmailOrder = {
   id: string;
@@ -216,7 +216,7 @@ export function buildRejectedEmail(order: LifecycleEmailOrder) {
     <div style="margin:20px 0;">
       ${buttonLink(requestChangeUrl, "Be om endring")}
     </div>
-    <p style="margin:16px 0 0 0;">${escapeHtml(CALL_TO_CANCEL.no)}</p>
+    <p style="margin:16px 0 0 0;">${escapeHtml(HOW_TO_CANCEL.no)}</p>
   `);
 
   return { subject, html };
@@ -334,7 +334,7 @@ export function buildPaymentTimeoutEmail(order: LifecycleEmailOrder) {
       ${buttonLink(payUrl, "Betal nå")}
       ${buttonLink(requestChangeUrl, "Be om endring")}
     </div>
-    <p style="margin:16px 0 0 0;">${escapeHtml(CALL_TO_CANCEL.no)}</p>
+    <p style="margin:16px 0 0 0;">${escapeHtml(HOW_TO_CANCEL.no)}</p>
   `);
 
   return { subject, html };
@@ -348,14 +348,14 @@ function formatCutoff(cutoff: Date): string {
 }
 
 // What the customer may do in "My order" and until when — the rules of
-// customerOrderEditPolicy.ts in words. Cancelling is by phone only.
+// customerOrderEditPolicy.ts in words. Cancelling is by email (HOW_TO_CANCEL).
 function editRulesBlock(details: OrderReceivedDetails | undefined) {
   const cutoff = getEditCutoff(details?.deliveryDate, details?.timeWindow);
   const until = cutoff ? `Frem til ${escapeHtml(formatCutoff(cutoff))} (24 timer før leveringen)` : "Frem til 24 timer før leveringen";
   return `
     <p style="margin:0 0 16px 0;">
       ${until} kan du endre dato, adresser og varer. Etter det kan du fortsatt
-      legge til tjenester og oppdatere kontaktinformasjonen din. ${escapeHtml(CALL_TO_CANCEL.no)}
+      legge til tjenester og oppdatere kontaktinformasjonen din. ${escapeHtml(HOW_TO_CANCEL.no)}
     </p>`;
 }
 

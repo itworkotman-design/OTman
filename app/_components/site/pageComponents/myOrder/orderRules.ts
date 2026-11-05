@@ -1,8 +1,8 @@
-import { CALL_TO_CANCEL } from "@/lib/content/companyContact";
+import { HOW_TO_CANCEL } from "@/lib/content/companyContact";
 
 // "Godt å vite" on the order page: what the customer may still change, and
 // until when — the rules of lib/orders/customerOrderEditPolicy.ts in words.
-// Cancelling is by phone only.
+// Cancelling is by email (HOW_TO_CANCEL).
 
 type Permissions = {
   open: boolean;
@@ -19,7 +19,7 @@ type Permissions = {
 export function orderRules(permissions: Permissions, locale: "no" | "en"): string[] {
   const t = (en: string, no: string) => (locale === "no" ? no : en);
   const until = permissions.cutoffText ?? t("24 hours before the delivery", "24 timer før leveringen");
-  const callToCancel = CALL_TO_CANCEL[locale];
+  const howToCancel = HOW_TO_CANCEL[locale];
 
   if (!permissions.open) {
     return [
@@ -34,12 +34,12 @@ export function orderRules(permissions: Permissions, locale: "no" | "en"): strin
       return [
         t(`You can change the order until ${until}.`, `Du kan endre bestillingen frem til ${until}.`),
         t("After that the order can't be changed.", "Etter det kan bestillingen ikke endres."),
-        callToCancel,
+        howToCancel,
       ];
     }
     return [
       t(`The deadline for changing the order was ${until}, so it can no longer be changed.`, `Fristen for å endre bestillingen var ${until}, så den kan ikke endres lenger.`),
-      callToCancel,
+      howToCancel,
     ];
   }
 
@@ -54,13 +54,13 @@ export function orderRules(permissions: Permissions, locale: "no" | "en"): strin
     return [
       t(`You can change ${whatChanges} until ${until}.`, `Du kan endre ${whatChanges} frem til ${until}.`),
       t(`After that you can still ${addOns}.`, `Etter det kan du fortsatt ${addOns}.`),
-      callToCancel,
+      howToCancel,
     ];
   }
 
   return [
     t(`The deadline for changing ${whatChanges} was ${until}.`, `Fristen for å endre ${whatChanges} var ${until}.`),
     t(`You can still ${addOns}.`, `Du kan fortsatt ${addOns}.`),
-    callToCancel,
+    howToCancel,
   ];
 }

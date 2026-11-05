@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { getOrderByActionToken } from "@/lib/orders/publicOrderAccess";
 import { normalizeOrderStatus } from "@/lib/orders/statusPresentation";
-import { CALL_TO_CANCEL, OTMAN_PHONE, OTMAN_PHONE_HREF } from "@/lib/content/companyContact";
+import { HOW_TO_CANCEL, OTMAN_EMAIL, OTMAN_EMAIL_HREF } from "@/lib/content/companyContact";
 
 // The page behind the "Kanseller bestilling" button older customer emails
-// still carry. Cancelling is by phone only now, so it no longer cancels
+// still carry. Cancelling is by email now (HOW_TO_CANCEL), so it no longer cancels
 // anything — it shows the order and the number to call.
 
 export const metadata: Metadata = {
@@ -18,14 +18,14 @@ const TEXT = {
     notFound: "Fant ikke bestillingen. Sjekk lenken, eller ta kontakt med oss.",
     alreadyCancelled: "Denne bestillingen er allerede kansellert.",
     order: "Bestilling",
-    call: "Ring oss",
+    write: "Skriv til oss",
   },
   en: {
     heading: "Cancel order",
     notFound: "We couldn't find that order. Check the link, or contact us.",
     alreadyCancelled: "This order has already been cancelled.",
     order: "Order",
-    call: "Call us",
+    write: "Email us",
   },
 } as const;
 
@@ -64,12 +64,12 @@ export default async function OrderCancelPage({
           <p className="mt-4 text-sm font-medium text-textColorThird">{t.alreadyCancelled}</p>
         ) : (
           <>
-            <p className="mt-4 text-sm text-textColorThird">{CALL_TO_CANCEL[locale]}</p>
+            <p className="mt-4 text-sm text-textColorThird">{HOW_TO_CANCEL[locale]}</p>
             <a
-              href={OTMAN_PHONE_HREF}
+              href={OTMAN_EMAIL_HREF}
               className="mt-4 inline-flex h-11 items-center rounded-xl bg-logoblue px-5 text-sm font-semibold text-white"
             >
-              {t.call}: {OTMAN_PHONE}
+              {t.write}: {OTMAN_EMAIL}
             </a>
           </>
         )}
