@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   // testing on a phone at http://<lan-ip>:3000) instead of only localhost.
   // Dev-only — allowedDevOrigins has no effect in production builds.
   allowedDevOrigins: ["192.168.3.20"],
+  experimental: {
+    // Render's build machine reports ~48 CPUs but has 8 GB RAM; Next starts one
+    // worker per CPU for "Collecting page data", which ran out of memory.
+    cpus: 4,
+  },
   images: {
     remotePatterns: [
       {
