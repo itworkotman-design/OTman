@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getMovingCatalogMock: vi.fn(),
@@ -83,5 +83,26 @@ describe("GET /api/site/moving-request/catalog", () => {
 
     expect(res.status).toBe(404);
     await expect(res.json()).resolves.toEqual({ ok: false, reason: "NOT_SEEDED" });
+  });
+
+  // The flow's submit button reads "Pay" when the customer pays at booking.
+  describe("payAtBooking", () => {
+    afterEach(() => {
+      delete process.env.HOMEPAGE_PAYMENT_MODE;
+    });
+
+    it("is true when homepage orders are paid by Stripe at booking", async () => {
+      process.env.HOMEPAGE_PAYMENT_MODE = "stripe";
+      mocks.getMovingCatalogMock.mockResolvedValue({ priceListId: "pl-moving", options: [] });
+      const json = await (await GET()).json();
+      expect(json.payAtBooking).toBe(true);
+    });
+
+    it("is false in manual (faktura) mode", async () => {
+      process.env.HOMEPAGE_PAYMENT_MODE = "manual";
+      mocks.getMovingCatalogMock.mockResolvedValue({ priceListId: "pl-moving", options: [] });
+      const json = await (await GET()).json();
+      expect(json.payAtBooking).toBe(false);
+    });
   });
 });

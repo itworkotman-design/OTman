@@ -81,6 +81,8 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
   const [serviceOptions, setServiceOptions] = useState<MovingCatalogOption[]>([]);
   const [floorSurchargeOption, setFloorSurchargeOption] = useState<MovingCatalogOption | null>(null);
   const [carrySurcharges, setCarrySurcharges] = useState<MovingCatalogOption[]>([]);
+  // Stripe mode: submitting goes straight to checkout, so the button reads "Pay".
+  const [payAtBooking, setPayAtBooking] = useState(false);
   const [distanceRates, setDistanceRates] = useState<{ kmFrom21: MovingCatalogOption; kmOver100: MovingCatalogOption } | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
@@ -100,6 +102,7 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
         setFloorSurchargeOption(data.floorSurcharge ?? null);
         setCarrySurcharges(data.carrySurcharges ?? []);
         setDistanceRates(data.distanceRates ?? null);
+        setPayAtBooking(data.payAtBooking === true);
       } catch (err) {
         if ((err as { name?: string })?.name !== "AbortError") {
           setCatalogError(t("Could not load pricing", "Kunne ikke laste priser"));
@@ -800,7 +803,7 @@ export function MovingRequestFlow({ locale, onClose, customer }: Props) {
                 onClick={handleSubmit}
                 className="inline-flex h-11 items-center justify-center rounded-full bg-logoblue px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:pointer-events-none disabled:opacity-40"
               >
-                {submitLoading ? t("Sending…", "Sender…") : t("Submit booking", "Send bestilling")}
+                {submitLoading ? t("Sending…", "Sender…") : payAtBooking ? t("Pay", "Betal") : t("Submit booking", "Send bestilling")}
               </button>
               )}
             </div>

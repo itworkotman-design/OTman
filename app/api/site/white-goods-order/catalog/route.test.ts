@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   priceListFindManyMock: vi.fn(),
@@ -98,5 +98,24 @@ describe("GET /api/site/white-goods-order/catalog", () => {
 
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ ok: false, reason: "UNKNOWN_LIST" });
+  });
+
+  // The flow's submit button reads "Pay" when the customer pays at booking.
+  describe("payAtBooking", () => {
+    afterEach(() => {
+      delete process.env.HOMEPAGE_PAYMENT_MODE;
+    });
+
+    it("is true when homepage orders are paid by Stripe at booking", async () => {
+      process.env.HOMEPAGE_PAYMENT_MODE = "stripe";
+      const json = await (await get()).json();
+      expect(json.payAtBooking).toBe(true);
+    });
+
+    it("is false in manual (faktura) mode", async () => {
+      process.env.HOMEPAGE_PAYMENT_MODE = "manual";
+      const json = await (await get()).json();
+      expect(json.payAtBooking).toBe(false);
+    });
   });
 });

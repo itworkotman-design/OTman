@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getMovingCatalog } from "@/lib/content/getMovingCatalog";
+import { isManualPaymentMode } from "@/lib/orders/paymentMode";
 
 // Public, unauthenticated pricing fetch for the Moving quote-request flow's
 // size-bracket picker and additional-services step. Deliberately its own small route, not the generic
@@ -14,5 +15,5 @@ export async function GET() {
     return NextResponse.json({ ok: false, reason: "NOT_SEEDED" }, { status: 404 });
   }
 
-  return NextResponse.json({ ok: true, priceListId: catalog.priceListId, options: catalog.options, services: catalog.services, floorSurcharge: catalog.floorSurcharge, carrySurcharges: catalog.carrySurcharges, distanceRates: catalog.distanceRates }, { status: 200 });
+  return NextResponse.json({ ok: true, priceListId: catalog.priceListId, options: catalog.options, services: catalog.services, floorSurcharge: catalog.floorSurcharge, carrySurcharges: catalog.carrySurcharges, distanceRates: catalog.distanceRates, payAtBooking: !isManualPaymentMode() }, { status: 200 });
 }

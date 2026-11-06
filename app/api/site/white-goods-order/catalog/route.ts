@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getWebsiteCatalogPart, listSeededWebsiteCatalogs } from "@/lib/content/websiteOrderCatalog";
 import { WEBSITE_CATALOGS } from "@/lib/content/websiteCatalogs";
+import { isManualPaymentMode } from "@/lib/orders/paymentMode";
 
 // Public, unauthenticated catalog fetch for the website order flow, scoped to
 // exactly one website price list per request (`?list=<price list code>`,
@@ -37,6 +38,8 @@ export async function GET(req: Request) {
         labelNo: catalog.labelNo,
         iconCode: catalog.iconCode,
       })),
+      // Stripe mode: submitting goes straight to checkout, so the button reads "Pay".
+      payAtBooking: !isManualPaymentMode(),
     },
     { status: 200 },
   );

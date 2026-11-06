@@ -154,6 +154,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   const [loadedProducts, setLoadedProducts] = useState<Record<string, CatalogProduct[]>>({});
   const [chosenListCodes, setChosenListCodes] = useState<string[]>([]);
   const [availableLists, setAvailableLists] = useState<WebsiteListInfo[]>([]);
+  // Stripe mode: submitting goes straight to checkout, so the button reads "Pay".
+  const [payAtBooking, setPayAtBooking] = useState(false);
   const [loadingListCode, setLoadingListCode] = useState<string | null>(null);
   const [addListError, setAddListError] = useState<string | null>(null);
   // Lists that have had at least one product. An emptied one (its only product
@@ -495,6 +497,7 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
         if (!json.ok) throw new Error(json.reason ?? "catalog fetch failed");
         setLoadedProducts((lists) => ({ ...lists, [json.priceListCode]: lists[json.priceListCode] ?? json.products }));
         setAvailableLists(json.availableLists ?? []);
+        setPayAtBooking(json.payAtBooking === true);
         setCatalogSpecialOptions(json.specialOptions);
         setPriceListSettings(json.priceListSettings);
       } catch {
@@ -1421,6 +1424,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     {
       id: "pickup-source",
       title: t("Where are we picking up from?", "Hvor henter vi fra?"),
+      // Revealed by "No, continue to order details" — bring it into view.
+      scrollOnReveal: true,
       // Retracted (e.g. another category was added ahead of it): un-pick the
       // tile so it doesn't read as answered when it shows again. Everything
       // typed into the pickup/order/contact steps stays in state, so picking
@@ -1441,6 +1446,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
       id: "pickup-contact",
       title: t("Pickup contact", "Kontakt ved henting"),
       bottomSpace: true,
+      // Revealed by picking a "Where are we picking up from?" tile.
+      scrollOnReveal: true,
       render: ({ onComplete, onUncomplete }) =>
         pickupSource ? (
           <div className="flex flex-col gap-4">
@@ -1714,7 +1721,9 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
                   ? submitProgress
                     ? t(describeSubmitProgress(submitProgress).en, describeSubmitProgress(submitProgress).no)
                     : t("Sending…", "Sender…")
-                  : t("Submit order", "Send bestilling")}
+                  : payAtBooking
+                    ? t("Pay", "Betal")
+                    : t("Submit order", "Send bestilling")}
               </button>
               )}
               {!customer && submitLoading && (
