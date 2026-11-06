@@ -156,6 +156,9 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   const [availableLists, setAvailableLists] = useState<WebsiteListInfo[]>([]);
   // Stripe mode: submitting goes straight to checkout, so the button reads "Pay".
   const [payAtBooking, setPayAtBooking] = useState(false);
+  // Set when a category is removed: the modal scrolls to the end of the
+  // remaining last category's options, where "any other products?" is again.
+  const [scrollToSectionEnd, setScrollToSectionEnd] = useState<{ sectionId: string; key: number } | null>(null);
   const [loadingListCode, setLoadingListCode] = useState<string | null>(null);
   const [addListError, setAddListError] = useState<string | null>(null);
   // Lists that have had at least one product. An emptied one (its only product
@@ -686,6 +689,10 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
   // list can't be removed — pick a different one on the first step instead.
   function removeList(code: string) {
     const listProducts = loadedProducts[code] ?? [];
+    const lastRemaining = chosenListCodes.filter((c) => c !== code).at(-1);
+    if (lastRemaining) {
+      setScrollToSectionEnd((previous) => ({ sectionId: listOptionsStepId(lastRemaining), key: (previous?.key ?? 0) + 1 }));
+    }
     setProductCards((cards) => removeListCards(cards, listProducts));
     setChosenListCodes((codes) => codes.filter((c) => c !== code));
     setPopulatedListCodes((codes) => codes.filter((c) => c !== code));
@@ -1259,6 +1266,8 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     const optionsStep: StepSection = {
       id: listOptionsStepId(code),
       title: t("Product options", "Produktvalg") + suffix,
+      // Opens on the first ticked product — stay on the grid so more can be picked.
+      noAutoScroll: true,
       // Nothing to configure once every product of the list is unticked
       // (unless it still holds "any other products?").
       hidden: optionCards.length === 0 && !hostsMoreProducts,
@@ -1910,5 +1919,18 @@ export function WhiteGoodsBookingFlow({ locale, onClose, customer }: Props) {
     );
   }
 
-  return <SteppedModal sections={sections} aside={calculatorAside} finalStep={finalStep} onClose={onClose} dimCompleted />;
+  // scrollToNewSections: every step appearing for the first time (e.g. the
+  // products after picking a category) scrolls into view, as in the moving and
+  // service flows; scrollOnReveal sections also scroll when they come back.
+  return (
+    <SteppedModal
+      sections={sections}
+      aside={calculatorAside}
+      finalStep={finalStep}
+      onClose={onClose}
+      dimCompleted
+      scrollToNewSections
+      scrollToSectionEnd={scrollToSectionEnd}
+    />
+  );
 }

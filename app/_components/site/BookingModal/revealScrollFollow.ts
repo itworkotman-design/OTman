@@ -1,4 +1,4 @@
-import { newSectionScrollTop } from "./steppedModalLogic";
+import { newSectionScrollTop, sectionEndScrollTop } from "./steppedModalLogic";
 
 // How long a just-opened section keeps being followed. Its content can arrive
 // after it opened (the website catalog loads from the server, slower on a
@@ -19,13 +19,19 @@ export function followRevealedSection(deps: {
   observe: (onResize: () => void) => () => void;
   setTimer: (callback: () => void, ms: number) => () => void;
   padding: number;
+  // "reveal" (default): down just enough to show the section, never past its
+  // top. "end": its end at the bottom of the view, up or down (sectionEndScrollTop).
+  align?: "reveal" | "end";
 }): () => void {
   let active = true;
   const scroll = () => {
     if (!active) return;
     const measured = deps.measure();
     if (!measured) return;
-    const target = newSectionScrollTop({ ...measured, padding: deps.padding });
+    const target =
+      deps.align === "end"
+        ? sectionEndScrollTop({ ...measured, padding: deps.padding })
+        : newSectionScrollTop({ ...measured, padding: deps.padding });
     if (target !== null) deps.scrollTo(target);
   };
   scroll();

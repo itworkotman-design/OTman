@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { activeSectionIndex, asideSectionGroups, finalStepScrollTarget, heightHoldAction, isFinalStepShown, isSectionDimmed, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, revealedSectionToScrollTo, revealsUnseenSection, showsAsideDrawer, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
+import { activeSectionIndex, asideSectionGroups, finalStepScrollTarget, heightHoldAction, isFinalStepShown, isSectionDimmed, newSectionToScrollTo, nextRevealedCount, progressPercent, retractedRevealedCount, retractedSectionIndices, revealedSectionToScrollTo, showsAsideDrawer, showsBottomSpace, shownSectionIds, structureGainedSections, withExitingItems, type SectionStructure } from "./steppedModalLogic";
 import { followRevealedSection } from "./revealScrollFollow";
 
 export type StepSectionRenderProps = {
@@ -37,6 +37,10 @@ export type StepSection = {
   // Smoothly scrolls the body down to this section every time it comes on
   // screen (e.g. an added category's products), even when it was shown before.
   scrollOnReveal?: boolean;
+  // Not scrolled to on its first reveal under `scrollToNewSections`, e.g. the
+  // product options opening on the first ticked product while the customer
+  // may still be ticking more products above it.
+  noAutoScroll?: boolean;
   render: (props: StepSectionRenderProps) => ReactNode;
 };
 
@@ -87,6 +91,10 @@ type SteppedModalProps = {
   // appears (revealsUnseenSection) — not when going back to change an
   // earlier answer re-reveals the ones it retracted. Opt-in — the moving flow.
   scrollToNewSections?: boolean;
+  // Smoothly scrolls so this section's end is at the bottom of the view, each
+  // time `key` changes — e.g. after a category is removed, to the remaining
+  // one's "any other products?" question.
+  scrollToSectionEnd?: { sectionId: string; key: number } | null;
 };
 
 export const TRANSITION_MS = 300;
@@ -103,16 +111,20 @@ export function RevealSection({
   children,
   collapsed = false,
   spacing = 0,
+  initiallyOpen = false,
 }: {
   children: ReactNode;
   collapsed?: boolean;
   spacing?: number;
+  // Mounts already open, no animation — for a section that was on screen and
+  // only moved to another stack (e.g. in or out of the aside column).
+  initiallyOpen?: boolean;
 }) {
-  const [isMounted, setIsMounted] = useState(false);
+  const [isMounted, setIsMounted] = useState(initiallyOpen);
   // overflow-hidden is only needed while the height animates. Left on, it
   // becomes the scroll container for any `position: sticky` descendant (e.g.
   // the order summary), pinning it in place instead of following the scroll.
-  const [isSettled, setIsSettled] = useState(false);
+  const [isSettled, setIsSettled] = useState(initiallyOpen);
   const isOpen = isMounted && !collapsed;
 
   useEffect(() => {
@@ -142,7 +154,9 @@ export function RevealSection({
   );
 }
 
-export type AnimatedStackItem = { key: string; node: ReactNode; hidden?: boolean };
+// `openOnMount`: the item was already on screen elsewhere, so it appears open
+// instead of animating in (RevealSection's `initiallyOpen`).
+export type AnimatedStackItem = { key: string; node: ReactNode; hidden?: boolean; openOnMount?: boolean };
 
 // A vertical stack whose items animate in when added, out when removed, and
 // collapse/expand when hidden/un-hidden. A removed item is kept (as last
@@ -191,7 +205,12 @@ export function AnimatedStack({ items, gap, className = "" }: { items: AnimatedS
   return (
     <div className={className} style={{ marginBottom: -gap }}>
       {displayed.map((item) => (
-        <RevealSection key={item.key} collapsed={!!item.hidden || !currentKeys.has(item.key)} spacing={gap}>
+        <RevealSection
+          key={item.key}
+          collapsed={!!item.hidden || !currentKeys.has(item.key)}
+          spacing={gap}
+          initiallyOpen={item.openOnMount}
+        >
           {item.node}
         </RevealSection>
       ))}
@@ -227,6 +246,7 @@ export function SteppedModal({
   aside,
   dimCompleted = false,
   scrollToNewSections = false,
+  scrollToSectionEnd = null,
 }: SteppedModalProps) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
@@ -266,7 +286,7 @@ export function SteppedModal({
   const newSectionScrollTimerRef = useRef<number | undefined>(undefined);
   // Stops following the last revealed section (revealScrollFollow.ts).
   const stopFollowRef = useRef<() => void>(() => {});
-  const scrollToSectionAfterReveal = (sectionId: string) => {
+  const scrollToSectionAfterReveal = (sectionId: string, align: "reveal" | "end" = "reveal") => {
     window.clearTimeout(newSectionScrollTimerRef.current);
     stopFollowRef.current();
     newSectionScrollTimerRef.current = window.setTimeout(() => {
@@ -299,9 +319,15 @@ export function SteppedModal({
           return () => window.clearTimeout(timer);
         },
         padding: 24,
+        align,
       });
     }, TRANSITION_MS + 50);
   };
+  const scrollToSectionEndKey = scrollToSectionEnd?.key;
+  useEffect(() => {
+    if (scrollToSectionEnd) scrollToSectionAfterReveal(scrollToSectionEnd.sectionId, "end");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollToSectionEndKey]);
   // The user taking over the scroll ends the follow.
   useEffect(() => {
     const scroller = scrollRef.current;
@@ -379,13 +405,26 @@ export function SteppedModal({
   const showFinalStep = isFinalStepShown({ showAll, reached: finalStepReached, open: finalStepOpen });
   const visibleSections = sections.slice(0, revealedCount);
   const shownIds = shownSectionIds(visibleSections);
-  const structureKey = `${showFinalStep ? "final" : "steps"}:${shownIds.join("|")}`;
-  const previousStructure = useRef<SectionStructure>({ ids: shownIds, showFinalStep });
+  const asideFromId = aside?.fromId;
+  // The side column moving counts as a structure change too (structureGainedSections).
+  const structureKey = `${showFinalStep ? "final" : "steps"}:${asideFromId ?? ""}:${shownIds.join("|")}`;
+  const previousStructure = useRef<SectionStructure>({ ids: shownIds, showFinalStep, asideFromId });
   const previousStructureKey = useRef(structureKey);
+  // The sections on screen as of the last committed structure. A section in
+  // here that mounts again only moved to another stack (e.g. adding a category
+  // moves the shared calculator column), so it appears open: replaying its
+  // open animation from zero height collapsed the page and snapped the scroll
+  // up. Lags one commit behind, so a just-revealed section still animates in.
+  // Starts empty so the first sections still animate in when the modal opens.
+  const [committedShownIds, setCommittedShownIds] = useState<string[]>([]);
+  useEffect(() => {
+    setCommittedShownIds(shownIds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [structureKey]);
   useLayoutEffect(() => {
     if (previousStructureKey.current === structureKey) return;
     previousStructureKey.current = structureKey;
-    const next: SectionStructure = { ids: shownIds, showFinalStep };
+    const next: SectionStructure = { ids: shownIds, showFinalStep, asideFromId };
     const gained = structureGainedSections(previousStructure.current, next);
     const scrollTarget = finalStepScrollTarget(previousStructure.current.showFinalStep, showFinalStep);
     const revealedScrollId = showAll
@@ -452,11 +491,13 @@ export function SteppedModal({
   const furthestRevealedRef = useRef(revealedCount);
   useEffect(() => {
     if (!scrollToNewSections || showAll) return;
-    const unseen = revealsUnseenSection({ furthestRevealed: furthestRevealedRef.current, revealedCount });
+    const scrollId = newSectionToScrollTo({
+      furthestRevealed: furthestRevealedRef.current,
+      revealedCount,
+      section: sections[revealedCount - 1],
+    });
     furthestRevealedRef.current = Math.max(furthestRevealedRef.current, revealedCount);
-    const section = sections[revealedCount - 1];
-    if (!unseen || !section || section.hidden) return;
-    scrollToSectionAfterReveal(section.id);
+    if (scrollId) scrollToSectionAfterReveal(scrollId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealedCount]);
   useEffect(
@@ -491,6 +532,7 @@ export function SteppedModal({
       return {
         key: section.id,
         hidden: section.hidden,
+        openOnMount: committedShownIds.includes(section.id),
         node: (
           <div
             data-step-section={section.id}

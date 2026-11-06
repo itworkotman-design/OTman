@@ -43,12 +43,16 @@ export function finalStepScrollTarget(wasFinalStep: boolean, isFinalStep: boolea
   return isFinalStep ? "top" : "bottom";
 }
 
-export type SectionStructure = { ids: string[]; showFinalStep: boolean };
+// `asideFromId`: the section the shared side column starts at (`aside.fromId`).
+export type SectionStructure = { ids: string[]; showFinalStep: boolean; asideFromId?: string };
 
 // True when the layout gained something: a section appeared (revealed or
-// un-hidden), or the final step was entered/left, which swaps the whole body.
+// un-hidden), the final step was entered/left, which swaps the whole body, or
+// the side column moved — sections regroup and the page can shrink for a
+// moment until the next one opens (e.g. adding a category).
 export function structureGainedSections(previous: SectionStructure, next: SectionStructure): boolean {
   if (previous.showFinalStep !== next.showFinalStep) return true;
+  if (previous.asideFromId !== next.asideFromId) return true;
   return next.ids.some((id) => !previous.ids.includes(id));
 }
 
@@ -149,6 +153,19 @@ export function revealsUnseenSection(params: { furthestRevealed: number; reveale
   return params.revealedCount > params.furthestRevealed;
 }
 
+// The section `scrollToNewSections` scrolls to after a reveal: the last
+// revealed one, if it's on screen for the first time and hasn't opted out
+// (StepSection.noAutoScroll). Null to stay put.
+export function newSectionToScrollTo(params: {
+  furthestRevealed: number;
+  revealedCount: number;
+  section: { id: string; hidden?: boolean; noAutoScroll?: boolean } | undefined;
+}): string | null {
+  const { section } = params;
+  if (!section || section.hidden || section.noAutoScroll) return null;
+  return revealsUnseenSection(params) ? section.id : null;
+}
+
 // A section that just came on screen and asked to be scrolled to
 // (StepSection.scrollOnReveal) — every time it appears, unlike
 // revealsUnseenSection, e.g. a category removed and added again. Null if none.
@@ -178,6 +195,20 @@ export function newSectionScrollTop(params: {
   const showBottom = sectionBottom + padding - viewportHeight;
   const target = Math.min(sectionTop - padding, Math.max(scrollTop, showBottom));
   return target > scrollTop ? target : null;
+}
+
+// Where to scroll to put a section's end at the bottom of the view (plus
+// `padding`), up or down — e.g. the "any other products?" question at the end
+// of the remaining category's options after another category is removed.
+// Never above the top. Null when already there.
+export function sectionEndScrollTop(params: {
+  scrollTop: number;
+  viewportHeight: number;
+  sectionBottom: number;
+  padding: number;
+}): number | null {
+  const target = Math.max(0, params.sectionBottom + params.padding - params.viewportHeight);
+  return Math.abs(target - params.scrollTop) > 1 ? target : null;
 }
 
 // Below lg the `aside` (the calculator) isn't a side column: it's pinned in a

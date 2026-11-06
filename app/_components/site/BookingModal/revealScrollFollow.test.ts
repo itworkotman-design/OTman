@@ -73,3 +73,52 @@ describe("followRevealedSection — scrolling to a section that is still loading
     expect(scrolls).toEqual([]);
   });
 });
+
+// e.g. an added category removed again: the remaining category's "any other
+// products?" question sits at the end of its options step, so that end is
+// brought into view — also by scrolling up, out of the blank space the removed
+// steps leave while the height is held.
+describe("followRevealedSection — align: end", () => {
+  let top = 0;
+  const end: number[] = [];
+  const followEnd = (section: { top: number; bottom: number }) =>
+    followRevealedSection({
+      measure: () => ({ scrollTop: top, viewportHeight: 600, sectionTop: section.top, sectionBottom: section.bottom }),
+      scrollTo: (next) => {
+        end.push(next);
+        top = next;
+      },
+      observe: () => () => {},
+      setTimer: () => () => {},
+      padding: 24,
+      align: "end",
+    });
+
+  beforeEach(() => {
+    end.length = 0;
+  });
+
+  it("scrolls down until the section's end is in view, even when its top would leave the screen", () => {
+    top = 1000;
+    followEnd({ top: 200, bottom: 1800 });
+    expect(end).toEqual([1224]);
+  });
+
+  it("scrolls up when the view is below the section's end", () => {
+    top = 1700;
+    followEnd({ top: 200, bottom: 1800 });
+    expect(end).toEqual([1224]);
+  });
+
+  it("stays put when the end is already where it belongs", () => {
+    top = 1224;
+    followEnd({ top: 200, bottom: 1800 });
+    expect(end).toEqual([]);
+  });
+
+  it("never scrolls above the top of the scroll area", () => {
+    top = 300;
+    followEnd({ top: 0, bottom: 400 });
+    expect(end).toEqual([0]);
+  });
+});

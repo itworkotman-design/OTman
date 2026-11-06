@@ -10,6 +10,7 @@ import {
   newSectionScrollTop,
   revealsUnseenSection,
   revealedSectionToScrollTo,
+  newSectionToScrollTo,
   progressPercent,
   showsAsideDrawer,
   showsBottomSpace,
@@ -42,6 +43,15 @@ describe("structureGainedSections", () => {
   it("is true when the final step is entered or left, since the whole body swaps", () => {
     expect(structureGainedSections(base, { ids: ["a", "b"], showFinalStep: true })).toBe(true);
     expect(structureGainedSections({ ...base, showFinalStep: true }, base)).toBe(true);
+  });
+
+  // e.g. adding a category moves the shared calculator column to its (not yet
+  // shown) options step: the column leaves and the page shrinks for a moment,
+  // which would clamp the scroll upward unless the height is held.
+  it("is true when the side column moves to another section", () => {
+    const withAside = { ...base, asideFromId: "b" };
+    expect(structureGainedSections(withAside, { ...base, asideFromId: "c" })).toBe(true);
+    expect(structureGainedSections(withAside, { ...withAside })).toBe(false);
   });
 });
 
@@ -299,6 +309,27 @@ describe("revealsUnseenSection", () => {
 
   it("is true again once the reveal goes past the earlier furthest point", () => {
     expect(revealsUnseenSection({ furthestRevealed: 6, revealedCount: 7 })).toBe(true);
+  });
+});
+
+describe("newSectionToScrollTo", () => {
+  it("scrolls to the section a first-time reveal brings on screen", () => {
+    expect(newSectionToScrollTo({ furthestRevealed: 2, revealedCount: 3, section: { id: "products" } })).toBe("products");
+  });
+
+  it("stays put when re-revealing a section seen before", () => {
+    expect(newSectionToScrollTo({ furthestRevealed: 6, revealedCount: 3, section: { id: "products" } })).toBeNull();
+  });
+
+  it("stays put for a hidden or missing section", () => {
+    expect(newSectionToScrollTo({ furthestRevealed: 2, revealedCount: 3, section: { id: "options", hidden: true } })).toBeNull();
+    expect(newSectionToScrollTo({ furthestRevealed: 2, revealedCount: 3, section: undefined })).toBeNull();
+  });
+
+  // e.g. the product options opening on the first ticked product: the
+  // customer may still be ticking more products above it.
+  it("stays put for a section that opted out of auto-scroll", () => {
+    expect(newSectionToScrollTo({ furthestRevealed: 2, revealedCount: 3, section: { id: "options", noAutoScroll: true } })).toBeNull();
   });
 });
 
