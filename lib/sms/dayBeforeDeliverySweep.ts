@@ -16,11 +16,10 @@ export { getOsloDateParts };
 export const DAY_BEFORE_DELIVERY_SMS_HOUR = 19;
 export const DAY_BEFORE_DELIVERY_SMS_END_HOUR = 22;
 
-// Orders in these (normalized) statuses never get the "we're coming tomorrow"
-// text: not yet accepted (pending, or processing — a new homepage order nobody
-// has confirmed yet; dashboard and homepage orders follow the same rule),
-// called off, or already done.
-const CLOSED_STATUSES = new Set(["pending", "processing", "rejected", "cancelled", "canceled", "failed", "completed", "invoiced", "paid"]);
+// Only orders in these (normalized) statuses get the "we're coming tomorrow"
+// text. An allowlist, so anything else — pending, processing, approved,
+// cancelled, done, empty or an unknown status — is never texted.
+const SENDABLE_STATUSES = new Set(["confirmed", "active"]);
 
 export type DayBeforeDeliverySmsSummary = AutomaticSmsCounts & {
   // The delivery date being texted (tomorrow in Oslo).
@@ -69,7 +68,7 @@ export async function runDayBeforeDeliverySmsSweep(params?: { now?: Date; limit?
     templateByCompany,
     kind: "DAY_BEFORE_DELIVERY",
     now,
-    shouldSkip: (order) => CLOSED_STATUSES.has(normalizeOrderStatus(order.status)),
+    shouldSkip: (order) => !SENDABLE_STATUSES.has(normalizeOrderStatus(order.status)),
   });
 
   return { date, ...counts };

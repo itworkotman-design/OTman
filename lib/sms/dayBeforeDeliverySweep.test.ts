@@ -132,11 +132,31 @@ describe("runDayBeforeDeliverySmsSweep", () => {
     expect(summary).toEqual({ date: "2026-10-26", scanned: 1, sent: 1, failed: 0, skipped: 0 });
   });
 
-  it("skips orders in a closed status or without any phone, and falls back to phoneTwo", async () => {
+  it("only texts confirmed or active orders (incl. legacy Norwegian names)", async () => {
     mocks.orderFindManyMock.mockResolvedValue([
-      makeOrder({ id: "cancelled", status: "Kanselert" }),
+      makeOrder({ id: "confirmed", status: "confirmed", phone: "11111111" }),
+      makeOrder({ id: "bekreftet", status: "Bekreftet", phone: "22222222" }),
+      makeOrder({ id: "active", status: "active", phone: "33333333" }),
+      makeOrder({ id: "aktiv", status: "Aktiv", phone: "44444444" }),
+      makeOrder({ id: "processing", status: "processing" }),
+      makeOrder({ id: "behandles", status: "Behandles" }),
+      makeOrder({ id: "approved", status: "approved" }),
       makeOrder({ id: "pending", status: "pending" }),
+      makeOrder({ id: "cancelled", status: "Kanselert" }),
       makeOrder({ id: "done", status: "completed" }),
+      makeOrder({ id: "empty", status: null }),
+      makeOrder({ id: "unknown", status: "something-new" }),
+    ]);
+
+    const summary = await runDayBeforeDeliverySmsSweep({ now: EVENING_OSLO });
+
+    const texted = mocks.sendOrderSmsMock.mock.calls.map(([arg]) => arg.toPhone);
+    expect(texted).toEqual(["11111111", "22222222", "33333333", "44444444"]);
+    expect(summary).toMatchObject({ scanned: 12, sent: 4, skipped: 8 });
+  });
+
+  it("skips orders without any phone, and falls back to phoneTwo", async () => {
+    mocks.orderFindManyMock.mockResolvedValue([
       makeOrder({ id: "nophone", phone: null, phoneTwo: " " }),
       makeOrder({ id: "second", phone: null, phoneTwo: "99887766" }),
     ]);
@@ -145,7 +165,7 @@ describe("runDayBeforeDeliverySmsSweep", () => {
 
     expect(mocks.sendOrderSmsMock).toHaveBeenCalledTimes(1);
     expect(mocks.sendOrderSmsMock).toHaveBeenCalledWith(expect.objectContaining({ toPhone: "99887766" }));
-    expect(summary).toMatchObject({ scanned: 5, sent: 1, skipped: 4 });
+    expect(summary).toMatchObject({ scanned: 2, sent: 1, skipped: 1 });
   });
 
   it("skips orders still in processing (not yet accepted), homepage and dashboard alike", async () => {
