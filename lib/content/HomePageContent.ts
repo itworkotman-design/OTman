@@ -38,7 +38,7 @@ Helt frem. Helt inn. Helt klart`,
     en: "Otman Transport crew carrying a delivery",
     no: "Otman Transport-team som bærer en leveranse",
   },
-  aboutImageSrc: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/OtmanAS-Delivery-Assembly-Oslo.jpg",
+  aboutImageSrc: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/Otman+flytting+oslo.jpg",
   testimonialsHeading: {
     en: "What our customers say",
     no: "Det sier kundene våre",
@@ -54,15 +54,15 @@ Helt frem. Helt inn. Helt klart`,
   },
   gallery: [
     {
-      src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/B107A728-ADD0-4470-A944-E145AC8B5154.jpeg",
+      src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/Otman+team.jpg",
       alt: {
         en: "Otman AS at work",
         no: "Otman AS i arbeid",
       },
-      cropY: "40%",
+      cropY: "50%",
     },
     {
-      src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/501F045B-C997-4CDF-919C-4F8E79102909.jpeg",
+      src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/Otman+handy+man.jpg",
       alt: {
         en: "Otman AS at work",
         no: "Otman AS i arbeid",
@@ -70,7 +70,7 @@ Helt frem. Helt inn. Helt klart`,
       cropY: "60%",
     },
     {
-      src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/364DAFA5-04FE-4D6C-968D-C78CC61EEE01%281%29.jpg",
+      src: "https://public-otman-img.s3.eu-north-1.amazonaws.com/Home/otman+handy+man+2.jpg",
       alt: {
         en: "Otman AS at work",
         no: "Otman AS i arbeid",

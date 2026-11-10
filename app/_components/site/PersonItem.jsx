@@ -2,12 +2,12 @@ import Image from "next/image"
 
 export const PersonItem = ({src, name, position, email}) => {
     return (
-        <div className="w-full max-w-[360px] mb-6">
-            <div className="w-full max-w-[360] aspect-square  relative rounded-2xl overflow-clip">
-                <Image src={src} alt="prof-img" fill sizes="(min-width: 360px) 360px, 100vw" className="object-cover"/>
+        <div className="w-full">
+            <div className="w-full aspect-4/5 relative rounded-2xl overflow-clip">
+                <Image src={src} alt={name} fill sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="object-cover"/>
             </div>
-            <div className="text-center">
-                <p className="text-logoblue font-semibold text-xl mt-2">{name}</p>
+            <div className="mt-3">
+                <p className="text-logoblue font-semibold text-xl">{name}</p>
                 <p className="text-black/50 text-md">{position}</p>
                 <p className="text-md text-logoblue">{email}</p>
             </div>

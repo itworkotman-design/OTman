@@ -137,7 +137,7 @@ export default function HomePage({ content, statsContent: statsContentProp, loca
               cropY: image.cropY,
             }))}
             autoplay
-            intervalSeconds={3}
+            intervalSeconds={6}
             frameClassName="aspect-[16/9] rounded-2xl bg-linePrimary/20"
           />
         </div>
