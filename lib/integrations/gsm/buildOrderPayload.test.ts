@@ -182,6 +182,30 @@ describe("buildOrderPayload", () => {
     expect(payload.tasks_data[0].complete_before).toBe("2027-03-28T10:00:00.000Z");
   });
 
+  it("rejects a time window that starts and ends at the same time", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    expect(() => buildOrderPayload(buildOrder({ deliveryDate: "2026-11-18", timeWindow: "12:00-12:00" }))).toThrow(
+      /starts and ends at the same time/,
+    );
+  });
+
+  it("rejects a time window that ends before it starts", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    expect(() => buildOrderPayload(buildOrder({ deliveryDate: "2026-11-18", timeWindow: "14:00-12:00" }))).toThrow(
+      /ends before it starts/,
+    );
+  });
+
+  it("rejects an impossible time", () => {
+    process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
+
+    expect(() => buildOrderPayload(buildOrder({ deliveryDate: "2026-11-18", timeWindow: "12:00-25:00" }))).toThrow(
+      /not a valid time/,
+    );
+  });
+
   it("uses the custom pickup address phone for the orderer instead of the cashier phone", () => {
     process.env.GSM_ACCOUNT_URL = "https://gsm.example/accounts/1/";
 

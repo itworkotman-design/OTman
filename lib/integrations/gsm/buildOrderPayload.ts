@@ -4,6 +4,7 @@ import { buildLegacyOrderSummaryGroups, buildOrderSummaryGroups, formatOrderSumm
 import { filterImpreciseAddressNotesForTask } from "@/lib/orders/addressPrecision";
 import { osloWallClockToDate } from "@/lib/dates/isoDate";
 import { computeLineKey } from "@/lib/booking/pricing/lineKey";
+import { GsmOrderValidationError } from "@/lib/integrations/gsm/sendErrors";
 
 type GsmContact = {
   name?: string;
@@ -349,13 +350,47 @@ function getTimeWindowIso(order: GsmOrderInput) {
   const date = order.deliveryDate.trim();
   const windowValue = (order.timeWindow ?? "").trim();
 
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new GsmOrderValidationError(
+      `Delivery date "${date}" is not a valid date. Set the delivery date on the order and try again.`,
+    );
+  }
+
   const match = windowValue.match(/^(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})$/);
+
+  if (match) {
+    const startMinutes = Number(match[1]) * 60 + Number(match[2]);
+    const endMinutes = Number(match[3]) * 60 + Number(match[4]);
+    const outOfRange = [match[1], match[3]].some((h) => Number(h) > 23) || [match[2], match[4]].some((m) => Number(m) > 59);
+
+    if (outOfRange) {
+      throw new GsmOrderValidationError(
+        `Time window "${windowValue}" is not a valid time. Use HH:MM-HH:MM, e.g. 12:00-13:00.`,
+      );
+    }
+    if (endMinutes <= startMinutes) {
+      throw new GsmOrderValidationError(
+        endMinutes === startMinutes
+          ? `Time window "${windowValue}" starts and ends at the same time. GSM needs an end time after the start (e.g. 12:00-13:00). Fix the time window on the order and try again.`
+          : `Time window "${windowValue}" ends before it starts. Fix the time window on the order and try again.`,
+      );
+    }
+  }
 
   const start = match ? `${String(Number(match[1])).padStart(2, "0")}:${match[2]}:00` : "06:00:00";
   const end = match ? `${String(Number(match[3])).padStart(2, "0")}:${match[4]}:00` : "06:05:00";
 
-  const completeAfter = osloWallClockToDate(date, start).toISOString();
-  const completeBefore = osloWallClockToDate(date, end).toISOString();
+  const afterDate = osloWallClockToDate(date, start);
+  const beforeDate = osloWallClockToDate(date, end);
+
+  if (Number.isNaN(afterDate.getTime()) || Number.isNaN(beforeDate.getTime())) {
+    throw new GsmOrderValidationError(
+      `Could not read delivery date "${date}" / time window "${windowValue}". Check both on the order.`,
+    );
+  }
+
+  const completeAfter = afterDate.toISOString();
+  const completeBefore = beforeDate.toISOString();
 
   return {
     complete_after: completeAfter,
@@ -596,7 +631,9 @@ export function buildOrderPayload(order: GsmOrderInput): GsmOrderPayload {
   }
 
   if (tasks.length === 0) {
-    throw new Error("No GSM tasks could be built for this order");
+    throw new GsmOrderValidationError(
+      "The order has no pickup, delivery or return address, so there is nothing to send to GSM. Add an address and try again.",
+    );
   }
 
   return {

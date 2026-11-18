@@ -1,4 +1,6 @@
 // path: lib/integrations/gsm/client.ts
+import { GsmApiError } from "@/lib/integrations/gsm/sendErrors";
+
 const GSM_API_BASE = process.env.GSM_API_BASE ?? "https://api.gsmtasks.com";
 const GSM_API_VERSION =
   process.env.GSM_API_VERSION ?? "application/json; version=2.4.36";
@@ -79,9 +81,7 @@ export async function gsmFetch<T>(
     console.error("GSM ERROR STATUS:", res.status);
     console.error("GSM ERROR BODY:", data);
 
-    throw new Error(
-      JSON.stringify(data) || `GSM request failed (${res.status})`,
-    );
+    throw new GsmApiError(res.status, path, data);
   }
 
   return data as T;

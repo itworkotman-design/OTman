@@ -6,7 +6,8 @@ import { sendOrderToGsm } from "@/lib/integrations/gsm/sendOrder";
 import { PICKUP_DOCUMENT_SOURCE } from "@/lib/orders/pickupDocuments";
 import { sendReceiptsToGsmTask } from "@/lib/integrations/gsm/sendReceipts";
 import { planReceiptUploads } from "@/lib/integrations/gsm/receiptUploads";
-import { pickupStopAddresses } from "@/lib/integrations/gsm/buildOrderPayload";
+import { buildOrderPayload, pickupStopAddresses } from "@/lib/integrations/gsm/buildOrderPayload";
+import { describeGsmSendError } from "@/lib/integrations/gsm/sendErrors";
 import { createOrderActionEvent } from "@/lib/orders/orderEvents";
 import { gsmReadiness, type GsmReadinessReason } from "@/lib/orders/manualPayments";
 
@@ -98,6 +99,7 @@ export async function POST(req: Request) {
 
   const results: Array<{
     orderId: string;
+    displayId?: number;
     orderNumber?: string;
     ok: boolean;
     gsmOrderId?: string;
@@ -112,6 +114,14 @@ export async function POST(req: Request) {
 
   for (const order of orders) {
     const notReady = gsmReadiness(order);
+    // Task categories in payload order, so GSM's per-task errors can say
+    // which stop (pick-up / delivery / return) they are about.
+    let taskCategories: Array<string | undefined> = [];
+    try {
+      taskCategories = buildOrderPayload(order).tasks_data.map((task) => task.category);
+    } catch {
+      // sendOrderToGsm below throws the same error with a readable message.
+    }
     try {
       const wasAlreadySent = !!order.gsmOrderId;
 
@@ -199,11 +209,12 @@ export async function POST(req: Request) {
         }
       } catch (error) {
         receiptError =
-          error instanceof Error ? error.message : "RECEIPT_UPLOAD_FAILED";
+          error instanceof Error ? describeGsmSendError(error) : "Receipt upload failed";
       }
 
       results.push({
         orderId: order.id,
+        displayId: order.displayId,
         orderNumber: order.orderNumber ?? undefined,
         ok: true,
         gsmOrderId: response.gsmOrderId,
@@ -213,11 +224,13 @@ export async function POST(req: Request) {
         ...(notReady.length > 0 ? { notReady } : {}),
       });
     } catch (error) {
+      console.error(`GSM send failed for order ${order.displayId}:`, error);
       results.push({
         orderId: order.id,
+        displayId: order.displayId,
         orderNumber: order.orderNumber ?? undefined,
         ok: false,
-        error: error instanceof Error ? error.message : "UNKNOWN_ERROR",
+        error: describeGsmSendError(error, { taskCategories }),
         ...(notReady.length > 0 ? { notReady } : {}),
       });
     }

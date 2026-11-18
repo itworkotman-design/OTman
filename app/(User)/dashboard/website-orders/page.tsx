@@ -25,6 +25,7 @@ import DashboardOrderModal from "@/app/_components/Dahsboard/booking/DashboardOr
 import OrderEmailModal, { type AlertCenterTab } from "@/app/_components/Dahsboard/booking/archive/OrderEmailModal";
 import ShiftLeaderBanner from "@/app/_components/Dahsboard/booking/ShiftLeaderBanner";
 import type { BookingArchiveFilters, BookingArchiveOption, OrderRow } from "@/app/_components/Dahsboard/booking/archive/types";
+import { describeGsmSendReason, formatGsmSendFailures } from "@/lib/integrations/gsm/sendErrors";
 
 // Same tooling as the main orders page, minus everything that only makes sense
 // for B2B store orders: store/pricelist/pickup-address filters, the store
@@ -275,11 +276,23 @@ export default function WebsiteOrdersPage() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok || !data?.ok) {
-        setSelectionError(data?.reason || "Failed to send to GSM");
+        setSelectionError(
+          data?.reason ? describeGsmSendReason(data.reason) : `Failed to send to GSM (server error ${res.status}).`,
+        );
         return false;
       }
 
-      const results: Array<{ ok: boolean; orderNumber?: string; wasAlreadySent?: boolean }> = Array.isArray(data.results) ? data.results : [];
+      const results: Array<{
+        ok: boolean;
+        displayId?: number;
+        orderNumber?: string;
+        wasAlreadySent?: boolean;
+        error?: string;
+        receiptError?: string;
+      }> = Array.isArray(data.results) ? data.results : [];
+
+      // Shown for full and partial failures, and for receipt upload problems.
+      setSelectionError(formatGsmSendFailures(results));
 
       const duplicates = results.filter((r) => r.ok && r.wasAlreadySent).map((r) => r.orderNumber ?? "unknown");
 
@@ -294,10 +307,9 @@ export default function WebsiteOrdersPage() {
         return true;
       }
 
-      setSelectionError("No orders were sent to GSM");
       return false;
     } catch {
-      setSelectionError("Failed to send to GSM");
+      setSelectionError("Could not reach the server. Check your internet connection and try again.");
       return false;
     } finally {
       setSelectionLoading(false);
