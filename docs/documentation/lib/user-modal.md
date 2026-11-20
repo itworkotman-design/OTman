@@ -12,7 +12,7 @@ Defines the user-modal prop and form shape plus the small helper functions that 
 
 | Function | Description |
 | --- | --- |
-| `buildInitialForm` | Creates the modal form state from the provided initial values, including the optional warehouse email, address field, sidebar appearance fields, default direct-create mode, and empty password fields. |
+| `buildInitialForm` | Creates the modal form state from the provided initial values, including the optional warehouse email, address field, sidebar appearance fields, default direct-create mode, and empty password fields. App access has one row per module in `ALL_MODULES` order: a module the user has no saved row for (added later, e.g. Accounting) is filled in as off (`completeAppAccess`), so it shows in the Access tab and saving passes the every-module check. |
 | `getPermissions` | Derives whether the actor can edit the current target and whether active-state controls should be shown. |
 | `getSaveButtonLabel` | Returns the modal primary-button label for direct create, invite create, and edit modes. |
 | `makeFieldUpdater` | Builds text-field change handlers for the shared modal form state, including password fields. |

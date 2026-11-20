@@ -1,6 +1,6 @@
 import React from "react";
 import type { AppModule, DashboardSection, Role } from "@/lib/users/types";
-import { defaultAppAccessRows } from "@/lib/users/appAccessDefaults";
+import { ALL_MODULES, defaultAppAccessRows } from "@/lib/users/appAccessDefaults";
 import { ALL_DASHBOARD_SECTIONS } from "@/lib/users/dashboardSections";
 
 export type { Role };
@@ -84,6 +84,14 @@ export type UserFormSource = Pick<
   | "initialPriceListIds"
 >;
 
+// The saved rows, one per module in ALL_MODULES order. A module the user has no saved row for (one added after the
+// user was created, e.g. ACCOUNTING) is shown as off, which is what getModuleAccess reads a missing row as; without
+// it the module wouldn't show at all, and saving would fail normalizeAppAccessInput's "every module" check.
+function completeAppAccess(saved: AppAccessFormRow[], role: Role): AppAccessFormRow[] {
+  const defaults = new Map(defaultAppAccessRows(role, []).map((r) => [r.module, r]));
+  return ALL_MODULES.map((module) => saved.find((r) => r.module === module) ?? { module, enabled: false, level: defaults.get(module)?.level ?? "VIEWER" });
+}
+
 export function buildInitialForm(source: UserFormSource): UserFormData {
   const role = (source.initialValueRole || "USER") as Role;
 
@@ -102,7 +110,7 @@ export function buildInitialForm(source: UserFormSource): UserFormData {
     priceListIds: source.initialPriceListIds ?? [],
     appAccess:
       source.initialValueAppAccess && source.initialValueAppAccess.length > 0
-        ? source.initialValueAppAccess
+        ? completeAppAccess(source.initialValueAppAccess, role)
         : defaultAppAccessRows(role, []),
     dashboardSections:
       source.initialValueDashboardSections && source.initialValueDashboardSections.length > 0
