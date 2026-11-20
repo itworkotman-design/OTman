@@ -418,9 +418,14 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
           )}
 
           {showAccounting && (
-            // A plain link, not <Link>: the route signs the person into the accounting app and redirects there.
-            // eslint-disable-next-line @next/next/no-html-link-for-pages
-            <a href="/api/integrations/accounting/sso" className={linkClass("/api/integrations/accounting/sso")}>
+            // A plain link, not <Link>: the route signs the person into the accounting app and redirects there,
+            // in a new tab so Otman stays open beside it.
+            <a
+              href="/api/integrations/accounting/sso"
+              target="_blank"
+              rel="noopener"
+              className={linkClass("/api/integrations/accounting/sso")}
+            >
               <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
                 <Icon path={ICONS.calculator} />
                 {bookingText(locale, "Accounting")}
