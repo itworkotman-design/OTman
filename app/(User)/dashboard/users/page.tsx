@@ -31,6 +31,7 @@ const MODULE_BADGE_LABELS: Record<AppModule, string> = {
   SCHEDULER: "SC",
   USER_MANAGEMENT: "UM",
   DASHBOARD: "DA",
+  ACCOUNTING: "AC",
 };
 
 const APP_ICON_STACK_LIMIT = 3;

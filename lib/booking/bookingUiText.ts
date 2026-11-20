@@ -115,6 +115,7 @@ const NB_TEXT: Record<string, string> = {
   "Pin": "Fest",
   "Unpin": "Løsne",
   "Archive": "Arkiver",
+  "Accounting": "Regnskap",
   "Restore": "Gjenopprett",
   "Duplicate": "Dupliser",
   "Delete permanently": "Slett permanent",

@@ -10,6 +10,7 @@ export const ALL_MODULES: AppModule[] = [
   "SCHEDULER",
   "USER_MANAGEMENT",
   "DASHBOARD",
+  "ACCOUNTING",
 ];
 
 export const MODULE_LABELS: Record<AppModule, string> = {
@@ -20,6 +21,7 @@ export const MODULE_LABELS: Record<AppModule, string> = {
   SCHEDULER: "Scheduler orders",
   USER_MANAGEMENT: "User management",
   DASHBOARD: "Dashboard",
+  ACCOUNTING: "Accounting",
 };
 
 // Purely a visual accent (used by the Edit User modal's per-app cards) so
@@ -33,6 +35,7 @@ export const MODULE_COLORS: Record<AppModule, string> = {
   SCHEDULER: "#c0507a",
   USER_MANAGEMENT: "#3a8fb7",
   DASHBOARD: "#c9982a",
+  ACCOUNTING: "#4f6b2f",
 };
 
 // Modules with no granular permission today — access is strictly whatever
@@ -46,6 +49,7 @@ export const BINARY_ADMIN_ONLY_MODULES: AppModule[] = [
   "SCHEDULER",
   "USER_MANAGEMENT",
   "DASHBOARD",
+  "ACCOUNTING",
 ];
 
 export type AppAccessDefaults = Record<AppModule, { enabled: boolean; level: AppAccessLevel }>;
@@ -76,6 +80,9 @@ export function computeDefaultAppAccess(
   for (const appModule of BINARY_ADMIN_ONLY_MODULES) {
     result[appModule] = { enabled: fullAccess, level: "ADMIN" };
   }
+  // The OtmanAccounting app (pay, statements, company money): never on by default, not even for owners; an owner
+  // grants it per person.
+  result.ACCOUNTING = { enabled: false, level: "ADMIN" };
 
   return result;
 }
@@ -158,7 +165,8 @@ export function isAppAccessGrantAllowedForNonOwner(
 
     const current = currentByModule.get(row.module) ?? fallback;
 
-    if (row.module === "USER_MANAGEMENT") {
+    // Only an OWNER decides who manages users, and who gets into the accounting app.
+    if (row.module === "USER_MANAGEMENT" || row.module === "ACCOUNTING") {
       // A disabled row's level is inert — normalize to "no grant" before
       // comparing, so the shared binary-module default of
       // { enabled: false, level: "ADMIN" } isn't mistaken for a change

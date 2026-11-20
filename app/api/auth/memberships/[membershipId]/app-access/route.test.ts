@@ -50,6 +50,7 @@ const FULL_ACCESS = [
   { module: "SCHEDULER", enabled: false, level: "VIEWER" },
   { module: "USER_MANAGEMENT", enabled: true, level: "ADMIN" },
   { module: "DASHBOARD", enabled: true, level: "ADMIN" },
+  { module: "ACCOUNTING", enabled: false, level: "VIEWER" },
 ];
 
 const FULL_DASHBOARD_SECTIONS = [
@@ -268,7 +269,7 @@ describe("PATCH /api/auth/memberships/[membershipId]/app-access", () => {
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ ok: true });
 
-    expect(mocks.upsertMock).toHaveBeenCalledTimes(7);
+    expect(mocks.upsertMock).toHaveBeenCalledTimes(8);
     expect(mocks.upsertMock).toHaveBeenCalledWith({
       where: { membershipId_module: { membershipId: "m2", module: "ARCHIVE" } },
       create: { membershipId: "m2", module: "ARCHIVE", enabled: true, level: "ADMIN" },

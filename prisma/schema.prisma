@@ -1171,6 +1171,7 @@ enum AppModule {
   SCHEDULER
   USER_MANAGEMENT
   DASHBOARD
+  ACCOUNTING
 }
 
 enum AppAccessLevel {

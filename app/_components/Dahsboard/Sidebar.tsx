@@ -72,6 +72,7 @@ const ICONS = {
   browserBar: "M4 8h16M7.5 5.5h.01M10.5 5.5h.01",
   folderOpen:
     "m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2",
+  calculator: "M7 3h10a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM9 6h6v3H9V6Zm0 7h.01M12 13h.01M15 13h.01M9 16h.01M12 16h.01M15 16h.01",
 };
 
 // Any of the destinations grouped under the "All orders" dropdown —
@@ -124,6 +125,8 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
   const showUserManagement = !currentUser || getModuleAccess(currentUser, "USER_MANAGEMENT").enabled;
   const showWebsiteEditor = !currentUser || getModuleAccess(currentUser, "WEBSITE_EDITOR").enabled;
   const showArchive = !currentUser || getModuleAccess(currentUser, "ARCHIVE").enabled;
+  // No fail-open: the link leaves for the accounting app, so only show it once access is known.
+  const showAccounting = Boolean(currentUser && getModuleAccess(currentUser, "ACCOUNTING").enabled);
   // Matches NavbarBooking's own gating for this link — no fail-open, since
   // it's a rarer sub-feature and NavbarBooking never showed it while
   // currentUser was still loading either.
@@ -412,6 +415,17 @@ export default function Sidebar({ open, width, onOpenChange, lockBodyScrollWhenO
                 {bookingText(locale, "Archive")}
               </div>
             </Link>
+          )}
+
+          {showAccounting && (
+            // A plain link, not <Link>: the route signs the person into the accounting app and redirects there.
+            // eslint-disable-next-line @next/next/no-html-link-for-pages
+            <a href="/api/integrations/accounting/sso" className={linkClass("/api/integrations/accounting/sso")}>
+              <div className="flex items-center flex-row gap-2 w-full text-weird-landscape">
+                <Icon path={ICONS.calculator} />
+                {bookingText(locale, "Accounting")}
+              </div>
+            </a>
           )}
 
           <LanguageSwitchButton
